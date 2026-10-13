@@ -342,6 +342,32 @@ mod tests {
     }
 
     #[test]
+    fn parse_measure_rejects_overflow_to_infinity() {
+        // Finite inputs whose scaled result overflows `f32` must be rejected,
+        // never returned as an infinite measurement (#1359).
+        let e38 = "100000000000000000000000000000000000000"; // 1e38, finite
+        for s in [
+            format!("{e38}\""),
+            format!("{e38} in"),
+            format!("{e38} cm"),
+            format!("{e38} pi"),
+            format!("{e38} li"),
+            format!("-{e38} in"),
+            e38.to_string(), // bare number in the default unit (inches below)
+        ] {
+            assert_eq!(parse_measure(&s, Unit::Inches), None, "input: {s}");
+        }
+        // Millimetres scale by ~2.83, so 2e38 is needed to overflow.
+        let two_e38 = "200000000000000000000000000000000000000";
+        assert_eq!(parse_measure(&format!("{two_e38} mm"), Unit::Inches), None);
+        // A large result that stays finite is still accepted, and points
+        // scale by 1, so a finite input in points stays finite.
+        let big = parse_measure("1000000000000000000000000000000 in", Unit::Points).unwrap();
+        assert!(big.is_finite() && big > 0.0);
+        assert!(parse_measure(&format!("{e38} pt"), Unit::Inches).unwrap().is_finite());
+    }
+
+    #[test]
     fn formats_measurements() {
         assert_eq!(Unit::Inches.format(72.0), "1\"");
         assert_eq!(Unit::Inches.format(90.0), "1.25\"");
