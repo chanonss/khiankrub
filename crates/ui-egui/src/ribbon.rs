@@ -2936,6 +2936,7 @@ mod tests {
     /// #897: the tabs that didn't fit were drawn under Comments / Editing / Share, so at 1280 pt
     /// in Polish the table tabs were out of reach. They stay on the strip and a click opens them.
     #[test]
+    #[cfg(feature = "interface-languages")]
     fn table_tabs_stay_clickable_when_the_tab_strip_overflows() {
         use egui_kittest::kittest::Queryable;
         let mut app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("Text")), crate::Services::default());

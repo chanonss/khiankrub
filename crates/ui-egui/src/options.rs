@@ -418,8 +418,11 @@ fn save(app: &mut WordApp, ui: &mut Ui) {
 }
 
 fn language(app: &mut WordApp, ui: &mut Ui) {
-    section(ui, "Interface language");
-    language_picker(app, ui);
+    // English only (the `interface-languages` feature is off): nothing to choose, so no section.
+    if crate::i18n::Lang::all().count() > 1 {
+        section(ui, "Interface language");
+        language_picker(app, ui);
+    }
     // #414 (detect the document's language) goes here.
     ui.add_space(8.0);
     section(ui, "Proofing language");
@@ -722,7 +725,9 @@ fn numeral_picker(app: &mut WordApp, ui: &mut Ui) {
 
 #[cfg(test)]
 mod tests {
-    use egui_kittest::kittest::{NodeT, Queryable};
+    #[cfg(feature = "interface-languages")]
+    use egui_kittest::kittest::NodeT;
+    use egui_kittest::kittest::Queryable;
     use serde_json::json;
     use wordcraft_geom::Unit;
 
@@ -735,6 +740,27 @@ mod tests {
         WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Services::default())
     }
 
+    /// The Language page offers the interface language only when other languages are built in
+    /// (`interface-languages`); English only, there is no empty "Interface language" section.
+    #[test]
+    fn language_page_lists_the_interface_language_only_with_other_languages() {
+        let mut a = app();
+        a.run("ui.backstage", json!({"value": true, "page": "options"})).unwrap();
+        a.ui.options_pane = "language".into();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        assert!(h.query_by_label("Proofing language").is_some(), "the Language page is showing");
+        assert_eq!(h.query_by_label("Interface language").is_some(), cfg!(feature = "interface-languages"));
+    }
+
+    #[cfg(feature = "interface-languages")]
     fn nav_harness(language: &str, percent: u16) -> egui_kittest::Harness<'static, WordApp> {
         let mut a = app();
         a.run("ui.language", json!({"value": language})).unwrap();
@@ -755,6 +781,7 @@ mod tests {
     /// #1266: check the actual painted text and renderer clip, including the bold selected
     /// label. AccessKit must still expose the full name and the row must keep its fixed size.
     #[test]
+    #[cfg(feature = "interface-languages")]
     fn options_nav_labels_stay_inside_their_rows() {
         for language in ["en", "ru"] {
             for percent in [100, 125, 150] {
@@ -802,6 +829,7 @@ mod tests {
     /// Clipping only the painter must leave the entire row clickable, its hover/selection
     /// backgrounds intact, and the selected pane's settings visible at every interface size.
     #[test]
+    #[cfg(feature = "interface-languages")]
     fn options_nav_rows_keep_hover_and_selection() {
         for language in ["en", "ru"] {
             for percent in [100, 125, 150] {
@@ -1059,6 +1087,7 @@ mod tests {
     /// File › Options › Advanced › Animation: the checkbox is the `ui.caretAnimation` setting,
     /// and the section is translated.
     #[test]
+    #[cfg(feature = "interface-languages")]
     fn advanced_animation_turns_the_caret_animation_off_and_on() {
         let mut a = app();
         a.run("file.options", json!({"pane": "advanced"})).unwrap();

@@ -3789,6 +3789,7 @@ mod tests {
     /// Ordinary Turkish queries must find dotted-I labels, while canonical English labels and
     /// ASCII command IDs retain their old case-insensitive search in every interface language.
     #[test]
+    #[cfg(feature = "interface-languages")]
     fn command_search_respects_turkish_i_pairs_and_keeps_canonical_matches() {
         use egui_kittest::kittest::Queryable;
         let mut fonts = false;

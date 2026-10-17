@@ -1,5 +1,7 @@
 //! A test-only pseudo-language: every string that goes through the catalog lookup comes back
 //! wrapped in `⟦…⟧`, so text drawn without the marks never went through translation.
+// Its helpers serve the language tests, which only build with the `interface-languages` feature.
+#![cfg_attr(not(feature = "interface-languages"), allow(dead_code))]
 
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};

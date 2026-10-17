@@ -51,10 +51,15 @@ pub struct LangInfo {
     catalog: OnceLock<Catalog>,
 }
 
+/// How many languages are built in: only English unless the `interface-languages` feature is on
+/// (the catalogs are then compiled in and the Options list offers them).
+const LANGUAGE_COUNT: usize = if cfg!(feature = "interface-languages") { 23 } else { 1 };
+
 /// The registry. English first: it is the fallback and the source language.
-pub static LANGUAGES: [LangInfo; 23] = [
+pub static LANGUAGES: [LangInfo; LANGUAGE_COUNT] = [
     LangInfo { code: "en", name: "English", source: "", prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
     // Simplified Chinese; `zh`, `zh-CN`, `zh-SG` and `zh-Hans-*` resolve here (see `candidates`).
+    #[cfg(feature = "interface-languages")]
     LangInfo {
         code: "zh-hans",
         name: "简体中文",
@@ -64,6 +69,7 @@ pub static LANGUAGES: [LangInfo; 23] = [
         catalog: OnceLock::new(),
     },
     // Traditional Chinese (Taiwan vocabulary); `zh-TW`, `zh-HK`, `zh-MO` and `zh-Hant-*` resolve here.
+    #[cfg(feature = "interface-languages")]
     LangInfo {
         code: "zh-hant",
         name: "繁體中文",
@@ -72,7 +78,9 @@ pub static LANGUAGES: [LangInfo; 23] = [
         editing_lang: None,
         catalog: OnceLock::new(),
     },
+    #[cfg(feature = "interface-languages")]
     LangInfo { code: "ja", name: "日本語", source: include_str!("ja.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
+    #[cfg(feature = "interface-languages")]
     LangInfo {
         code: "ko",
         name: "한국어",
@@ -81,13 +89,16 @@ pub static LANGUAGES: [LangInfo; 23] = [
         editing_lang: None, // 현재 한국어 맞춤법(proofing) 지원이 없으므로 None
         catalog: OnceLock::new(),
     },
+    #[cfg(feature = "interface-languages")]
     LangInfo {
         code: "uk", name: "Українська", source: include_str!("uk.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new()
     },
     // Spanish, neutral across Spain and Latin America; `es-ES`, `es-MX`, `es-419` … resolve here.
+    #[cfg(feature = "interface-languages")]
     LangInfo { code: "es", name: "Español", source: include_str!("es.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
     // Brazilian Portuguese; `pt-BR` and `pt-BR-*` resolve here. Plain `pt` and `pt-PT` have no
     // catalog yet (the European vocabulary differs), so they stay in English.
+    #[cfg(feature = "interface-languages")]
     LangInfo {
         code: "pt-br",
         name: "Português (Brasil)",
@@ -98,9 +109,11 @@ pub static LANGUAGES: [LangInfo; 23] = [
     },
     // Serbian, Cyrillic script (the default per BCP 47 when no script is given); `sr`, `sr-RS`,
     // `sr-Cyrl-*` resolve here.
+    #[cfg(feature = "interface-languages")]
     LangInfo { code: "sr", name: "Српски", source: include_str!("sr.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
     // Serbian, Latin script; `sr-Latn-*` resolves here (see `candidates`'s generic prefix
     // matching — no special-casing needed, unlike Chinese's script-by-region fallback).
+    #[cfg(feature = "interface-languages")]
     LangInfo {
         code: "sr-latn",
         name: "Srpski (latinica)",
@@ -111,6 +124,7 @@ pub static LANGUAGES: [LangInfo; 23] = [
     },
     // Polish; `pl`, `pl-PL` and `pl_PL.UTF-8` resolve here. WordCraft proofs Polish (spelling,
     // grammar, hyphenation), so new documents are written in Polish with this interface.
+    #[cfg(feature = "interface-languages")]
     LangInfo {
         code: "pl",
         name: "Polski",
@@ -119,6 +133,7 @@ pub static LANGUAGES: [LangInfo; 23] = [
         editing_lang: Some("pl-PL"),
         catalog: OnceLock::new(),
     },
+    #[cfg(feature = "interface-languages")]
     LangInfo {
         code: "cs",
         name: "Čeština",
@@ -127,12 +142,16 @@ pub static LANGUAGES: [LangInfo; 23] = [
         editing_lang: Some("cs-CZ"),
         catalog: OnceLock::new(),
     },
+    #[cfg(feature = "interface-languages")]
     LangInfo { code: "et", name: "Eesti", source: include_str!("et.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
     // German, neutral across Germany, Austria and Switzerland; `de`, `de-DE`, `de-AT`, `de-CH` …
     // resolve here.
+    #[cfg(feature = "interface-languages")]
     LangInfo { code: "de", name: "Deutsch", source: include_str!("de.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
     // Russian; `ru`, `ru-RU`, `ru_RU.UTF-8` and other regions resolve here.
+    #[cfg(feature = "interface-languages")]
     LangInfo { code: "ru", name: "Русский", source: include_str!("ru.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
+    #[cfg(feature = "interface-languages")]
     LangInfo {
         code: "tr",
         name: "Türkçe",
@@ -143,6 +162,7 @@ pub static LANGUAGES: [LangInfo; 23] = [
     },
     // Italian; `it-IT`, `it-CH` and `it-*` resolve here. New documents are written in
     // Italian: `wordcraft-proof` checks it (`ProofLang::It`).
+    #[cfg(feature = "interface-languages")]
     LangInfo {
         code: "it",
         name: "Italiano",
@@ -152,18 +172,24 @@ pub static LANGUAGES: [LangInfo; 23] = [
         catalog: OnceLock::new(),
     },
     // Hungarian; `hu`, `hu-HU` and `hu_HU.UTF-8` resolve here.
+    #[cfg(feature = "interface-languages")]
     LangInfo { code: "hu", name: "Magyar", source: include_str!("hu.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
     // French; `fr`, `fr-FR`, `fr_CA` and other regions resolve here.
+    #[cfg(feature = "interface-languages")]
     LangInfo { code: "fr", name: "Français", source: include_str!("fr.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
     // Bulgarian; `bg`, `bg-BG` and `bg_BG.UTF-8` resolve here.
+    #[cfg(feature = "interface-languages")]
     LangInfo {
         code: "bg", name: "Български", source: include_str!("bg.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new()
     },
     // Vietnamese; `vi`, `vi-VN` and `vi_VN.UTF-8` resolve here.
+    #[cfg(feature = "interface-languages")]
     LangInfo { code: "vi", name: "Tiếng Việt", source: include_str!("vi.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
     // Swedish; sv, sv-SE, sv-FI and sv_SE.UTF-8 resolve here.
+    #[cfg(feature = "interface-languages")]
     LangInfo { code: "sv", name: "Svenska", source: include_str!("sv.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
     // Croatian; `hr`, `hr-HR` and `hr_HR.UTF-8` resolve here.
+    #[cfg(feature = "interface-languages")]
     LangInfo { code: "hr", name: "Hrvatski", source: include_str!("hr.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
 ];
 
@@ -468,9 +494,9 @@ pub fn fmt(template: &str, args: &[(&str, &str)]) -> String {
     out
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "interface-languages"))]
 mod audit;
 #[cfg(test)]
 pub(crate) mod pseudo;
-#[cfg(test)]
+#[cfg(all(test, feature = "interface-languages"))]
 mod tests;
