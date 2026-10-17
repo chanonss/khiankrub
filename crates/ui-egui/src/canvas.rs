@@ -82,6 +82,8 @@ pub struct CanvasState {
     /// The page's widget id last frame, so a click elsewhere can hand the keyboard straight back to
     /// it (`WordApp::refocus_after_chrome_click`).
     pub(crate) widget_id: Option<egui::Id>,
+    /// The egui pass that last drew the canvas (`widget_id` is only a live widget in that pass).
+    pub(crate) widget_pass: u64,
     pub render_ms: f64,
     pub ime_preedit: String,
     /// Document faces added to the interface fonts so the input method's composition (#565) and a
@@ -210,6 +212,7 @@ impl Default for CanvasState {
             canvas_rect: None,
             focused: false,
             widget_id: None,
+            widget_pass: 0,
             render_ms: 0.0,
             ime_preedit: String::new(),
             ime_faces: Vec::new(),
@@ -1455,6 +1458,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
         app.canvas.want_focus = false;
     }
     app.canvas.widget_id = Some(resp.id);
+    app.canvas.widget_pass = ui.ctx().cumulative_pass_nr();
     if resp.has_focus() {
         ui.memory_mut(|m| {
             m.set_focus_lock_filter(resp.id, egui::EventFilter { tab: true, horizontal_arrows: true, vertical_arrows: true, escape: true })

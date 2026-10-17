@@ -2096,7 +2096,10 @@ impl WordApp {
             // `focused` flag (which gates the keys) isn't recomputed until then either. Claim both
             // now, or the click swallows the first keystroke.
             self.canvas.focused = true;
-            if let Some(id) = self.canvas.widget_id {
+            // Only a canvas drawn in this pass has an AccessKit node: focusing the stale id of one
+            // that wasn't (the click that closed the Backstage covered it) panics AccessKit, which
+            // is told a node with no entry has focus. `want_focus` focuses it next pass.
+            if let Some(id) = self.canvas.widget_id.filter(|_| self.canvas.widget_pass == ctx.cumulative_pass_nr()) {
                 ctx.memory_mut(|m| m.request_focus(id));
             }
             // The canvas reads keys before it takes focus back (#1107), so it counts as focused

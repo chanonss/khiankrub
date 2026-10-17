@@ -40,32 +40,16 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             bottom: 12,
         }))
         .show(ui, |ui| {
-            let back = if mac {
+            if mac {
                 // macOS (#222): the Backstage covers the title bar, so its top band is the title
-                // bar: the back button sits beside the traffic lights, centred with them and as far
-                // from them as the title bar's own controls, and the rest of the band drags the window.
-                let (band, drag) = ui.allocate_exact_size(vec2(200.0, app.mac_titlebar.height), Sense::click_and_drag());
+                // bar (beside the traffic lights): it drags the window.
+                let (_, drag) = ui.allocate_exact_size(vec2(200.0, app.mac_titlebar.height), Sense::click_and_drag());
                 if drag.drag_started() {
                     ui.ctx().send_viewport_cmd(egui::ViewportCommand::StartDrag);
                 }
-                // The chevron's stroke starts at the content edge.
-                let c = pos2(band.min.x + app.mac_titlebar.content_left + 3.0, band.center().y);
-                let resp = ui.interact(Rect::from_center_size(c, vec2(22.0, band.height())), ui.id().with("backstage_back"), Sense::click());
-                icons::paint(ui.painter(), Rect::from_center_size(c, vec2(18.0, 18.0)), "chevronLeft", egui::Color32::WHITE, egui::Color32::WHITE);
-                resp
-            } else {
-                let (r, resp) = ui.allocate_exact_size(vec2(200.0, 40.0), Sense::click());
-                icons::paint(
-                    ui.painter(),
-                    Rect::from_center_size(pos2(r.min.x + 26.0, r.center().y), vec2(18.0, 18.0)),
-                    "chevronLeft",
-                    egui::Color32::WHITE,
-                    egui::Color32::WHITE,
-                );
-                resp
-            };
+            }
             // Escape in the built-in file browser closes only the browser.
-            if back.clicked() || (!app.file_dialog_open() && ui.input(|i| i.key_pressed(egui::Key::Escape))) {
+            if !app.file_dialog_open() && ui.input(|i| i.key_pressed(egui::Key::Escape)) {
                 app.ui.backstage = false;
                 app.canvas.want_focus = true;
             }
@@ -116,6 +100,21 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                         _ => app.ui.backstage_page = id.into(),
                     }
                 }
+            }
+            // Back to the document: after Options, set apart by a rule, as it opens no page.
+            ui.add_space(8.0);
+            let (rule, _) = ui.allocate_exact_size(vec2(200.0, 1.0), Sense::hover());
+            ui.painter().hline(rule.min.x + 22.0..=rule.max.x - 22.0, rule.center().y, Stroke::new(1.0, egui::Color32::from_white_alpha(46)));
+            ui.add_space(8.0);
+            let (r, resp) = ui.allocate_exact_size(vec2(200.0, 38.0), Sense::click());
+            resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("Back")));
+            if resp.hovered() {
+                ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(26));
+            }
+            ui.painter().text(pos2(r.min.x + 22.0, r.center().y), Align2::LEFT_CENTER, tl!("Back"), medium(14.0), egui::Color32::WHITE);
+            if resp.clicked() {
+                app.ui.backstage = false;
+                app.canvas.want_focus = true;
             }
             ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
                 for (label, id) in [("About", "about"), ("Discord community", "discord")] {
@@ -710,6 +709,38 @@ mod tests {
         h.run_steps(4);
         assert!(h.query_by_label("Browse…").is_some(), "Save As has Browse button");
         assert!(h.query_by_label("Recent").is_none(), "Save As has no list that opens documents");
+    }
+
+    /// File tab, then Back (after Options) to the document: the Backstage closes, the page gets the
+    /// keyboard back, and AccessKit (which kittest runs underneath) accepts every frame. The old "<"
+    /// at the top of the menu crashed there ("Focused ID … is not in the node list"): a click on the
+    /// menu's chrome refocused the page before it was drawn (fixed in `refocus_after_chrome_click`).
+    /// The Back button takes focus itself, so this test passes with or without that guard.
+    #[test]
+    fn leaving_the_backstage_with_back_keeps_accessibility_focus_valid() {
+        use egui_kittest::kittest::Queryable;
+        let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Services::default());
+        a.integrated_titlebar = true;
+        a.run("text.insert", json!({"text": "Hello"})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        h.get_by_label("File").click();
+        h.run_steps(4);
+        assert!(h.state().ui.backstage, "the File tab opens the Backstage");
+        let options = h.get_by_label("Options").rect();
+        let back = h.get_by_label("Back").rect();
+        assert!(back.min.y > options.max.y, "Back comes after Options: {options:?} {back:?}");
+        h.get_by_label("Back").click();
+        h.run_steps(6);
+        assert!(!h.state().ui.backstage, "Back returns to the document");
+        assert!(h.state().canvas.focused, "the document has the keyboard again");
     }
 
     #[test]
