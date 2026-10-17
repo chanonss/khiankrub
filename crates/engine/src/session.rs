@@ -364,6 +364,9 @@ pub struct Session {
     pub registry: Arc<Registry>,
     /// Author name for comments and tracked changes.
     pub author: String,
+    /// View only (Editing menu): every command that edits the document is refused, comments and
+    /// suggestions included (see [`Session::view_blocks`]). Not saved in the file.
+    pub view_only: bool,
     /// Initials for comments (File › Options › General); empty = the name's initials.
     pub initials: String,
     /// Format painter: copied formatting waiting to be applied (and whether it stays on).
@@ -609,6 +612,7 @@ impl Session {
             page_hint: 0,
             registry: Arc::new(crate::cmd::registry()),
             author: "WordCraft User".into(),
+            view_only: false,
             initials: String::new(),
             painter: None,
             status: String::new(),
@@ -1055,6 +1059,7 @@ impl Session {
             page_hint: _,
             registry: _,
             author: _,
+            view_only: _,
             initials: _,
             painter: _,
             status: _,
@@ -1161,6 +1166,15 @@ impl Session {
         }
     }
 
+    /// Does view-only mode refuse command `id`? Whatever edits the document (`mutates`) is refused,
+    /// undo and redo too; file commands (save, open, close…) and everything that only reads or
+    /// moves the caret still run.
+    pub fn view_blocks(&self, id: &str, mutates: bool) -> bool {
+        // Undo, redo and repeat rewrite the document through the history, not as a mutating command.
+        let edits = mutates || matches!(id, "edit.undo" | "edit.redo" | "edit.repeat");
+        self.view_only && edits && !id.starts_with("file.")
+    }
+
     /// Run a command by id with JSON params (the single entry point for the UI, CLI, MCP and
     /// control channel). Mutating commands are undoable; a failed command leaves the document as
     /// it was; a panic inside a command becomes an error.
@@ -1170,6 +1184,9 @@ impl Session {
         let Some(spec) = reg.get(id) else { return Err(CmdError::Unknown(id.to_string())) };
         if let Some(why) = (spec.enabled)(self) {
             return Err(CmdError::Disabled(format!("{id}: {why}")));
+        }
+        if self.view_blocks(id, spec.mutates) {
+            return Err(CmdError::Disabled(format!("{id}: the document is view only")));
         }
         // Restrict Editing: refused outright, or allowed as long as it only edits the exceptions.
         let guard = if spec.mutates { crate::cmd::protect::check_before(self, id, params)? } else { false };

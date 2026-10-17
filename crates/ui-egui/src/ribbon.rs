@@ -244,15 +244,29 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     }
                     ui.add_space(6.0);
                     let track = app.session.doc.settings.track_changes;
-                    let mode =
-                        crate::widgets::icon_text_menu_button(ui, "pencil", if track { tl!("Reviewing") } else { tl!("Editing") }, regular(12.0));
+                    let view_only = app.session.view_only;
+                    let (mode_icon, mode_label) = if view_only {
+                        ("eye", tl!("View only"))
+                    } else if track {
+                        ("pencil", tl!("Reviewing"))
+                    } else {
+                        ("pencil", tl!("Editing"))
+                    };
+                    let mode = crate::widgets::icon_text_menu_button(ui, mode_icon, mode_label, regular(12.0));
                     egui::Popup::menu(&mode).show(|ui| {
-                        if ui.selectable_label(!track, tl!(tl!("Editing — edit the document directly"))).clicked() {
+                        if ui.selectable_label(!view_only && !track, tl!(tl!("Editing — edit the document directly"))).clicked() {
+                            // Leave view-only first: it refuses the tracking command.
+                            let _ = app.run("review.viewOnly", json!({"value": false}));
                             let _ = app.run("review.trackChanges", json!({"value": false}));
                             ui.close();
                         }
-                        if ui.selectable_label(track, tl!(tl!("Reviewing — edits become suggestions"))).clicked() {
+                        if ui.selectable_label(!view_only && track, tl!(tl!("Reviewing — edits become suggestions"))).clicked() {
+                            let _ = app.run("review.viewOnly", json!({"value": false}));
                             let _ = app.run("review.trackChanges", json!({"value": true}));
+                            ui.close();
+                        }
+                        if ui.selectable_label(view_only, tl!(tl!("View only — no changes or suggestions"))).clicked() {
+                            let _ = app.run("review.viewOnly", json!({"value": true}));
                             ui.close();
                         }
                     });
@@ -2689,6 +2703,41 @@ mod tests {
         let mut b = Vec::new();
         image::DynamicImage::ImageRgba8(img).write_to(&mut std::io::Cursor::new(&mut b), image::ImageFormat::Png).unwrap();
         wordcraft_engine::cmd::insert::base64_encode(&b)
+    }
+
+    /// The Editing menu (top right) offers View only: choosing it makes the document read only (the
+    /// button says so, typing does nothing, edit buttons grey out); Editing brings it back.
+    #[test]
+    fn editing_menu_offers_view_only() {
+        use egui_kittest::kittest::Queryable;
+        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+        app.run("text.insert", json!({"text": "Hello"})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1440.0, 300.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(4);
+        let text = |h: &egui_kittest::Harness<WordApp>| h.state().session.doc.plain_text(wordcraft_doc::StoryRef::Body);
+        // The mode button is the "Editing" one next to Comments (the Editing group has the same name).
+        h.query_all_by_label("Editing").last().unwrap().click();
+        h.run_steps(4);
+        h.get_by_label("View only — no changes or suggestions").click();
+        h.run_steps(4);
+        assert!(h.state().session.view_only, "the menu entry turns view only on");
+        assert!(h.query_by_label("View only").is_some(), "the mode button says View only");
+        assert!(h.state_mut().run("text.insert", json!({"text": "!"})).is_err(), "typing is refused");
+        assert_eq!(text(&h), "Hello");
+        h.query_all_by_label("View only").last().unwrap().click();
+        h.run_steps(4);
+        h.get_by_label("Editing — edit the document directly").click();
+        h.run_steps(4);
+        assert!(!h.state().session.view_only, "Editing turns it off again");
+        h.state_mut().run("text.insert", json!({"text": "!"})).unwrap();
+        assert_eq!(text(&h), "Hello!");
     }
 
     /// The Home tab's Paragraph group has a Thai Distribution button after Justify (and it sets

@@ -21,6 +21,61 @@ fn text(s: &Session) -> String {
     s.doc.plain_text(StoryRef::Body)
 }
 
+/// View only (Editing menu): nothing that edits the document runs, comments, suggestions, undo and
+/// redo included; reading, moving the caret, selecting and the file commands still do.
+#[test]
+fn view_only_refuses_every_edit_and_nothing_else() {
+    let mut s = s();
+    run(&mut s, "text.insert", json!({"text": "Hello"}));
+    assert_eq!(run(&mut s, "review.viewOnly", json!({"value": true})), json!({"value": true}));
+    for (id, params) in [
+        ("text.insert", json!({"text": "!"})),
+        ("edit.undo", json!({})),
+        ("review.trackChanges", json!({"value": true})),
+        ("review.newComment", json!({"text": "note"})),
+        ("format.bold", json!({})),
+        ("para.alignCenter", json!({})),
+    ] {
+        let err = s.run(id, &params).unwrap_err().to_string();
+        assert!(err.contains("view only"), "{id}: {err}");
+    }
+    assert_eq!(text(&s), "Hello", "the document did not change");
+    assert!(!s.doc.settings.track_changes && s.doc.comments.is_empty());
+    // Reading and moving around still work.
+    run(&mut s, "select.all", json!({}));
+    run(&mut s, "edit.copy", json!({}));
+    run(&mut s, "caret.docEnd", json!({}));
+    // Leaving view only restores editing.
+    run(&mut s, "review.viewOnly", json!({"value": false}));
+    run(&mut s, "text.insert", json!({"text": "!"}));
+    assert_eq!(text(&s), "Hello!");
+}
+
+/// No registered command changes the document in view-only mode, whatever its `mutates` flag says
+/// (the file commands, which open, save and close, are the exception). Each runs on a fresh
+/// document with the whole text selected and no parameters.
+#[test]
+fn view_only_leaves_the_document_untouched_for_every_command() {
+    let fingerprint = |s: &Session| {
+        let para = s.doc.para_at(&Pos::body(0, 0)).map(|p| format!("{:?}", p.props));
+        (text(s), para, s.doc.comments.len(), s.doc.settings.track_changes, s.doc.parts.len())
+    };
+    let ids: Vec<&str> = s().registry.all().iter().map(|c| c.id).filter(|id| !id.starts_with("file.") && *id != "review.viewOnly").collect();
+    let mut changed = Vec::new();
+    for id in ids {
+        let mut t = s();
+        run(&mut t, "text.insert", json!({"text": "Hello world"}));
+        run(&mut t, "select.all", json!({}));
+        run(&mut t, "review.viewOnly", json!({"value": true}));
+        let before = fingerprint(&t);
+        let _ = t.run(id, &json!({}));
+        if fingerprint(&t) != before {
+            changed.push(id);
+        }
+    }
+    assert!(changed.is_empty(), "these commands edited a view-only document: {changed:?}");
+}
+
 #[test]
 fn doc_extension_dispatches_to_docbin() {
     // Garbage bytes with a .doc name must produce an error through the Word 97-2003

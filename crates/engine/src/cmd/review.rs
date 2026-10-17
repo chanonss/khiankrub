@@ -30,6 +30,12 @@ pub fn specs() -> Vec<CommandSpec> {
         })
         .params(r#"{"value"?: bool (omit to toggle)}"#)
         .key("Mod+Shift+E"),
+        CommandSpec::new("review.viewOnly", "View only", "Review › Tracking", |s, v| {
+            s.view_only = p::bool(v, "value").unwrap_or(!s.view_only);
+            Ok(json!({"value": s.view_only}))
+        })
+        .pure()
+        .params(r#"{"value"?: bool (omit to toggle)} → view only: nothing that edits the document runs, comments and suggestions included"#),
         CommandSpec::new("review.acceptAll", "Accept All Changes", "Review › Changes", |s, _| resolve_all(s, true)),
         CommandSpec::new("review.rejectAll", "Reject All Changes", "Review › Changes", |s, _| resolve_all(s, false)),
         CommandSpec::new("review.accept", "Accept", "Review › Changes", |s, _| resolve_sel(s, true)),
