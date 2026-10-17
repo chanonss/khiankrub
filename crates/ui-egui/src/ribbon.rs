@@ -937,6 +937,7 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                 small(ui, app, "alignCenter", None, "Center", "para.alignCenter", json!({}), align == A::Center);
                 small(ui, app, "alignRight", None, "Align Right", "para.alignRight", json!({}), align == A::Right);
                 small(ui, app, "justify", None, "Justify", "para.justify", json!({}), align == A::Justify);
+                small(ui, app, "thaiDistribute", None, "Thai Distribution", "para.thaiDistribute", json!({}), align == A::ThaiDistribute);
                 ui.add_space(4.0);
                 small(ui, app, "textLtr", None, "Left-to-Right Text Direction", "para.ltr", json!({}), !rtl);
                 small(ui, app, "textRtl", None, "Right-to-Left Text Direction", "para.rtl", json!({}), rtl);
@@ -2688,6 +2689,31 @@ mod tests {
         let mut b = Vec::new();
         image::DynamicImage::ImageRgba8(img).write_to(&mut std::io::Cursor::new(&mut b), image::ImageFormat::Png).unwrap();
         wordcraft_engine::cmd::insert::base64_encode(&b)
+    }
+
+    /// The Home tab's Paragraph group has a Thai Distribution button after Justify (and it sets
+    /// that alignment, which lays Thai out with its extra space shared between characters).
+    #[test]
+    fn home_tab_has_a_thai_distribution_button_after_justify() {
+        use egui_kittest::kittest::Queryable;
+        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+        app.run("text.insert", json!({"text": "สวัสดีครับ"})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1440.0, 300.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(4);
+        let justify = h.get_by_label("Justify").rect();
+        let thai = h.get_by_label("Thai Distribution").rect();
+        assert!(thai.min.x > justify.max.x - 1.0 && (thai.center().y - justify.center().y).abs() < 1.0, "{justify:?} {thai:?}");
+        h.get_by_label("Thai Distribution").click();
+        h.run_steps(4);
+        let align = h.state().session.doc.para_at(&wordcraft_doc::Pos::body(0, 0)).and_then(|p| p.props.align);
+        assert_eq!(align, Some(wordcraft_doc::Align::ThaiDistribute));
     }
 
     /// The style set gallery fills exactly its own box and the next control starts after a gap,

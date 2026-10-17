@@ -1673,7 +1673,8 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                             }
                         }
                     });
-                    const ALIGNS: [(&str, &str); 4] = [("left", "Left"), ("center", "Center"), ("right", "Right"), ("justify", "Justify")];
+                    const ALIGNS: [(&str, &str); 5] =
+                        [("left", "Left"), ("center", "Center"), ("right", "Right"), ("justify", "Justify"), ("thaiDistribute", "Thai Distribution")];
                     ui.horizontal(|ui| {
                         ui.label(tl!("Alignment:"));
                         let shown = if mixed.contains("align") {
@@ -3894,6 +3895,36 @@ mod tests {
         }
         let _ = app.run("edit.undo", json!({}));
         assert_eq!((0..3).map(|i| para_props(&app, i)).collect::<Vec<_>>(), was, "undo takes all of it back");
+    }
+
+    /// The Alignment list lists Thai Distribution, and choosing it with OK sets it on the paragraph.
+    #[test]
+    fn paragraph_dialog_alignment_offers_thai_distribution() {
+        use egui_kittest::kittest::Queryable;
+        let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+        app.run("text.insert", json!({"text": "สวัสดีครับ"})).unwrap();
+        app.dialog = Dialog::open("paragraph", &mut app);
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(4);
+        // The ribbon's button already has this name; the open list adds a second one.
+        let named = |h: &egui_kittest::Harness<WordApp>| h.query_all_by_label("Thai Distribution").count();
+        let before = named(&h);
+        h.get_by_role(egui::accesskit::Role::ComboBox).click();
+        h.run_steps(4);
+        assert_eq!(named(&h), before + 1, "the Alignment list offers Thai Distribution");
+        h.query_all_by_label("Thai Distribution").last().unwrap().click();
+        h.run_steps(4);
+        h.get_by_role_and_label(egui::accesskit::Role::Button, "OK").click();
+        h.run_steps(4);
+        let align = h.state().session.doc.para_at(&wordcraft_doc::Pos::body(0, 0)).and_then(|p| p.props.align);
+        assert_eq!(align, Some(wordcraft_doc::Align::ThaiDistribute));
     }
 
     /// #1346: a check box the selected paragraphs differ in shows as neither on nor off; a click

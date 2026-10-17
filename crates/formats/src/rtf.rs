@@ -243,7 +243,7 @@ impl Writer {
         match p.align {
             Some(Align::Center) => out.push_str("\\qc"),
             Some(Align::Right) => out.push_str("\\qr"),
-            Some(Align::Justify) | Some(Align::Distribute) => out.push_str("\\qj"),
+            Some(Align::Justify) | Some(Align::Distribute) | Some(Align::ThaiDistribute) => out.push_str("\\qj"),
             _ => out.push_str("\\ql"),
         }
         if p.page_break {

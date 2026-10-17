@@ -485,6 +485,10 @@ pub enum Align {
     Right,
     Justify,
     Distribute,
+    /// Thai Distribution (`w:jc="thaiDistribute"`): justified, with the extra space shared between
+    /// the characters of Thai words as well as the spaces, since Thai has few spaces to stretch.
+    /// Like Justify, the last line of a paragraph and lines ending in a break stay unstretched.
+    ThaiDistribute,
 }
 
 impl Align {

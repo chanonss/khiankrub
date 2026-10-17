@@ -172,6 +172,7 @@ fn controls(tab: &str) -> Vec<Control> {
             c("Center", "para.alignCenter"),
             c("Align Right", "para.alignRight"),
             c("Justify", "para.justify"),
+            c("Thai Distribution", "para.thaiDistribute"),
             m("Line and Paragraph Spacing", "para.lineSpacing"),
             m("Shading", "para.shading"),
             m("Borders", "para.borders"),

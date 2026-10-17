@@ -349,6 +349,9 @@ pub struct ParaLayout {
     /// Byte ranges of the text laid out as nothing ([`left_out`]): hidden text that is not shown,
     /// tracked deletions in the final text. Resolved as laid out, table formatting included.
     pub left_out: Vec<std::ops::Range<usize>>,
+    /// Per cluster: it is a Thai letter or sign. Only filled for Thai Distribution paragraphs, which
+    /// share a justified line's extra space between the characters of Thai words too.
+    pub thai: Vec<bool>,
     /// The text drawn by clusters that stand for an object (field results, note numbers,
     /// equations) rather than for the paragraph's own text, by cluster index, sorted, with each of
     /// the cluster's glyphs' byte range in that text (a ligature's glyph spans its letters).
@@ -1497,6 +1500,10 @@ pub fn layout_para(p: &Paragraph, env: &ParaEnv) -> ParaLayout {
         found.sort_unstable();
         found.dedup();
     }
+    // Thai has no spaces between words: it wraps between dictionary words.
+    found.extend(crate::thai::breaks(&text));
+    found.sort_unstable();
+    found.dedup();
     // Asian typography: kinsoku and breaking Latin words anywhere.
     crate::kinsoku::apply(&text, &mut found, rp.kinsoku, rp.word_wrap);
     let opps: std::collections::HashSet<usize> = found.into_iter().filter_map(to_para).collect();
@@ -1555,6 +1562,11 @@ pub fn layout_para(p: &Paragraph, env: &ParaEnv) -> ParaLayout {
         Label { text: shown(text), ascent, style, glyphs, runs, x: 0.0, width: x }
     });
 
+    let thai = if rp.align == Align::ThaiDistribute {
+        b.clusters.iter().map(|c| p.text.get(c.start..c.end).and_then(|t| t.chars().next()).is_some_and(crate::thai::is_thai)).collect()
+    } else {
+        Vec::new()
+    };
     let mut pl = ParaLayout {
         rp,
         styles: b.styles,
@@ -1576,6 +1588,7 @@ pub fn layout_para(p: &Paragraph, env: &ParaEnv) -> ParaLayout {
         rubies,
         displays,
         left_out: Vec::new(),
+        thai,
         enclosures,
     };
     let auto = env.doc.settings.auto_hyphenation && !pl.rp.suppress_hyphens;
@@ -1621,7 +1634,8 @@ fn break_lines(pl: &mut ParaLayout, env: &ParaEnv, mark_style: u32, level: Optio
     let first_left = rp.indent_left + rp.indent_first;
     // Word 2013+ (compatibility mode 15) fits more text on a justified line by shrinking its
     // spaces, up to MAX_SPACE_SHRINK of their width; never on lines with tabs.
-    let shrink_spaces = rp.align == Align::Justify && env.doc.settings.compat_mode >= wordcraft_doc::COMPAT_MODE_CURRENT;
+    let shrink_spaces =
+        matches!(rp.align, Align::Justify | Align::ThaiDistribute) && env.doc.settings.compat_mode >= wordcraft_doc::COMPAT_MODE_CURRENT;
     let hanging_at = if rp.indent_first < 0.0 { Some(rp.indent_left) } else { None };
     // Hyphenation Options: the zone, and how many lines in a row may end with a hyphen.
     let zone = Some(env.doc.settings.hyphenation_zone).filter(|z| z.is_finite() && *z >= 0.0).unwrap_or(HYPHENATION_ZONE).min(1584.0);
@@ -2079,7 +2093,8 @@ fn break_lines(pl: &mut ParaLayout, env: &ParaEnv, mark_style: u32, level: Optio
                 lab.x += shift;
             }
         }
-        let justify = display.is_none() && ((rp.align == Align::Justify && end == LineEnd::Wrap) || rp.align == Align::Distribute);
+        let justify = display.is_none()
+            && ((matches!(rp.align, Align::Justify | Align::ThaiDistribute) && end == LineEnd::Wrap) || rp.align == Align::Distribute);
         // A line that only fits with shrunk spaces is shrunk, the last line of the paragraph too.
         let shrink = display.is_none() && shrink_spaces && slack < 0.0 && last_tab.is_none();
         if shrink {
@@ -2091,6 +2106,17 @@ fn break_lines(pl: &mut ParaLayout, env: &ParaEnv, mark_style: u32, level: Optio
                     pl.clusters.get(*k).is_some_and(|c| c.kind == ClKind::Space) && xs.get(k - c0).copied().unwrap_or(f32::MAX) < content_end - 0.01
                 })
                 .collect();
+            // Thai Distribution also stretches the gaps between the characters of Thai words, since
+            // Thai has few spaces: each gap, spaces included, gets an equal share.
+            let spaces: Vec<usize> = if rp.align == Align::ThaiDistribute {
+                (align_from..c1)
+                    .filter(|k| {
+                        spaces.binary_search(k).is_ok() || (*k + 1 < c1 && pl.thai.get(*k) == Some(&true) && pl.thai.get(*k + 1) == Some(&true))
+                    })
+                    .collect()
+            } else {
+                spaces
+            };
             if rp.align == Align::Distribute || spaces.is_empty() {
                 let cnt = (c1 - align_from).saturating_sub(1).max(1) as f32;
                 if rp.align == Align::Distribute {

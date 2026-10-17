@@ -128,6 +128,16 @@ fn every_char_prop_round_trips() {
 }
 
 #[test]
+fn thai_distribute_alignment_round_trips() {
+    for a in [Align::Justify, Align::Distribute, Align::ThaiDistribute] {
+        let mut p = para_runs(&[("สวัสดี", CharProps::default())]);
+        p.props.align = Some(a);
+        let back = rt(&doc_with(vec![p]));
+        assert_eq!(paras(&back)[0].props.align, Some(a), "{a:?}");
+    }
+}
+
+#[test]
 fn every_para_prop_round_trips() {
     let b = Border { style: BorderStyle::Double, width: 0.75, color: Some(Rgb(9, 8, 7)), space: 4.0 };
     let pp = ParaProps {

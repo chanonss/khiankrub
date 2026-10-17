@@ -4,6 +4,8 @@ Every non-code asset in this repository (fonts, icons, images, example documents
 
 **Policy (mandatory):** WordCraft contains **no Microsoft, Adobe, Avid or Autodesk iconography, images, templates, themes, clip art, fonts or other assets**. Every asset is original work by WordCraft contributors or third-party material under an open licence (OSI open source, public domain / CC0, or a Creative Commons licence that allows redistribution). Screenshots of other vendors' software are never committed. New font files go to [storytold/craft-fonts](https://github.com/storytold/craft-fonts), not this repo. The one exception is the ArtCraft brand files in `docs/brand/`: ArtCraft trademarks, not open source, used under `docs/brand/LICENSE-brand.txt`.
 
+Data compiled in from crates.io dependencies is not a file in this repository and has no row here; it is listed with its licence text in [`NOTICE`](NOTICE) (for example the Thai word-break dictionary in ICU4X's `icu_segmenter_data`, Unicode-3.0).
+
 Generated-in-code art is original and has no file to list: the UI icon set (`crates/ui-egui/src/icons.rs`), the sample documents and templates (`crates/engine/src/sample.rs`), the table and style previews, and theme colours (`crates/engine/src/cmd/design.rs`).
 
 | Asset | Author | Source | Licence | Notes |

@@ -3481,6 +3481,72 @@ fn justified_lines_shrink_spaces_in_word_2013_mode() {
     }
 }
 
+/// How far the first word of the paragraph's first line spreads, and where its lines end.
+fn first_word_span(text: &str, align: Align) -> (f32, Vec<f32>) {
+    let mut d = Document::from_text(text);
+    d.format_paragraphs(&Pos::body(0, 0), &Pos::body(0, 0), &|p| p.align = Some(align)).unwrap();
+    let l = lay(&d);
+    let word_end = text.find(' ').unwrap();
+    let mut span = 0.0;
+    let mut ends = Vec::new();
+    for p in &l.pages {
+        for it in &p.items {
+            if let Placed::Lines { para, l0, l1, x, .. } = it {
+                if *l0 == 0 {
+                    span = para.x_of(0, word_end).unwrap() - para.x_of(0, 0).unwrap();
+                }
+                for li in *l0..*l1 {
+                    let line = &para.lines[li];
+                    let content = text[line.start..line.stop].trim_end().len();
+                    ends.push(para.x_of(li, line.start + content).unwrap() + x);
+                }
+            }
+        }
+    }
+    (span, ends)
+}
+
+#[test]
+fn thai_distributed_spreads_thai_words_and_fills_the_line() {
+    let text = "ประเทศไทยตั้งอยู่ในภูมิภาคเอเชียตะวันออกเฉียงใต้ มีประวัติศาสตร์อันยาวนาน ".repeat(12);
+    let (left_span, _) = first_word_span(&text, Align::Left);
+    let (just_span, just_ends) = first_word_span(&text, Align::Justify);
+    let (thai_span, thai_ends) = first_word_span(&text, Align::ThaiDistribute);
+    // Justify leaves the characters of a Thai word alone and only stretches the few spaces.
+    assert!((just_span - left_span).abs() < 0.01, "justify moved Thai letters: {just_span} vs {left_span}");
+    // Thai Distribution shares the extra space between them as well (lines wrap between Thai words,
+    // so each line has only a little to share).
+    assert!(thai_span > just_span + 0.01, "Thai word not spread: {thai_span} vs {just_span}");
+    // Every wrapped line reaches the right margin; the last line stays short, like Justify.
+    assert_eq!(thai_ends.len(), just_ends.len());
+    for e in &thai_ends[..thai_ends.len() - 1] {
+        assert!((*e - 540.0).abs() < 0.05, "Thai Distribution line ends at {e}");
+    }
+    assert!(*thai_ends.last().unwrap() < 540.0 - 1.0, "last line was stretched: {:?}", thai_ends.last());
+}
+
+#[test]
+fn thai_without_spaces_wraps_between_words() {
+    // One long unspaced run: every wrapped line must start at a dictionary word boundary.
+    let text = "ภาษาไทยไม่มีการเว้นวรรคระหว่างคำดังนั้นการตัดคำและการขึ้นบรรทัดใหม่จึงเป็นเรื่องสำคัญสำหรับโปรแกรมประมวลผลคำ".repeat(6);
+    let mut d = Document::from_text(&text);
+    d.format_paragraphs(&Pos::body(0, 0), &Pos::body(0, 0), &|p| p.align = Some(Align::Left)).unwrap();
+    let l = lay(&d);
+    let allowed: std::collections::HashSet<usize> = crate::thai::breaks(&text).into_iter().collect();
+    let mut starts = Vec::new();
+    for p in &l.pages {
+        for it in &p.items {
+            if let Placed::Lines { para, l0, l1, .. } = it {
+                starts.extend((*l0..*l1).map(|li| para.lines[li].start));
+            }
+        }
+    }
+    assert!(starts.len() > 2, "text should wrap: {} lines", starts.len());
+    for s in starts.iter().skip(1) {
+        assert!(allowed.contains(s), "line starts inside a Thai word at byte {s}");
+    }
+}
+
 #[test]
 fn space_shrinking_is_only_for_justified_text() {
     let text = "We tie the spend to a pipe and to the books, so it is in an ad hoc view of all of it. ".repeat(40);

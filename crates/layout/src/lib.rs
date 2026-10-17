@@ -20,6 +20,7 @@ pub mod para;
 pub mod styleref;
 mod table;
 mod textbox;
+mod thai;
 mod vertical;
 pub mod wordart;
 

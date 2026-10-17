@@ -681,6 +681,7 @@ fn describe(prop: &str, v: &Value) -> String {
             "right" => "Right",
             "justify" => "Justified",
             "distribute" => "Distributed",
+            "thaiDistribute" => "Thai Distribution",
             _ => "Left",
         })
         .to_string(),

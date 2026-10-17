@@ -214,6 +214,22 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
             ().then_lines(&pen, 8.0, 17.0, &[7.0, 13.0])
         }
         "justify" => pen.lines(3.0, 17.0, &[4.0, 7.0, 10.0, 13.0, 16.0]),
+        // Thai Distribution (ท): a capital T in front of the Justify lines, which break around it.
+        // The T is drawn heavier than the lines, as strokes.
+        "thaiDistribute" => {
+            for (y, gap) in [(4.0, Some((4.5, 15.5))), (7.0, Some((7.5, 12.5))), (10.0, Some((8.5, 11.5))), (13.0, Some((8.5, 11.5))), (16.0, None)] {
+                match gap {
+                    Some((a, b)) => {
+                        pen.line(&[(3.0, y), (a, y)]);
+                        pen.line(&[(b, y), (17.0, y)]);
+                    }
+                    None => pen.line(&[(3.0, y), (17.0, y)]),
+                }
+            }
+            let heavy = Stroke::new(pen.w * 1.5 * pen.s(), pen.c);
+            pen.p.add(Shape::line(vec![pen.pt(6.2, 4.0), pen.pt(13.8, 4.0)], heavy));
+            pen.p.add(Shape::line(vec![pen.pt(10.0, 4.0), pen.pt(10.0, 13.5)], heavy));
+        }
         // Text direction: lines set from the start edge, an arrow in the reading direction.
         "textLtr" => {
             pen.lines(3.0, 14.0, &[4.0, 8.0]);
