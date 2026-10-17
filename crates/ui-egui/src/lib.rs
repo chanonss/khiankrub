@@ -2849,6 +2849,34 @@ mod tests {
         assert_eq!(g.changes(&basis), json!({"rtl": true}));
     }
 
+    /// Table Properties shows the table's default cell margins (top, left, bottom, right) and OK
+    /// sends them as `cellMargins` in points; the dialog reopens with them, and a cell keeps any
+    /// margins of its own.
+    #[test]
+    fn table_properties_edits_the_default_cell_margins() {
+        let mut a = app();
+        a.run("insert.table", json!({"rows": 2, "cols": 2})).unwrap();
+        let k = options::unit().pt_per_unit();
+        let basis = dialogs::TableForm::read(&a).unwrap();
+        assert!(basis.margins.iter().any(|m| *m > 0.0), "a new table has Word's default margins: {:?}", basis.margins);
+        let mut f = basis.clone();
+        f.margins = [10.0 / k, 12.0 / k, 14.0 / k, 16.0 / k];
+        let changes = f.changes(&basis);
+        let sent: Vec<f64> = ["top", "left", "bottom", "right"].iter().map(|n| changes["cellMargins"][n].as_f64().unwrap()).collect();
+        assert!(sent.iter().zip([10.0, 12.0, 14.0, 16.0]).all(|(a, b)| (a - b).abs() < 1e-3), "{sent:?}");
+        a.run("table.properties", changes).unwrap();
+        let (tp, _, _) = a.session.sel.focus.path.cell().unwrap();
+        let t = a.session.doc.table(a.session.sel.focus.story, &tp).unwrap();
+        let got = wordcraft_layout::cell_margins(&a.session.doc, t, 1, 1);
+        assert!(got.iter().zip([10.0, 12.0, 14.0, 16.0]).all(|(a, b)| (a - b).abs() < 1e-3), "{got:?}");
+        assert_eq!(dialogs::TableForm::read(&a).unwrap().changes(&f), json!({}), "the dialog reopens with the new margins");
+        // Nothing sent when the margins are untouched, and the range is kept.
+        assert_eq!(f.changes(&f), json!({}));
+        a.run("table.properties", json!({"cellMargins": {"top": 9999, "left": -5, "bottom": 1, "right": 2}})).unwrap();
+        let t = a.session.doc.table(a.session.sel.focus.story, &tp).unwrap();
+        assert_eq!(wordcraft_layout::default_cell_margins(&a.session.doc, t), [144.0, 0.0, 1.0, 2.0]);
+    }
+
     /// Home › Font › Enclose Characters (#297): the button opens the dialog on the selected
     /// character; the dialog's OK is `format.enclose`, and it reopens showing the enclosure.
     #[test]

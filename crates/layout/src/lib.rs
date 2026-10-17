@@ -38,7 +38,7 @@ use wordcraft_geom::{Point, Rect, Spin};
 pub use fields::FieldCtx;
 pub use hit::VisualStep;
 pub use para::{LineEnd, ParaLayout};
-pub use table::{autofit_widths, cell_margins, measure_table_columns};
+pub use table::{autofit_widths, cell_margins, default_cell_margins, measure_table_columns};
 
 /// How the document is viewed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]

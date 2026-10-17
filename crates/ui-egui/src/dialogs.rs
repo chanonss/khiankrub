@@ -555,6 +555,8 @@ pub struct TableForm {
     pub cell_width: f32,
     /// `top`, `center` or `bottom`.
     pub valign: String,
+    /// The table's default cell margins: top, left, bottom, right (display units).
+    pub margins: [f32; 4],
 }
 
 impl TableForm {
@@ -595,6 +597,7 @@ impl TableForm {
                 _ => "top",
             }
             .into(),
+            margins: wordcraft_layout::default_cell_margins(&s.doc, t).map(|m| fin(m) / k),
         })
     }
 
@@ -603,6 +606,10 @@ impl TableForm {
         let k = crate::options::unit().pt_per_unit();
         let moved = |a: f32, b: f32| (a - b).abs() > 1e-4;
         let mut v = serde_json::Map::new();
+        if self.margins.iter().zip(&basis.margins).any(|(a, b)| moved(*a, *b)) {
+            let [top, left, bottom, right] = self.margins.map(|m| m * k);
+            v.insert("cellMargins".into(), json!({"top": top, "left": left, "bottom": bottom, "right": right}));
+        }
         if self.width_on != basis.width_on || (self.width_on && moved(self.width, basis.width)) {
             v.insert("width".into(), if self.width_on { json!(self.width * k) } else { Value::Null });
         }
@@ -2986,6 +2993,25 @@ fn table_properties(ui: &mut Ui, f: &mut TableForm) {
             ui.radio_value(&mut f.rtl, false, tl!("Left-to-right"));
             ui.radio_value(&mut f.rtl, true, tl!("Right-to-left"));
         });
+        ui.end_row();
+    });
+    // The engine keeps the margins within 2 inches (144 pt).
+    let max_margin = 144.0 / unit.pt_per_unit();
+    fn margin(v: &mut f32, max: f32, unit: wordcraft_geom::Unit) -> egui::DragValue<'_> {
+        egui::DragValue::new(v).speed(0.01).range(0.0..=max).measure(unit).max_decimals(2)
+    }
+    heading(ui, "Default cell margins");
+    egui::Grid::new("tp_margins").num_columns(4).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
+        let [top, left, bottom, right] = &mut f.margins;
+        ui.label(tl!("Top:"));
+        ui.add(margin(top, max_margin, unit));
+        ui.label(tl!("Bottom:"));
+        ui.add(margin(bottom, max_margin, unit));
+        ui.end_row();
+        ui.label(tl!("Left:"));
+        ui.add(margin(left, max_margin, unit));
+        ui.label(tl!("Right:"));
+        ui.add(margin(right, max_margin, unit));
         ui.end_row();
     });
     heading(ui, "Row");

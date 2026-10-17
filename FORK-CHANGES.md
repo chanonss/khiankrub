@@ -7,6 +7,12 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-17
 
+### Table Properties: default cell margins
+- The Table Properties dialog (Table Layout › Properties) has a **Default cell margins** section: Top, Bottom,
+  Left and Right, in the document's unit (up to 2 inches). OK sends them as `cellMargins` to `table.properties`.
+  A cell with margins of its own keeps them. The Table Layout › Cell Margins button still resets to the defaults.
+- Heading translated in the 22 interface languages (first draft, not reviewed by native speakers).
+
 ### View only mode (Editing menu)
 - The Editing menu (top right) has a third entry, **View only**: you can read, scroll, search, copy and print,
   but nothing that edits the document runs. Comments, suggestions (Track Changes), formatting, typing, cut,

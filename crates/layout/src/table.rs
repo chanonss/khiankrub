@@ -103,6 +103,13 @@ fn default_margins(t: &Table, style: Option<&TableStyleProps>) -> [f32; 4] {
     t.props.cell_margins.or(style.and_then(|s| s.parts.cell_margins)).unwrap_or(DEFAULT_MARGINS)
 }
 
+/// The table's default cell margins (top, left, bottom, right; points): its own, else its style's,
+/// else Word's. A cell with margins of its own keeps them (see [`cell_margins`]).
+pub fn default_cell_margins(doc: &wordcraft_doc::Document, t: &Table) -> [f32; 4] {
+    let style = t.props.style.as_deref().and_then(|id| doc.styles.table_style(id));
+    default_margins(t, style.as_ref())
+}
+
 /// The margins (top, left, bottom, right; points) of cell `cell` of row `row`: its own, else the
 /// table's defaults. The layout uses the left and right ones as they are (the app's ruler
 /// measures a cell's indents from them) but gives every cell in a row the row's largest top and

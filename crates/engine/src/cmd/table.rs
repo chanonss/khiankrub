@@ -204,7 +204,7 @@ pub fn specs() -> Vec<CommandSpec> {
         })
         .params(r#"{"value"?: bool} (true: the first column stands at the right; without a value it toggles)"#)),
         t(CommandSpec::new("table.properties", "Properties", "Table Layout › Table", properties).params(
-            r#"{"align"?: "left|center|right", "rtl"?: bool, "width"?: pt|null, "widthPct"?: percent, "indent"?: pt, "rowHeight"?: pt|null, "rowHeightRule"?: "atLeast|exact", "allowBreak"?: bool, "headerRow"?: bool, "columnWidth"?: pt, "cellWidth"?: pt|null, "valign"?: "top|center|bottom"} (row, column and cell settings apply to the caret's; without settings it returns the current ones)"#,
+            r#"{"align"?: "left|center|right", "rtl"?: bool, "width"?: pt|null, "widthPct"?: percent, "indent"?: pt, "rowHeight"?: pt|null, "rowHeightRule"?: "atLeast|exact", "allowBreak"?: bool, "headerRow"?: bool, "columnWidth"?: pt, "cellWidth"?: pt|null, "valign"?: "top|center|bottom", "cellMargins"?: {"top", "left", "bottom", "right" (pt)}} (row, column and cell settings apply to the caret's; without settings it returns the current ones)"#,
         )),
         CommandSpec::new("table.fromText", "Convert Text to Table", "Insert › Tables", from_text).params(r#"{"separator"?: "tab|comma"}"#),
         CommandSpec::new("table.quick", "Quick Tables", "Insert › Tables", quick_table).params(r#"{"kind"?: "calendar|tabular|matrix"}"#),
@@ -307,6 +307,7 @@ fn properties(s: &mut Session, v: &Value) -> CmdResult {
         "columnWidth",
         "cellWidth",
         "valign",
+        "cellMargins",
     ];
     if !keys.iter().any(|k| v.get(*k).is_some()) {
         let t = s.doc.table(s.sel.focus.story, &tp).cloned().unwrap_or_default();
@@ -356,7 +357,15 @@ fn properties(s: &mut Session, v: &Value) -> CmdResult {
     let column_width = p::f32(v, "columnWidth").map(|x| x.clamp(6.0, 1584.0));
     let cell_width = size("cellWidth", 6.0, 1584.0);
     let rtl = p::bool(v, "rtl");
+    // The table's default cell margins: `{"top", "left", "bottom", "right"}` in points.
+    let margins = v.get("cellMargins").filter(|m| m.is_object()).map(|m| {
+        [p::f32(m, "top").unwrap_or(0.0), p::f32(m, "left").unwrap_or(5.4), p::f32(m, "bottom").unwrap_or(0.0), p::f32(m, "right").unwrap_or(5.4)]
+            .map(|x| if x.is_finite() { x.clamp(0.0, 144.0) } else { 0.0 })
+    });
     with_table(s, |t| {
+        if let Some(m) = margins {
+            t.props.cell_margins = Some(m);
+        }
         if let Some(a) = align {
             t.props.align = Some(a);
         }
