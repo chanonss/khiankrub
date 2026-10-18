@@ -48,6 +48,25 @@ fn substitutes(family: &str) -> &'static [&'static str] {
     const HEBREW: &[&str] = &["Helvetica", "Noto Sans Hebrew", "Arial", "Tahoma", "Geeza Pro", "DejaVu Sans", "Source Sans 3"];
     #[cfg(not(any(windows, target_os = "macos")))]
     const HEBREW: &[&str] = &["Noto Sans Hebrew", "Segoe UI", "Arial", "Tahoma", "DejaVu Sans", "Source Sans 3"];
+    // Thai document fonts (TH Sarabun New, Cordia New, the UPC families…): Thai faces, every one
+    // with Thai letters; [`substitute`] prefers one with Latin letters and digits too, so a run
+    // mixing Thai and Latin keeps one font at one size, as Word substitutes Cordia New for the
+    // whole run (#1549). Windows' own Thai fonts first, then the Mac's, then the open Noto and Thai
+    // Linux Working Group families. The Mac's Thonburi and Sathu carry Apple's `morx` tables
+    // instead of OpenType ones; the shaper applies those, so their marks stack as they should.
+    #[cfg(windows)]
+    const THAI: &[&str] = &["Cordia New", "Leelawadee UI", "Leelawadee", "Tahoma", "Noto Sans Thai", "Browallia New", "Angsana New"];
+    #[cfg(target_os = "macos")]
+    const THAI: &[&str] = &["Thonburi", "Ayuthaya", "Sathu", "Krungthep", "Noto Sans Thai", "Tahoma"];
+    #[cfg(not(any(windows, target_os = "macos")))]
+    const THAI: &[&str] = &["Noto Sans Thai", "Laksaman", "Garuda", "Waree", "Tlwg Typo", "Loma", "Umpush", "Noto Serif Thai"];
+    // Serif Thai document fonts (Angsana New, EucrosiaUPC, Norasi…) prefer a serif Thai face.
+    #[cfg(windows)]
+    const THAI_SERIF: &[&str] = &["Angsana New", "AngsanaUPC", "Noto Serif Thai", "Cordia New", "Leelawadee UI", "Tahoma", "Noto Sans Thai"];
+    #[cfg(target_os = "macos")]
+    const THAI_SERIF: &[&str] = &["Sathu", "Noto Serif Thai", "Thonburi", "Ayuthaya", "Krungthep", "Noto Sans Thai", "Tahoma"];
+    #[cfg(not(any(windows, target_os = "macos")))]
+    const THAI_SERIF: &[&str] = &["Noto Serif Thai", "Norasi", "Kinnari", "Noto Sans Thai", "Laksaman", "Garuda", "Waree"];
     // Palatino Linotype / Book Antiqua: macOS ships the same design as "Palatino"; open
     // look-alikes with matching metrics (TeX Gyre Pagella, URW P052 / Palladio) on Linux.
     const PALATINO: &[&str] = &[
@@ -67,6 +86,12 @@ fn substitutes(family: &str) -> &'static [&'static str] {
         "Source Serif 4",
     ];
     let f = family.to_ascii_lowercase();
+    if is_thai_serif(&f) {
+        return THAI_SERIF;
+    }
+    if is_thai(&f) {
+        return THAI;
+    }
     if is_hebrew(&f) {
         return HEBREW;
     }
@@ -194,10 +219,84 @@ fn is_persian_sans(f: &str) -> bool {
     NAMES.contains(&f) || f.starts_with("iransans") || f.starts_with("iranyekan")
 }
 
+/// Thai document fonts: Word's Thai families (Cordia New, Angsana New, Browallia New, the UPC
+/// families, Leelawadee), the Thai national fonts (TH Sarabun New and the other "TH …" fonts),
+/// the Mac's, the Thai Linux Working Group's and Noto's. Matched by name only.
+fn is_thai(f: &str) -> bool {
+    const NAMES: &[&str] = &[
+        "cordia new",
+        "cordiaupc",
+        "angsana new",
+        "angsanaupc",
+        "browallia new",
+        "browalliaupc",
+        "leelawadee",
+        "leelawadee ui",
+        "leelawadee ui semilight",
+        "th sarabun new",
+        "th sarabunpsk",
+        "th sarabun psk",
+        "th sarabun",
+        "thonburi",
+        "ayuthaya",
+        "sathu",
+        "krungthep",
+        "silom",
+        "sukhumvit set",
+        "norasi",
+        "kinnari",
+        "garuda",
+        "laksaman",
+        "loma",
+        "purisa",
+        "sawasdee",
+        "umpush",
+        "waree",
+        "tlwg typo",
+        "tlwg typist",
+        "tlwg mono",
+    ];
+    NAMES.contains(&f) || f.ends_with("upc") || f.starts_with("th ") || f.contains("thai")
+}
+
+/// Serif Thai document fonts.
+fn is_thai_serif(f: &str) -> bool {
+    const NAMES: &[&str] = &["angsana new", "angsanaupc", "eucrosiaupc", "jasmineupc", "kodchiangupc", "dilleniaupc", "norasi", "kinnari"];
+    NAMES.contains(&f) || (f.contains("thai") && f.contains("serif"))
+}
+
+/// Is `family` a Thai document font ([`is_thai`])? A missing one is drawn in a Thai face for the
+/// whole run, never in a Latin substitute (#1549).
+pub fn is_thai_family(family: &str) -> bool {
+    let f = family.to_ascii_lowercase();
+    is_thai(&f) || is_thai_serif(&f)
+}
+
 /// Hebrew document fonts.
 fn is_hebrew(f: &str) -> bool {
     const NAMES: &[&str] = &["david", "miriam", "noto sans hebrew", "arial hebrew", "calibri hebrew"];
     NAMES.contains(&f) || f.contains("hebrew")
+}
+
+/// The first installed substitute for a missing `family`. For a Thai font, the first with Latin
+/// letters and digits as well as Thai ones (a Thai face without Latin would leave a mixed run in
+/// two fonts, #1549), else the first with Thai letters, else the first installed.
+fn substitute(db: &FontDb, family: &str) -> Option<&'static str> {
+    let mut installed = substitutes(family).iter().copied().filter(|s| db.has_family(s));
+    if !is_thai_family(family) {
+        return installed.next();
+    }
+    let installed: Vec<&'static str> = installed.collect();
+    let covers = |name: &str, chars: &[char]| {
+        let face = db.face(name, "Regular");
+        face.named(name) && chars.iter().all(|c| face.covers(*c))
+    };
+    installed
+        .iter()
+        .copied()
+        .find(|s| covers(s, &['\u{0E19}', 'A', 'z', '0', '9']))
+        .or_else(|| installed.iter().copied().find(|s| covers(s, &['\u{0E19}'])))
+        .or_else(|| installed.first().copied())
 }
 
 fn style_name(bold: bool, italic: bool) -> &'static str {
@@ -234,8 +333,7 @@ pub fn resolve(family: &str, bold: bool, italic: bool) -> Resolved {
         // Windows maps the charset names to the font itself: not a substitution.
         (base.to_string(), false)
     } else {
-        let s = substitutes(base).iter().find(|s| db.has_family(s)).copied().unwrap_or(crate::FALLBACK_FAMILY);
-        (s.to_string(), true)
+        (substitute(db, base).unwrap_or(crate::FALLBACK_FAMILY).to_string(), true)
     };
     let face = db.face(&fam, style_name(bold, italic));
     let r = Resolved { synth_bold: bold && face.weight < 600.0, synth_italic: italic && !face.italic, substituted, face: FaceRef::of(&face) };
@@ -362,5 +460,90 @@ mod tests {
         }
         // Generic names with "Hebrew" in them also get Hebrew substitutions
         assert!(substitutes("SomeFont Hebrew").contains(&"Noto Sans Hebrew"));
+    }
+
+    #[test]
+    fn thai_fonts_substitute_thai_faces() {
+        // Every Thai document family maps to a list of Thai faces, never to the Latin lists.
+        for f in [
+            "TH Sarabun New",
+            "TH SarabunPSK",
+            "Angsana New",
+            "AngsanaUPC",
+            "Cordia New",
+            "CordiaUPC",
+            "Browallia New",
+            "BrowalliaUPC",
+            "JasmineUPC",
+            "KodchiangUPC",
+            "LilyUPC",
+            "DilleniaUPC",
+            "EucrosiaUPC",
+            "FreesiaUPC",
+            "IrisUPC",
+            "Leelawadee",
+            "Leelawadee UI",
+            "Noto Sans Thai",
+            "TH Niramit AS",
+        ] {
+            assert!(is_thai_family(f), "{f}");
+            let list = substitutes(f);
+            assert!(list.iter().any(|s| s.contains("Thai")), "{f}: {list:?}");
+            assert!(!list.contains(&"Carlito") && !list.contains(&"Caladea"), "{f}: {list:?}");
+        }
+        // Serif Thai families prefer a serif Thai face; the sans families a sans one.
+        let pos = |family: &str, name: &str| substitutes(family).iter().position(|s| *s == name).unwrap_or(usize::MAX);
+        assert!(pos("Angsana New", "Noto Serif Thai") < pos("Angsana New", "Noto Sans Thai"));
+        assert!(pos("TH Sarabun New", "Noto Sans Thai") < pos("TH Sarabun New", "Noto Serif Thai"));
+        // Latin and other script families are unchanged.
+        assert!(!is_thai_family("Arial") && !is_thai_family("Tahoma") && !is_thai_family("Calibri") && !is_thai_family("David"));
+        assert_eq!(substitutes("Calibri").first(), Some(&"Carlito"));
+    }
+
+    #[test]
+    fn a_missing_thai_font_resolves_to_an_installed_thai_face() {
+        // The issue's run (#1549): Thai letters and digits, Latin letters, digits and the baht
+        // sign in one run of a Thai font that isn't installed.
+        const RUN: &str = "[D] น้ำ ค่ำ ปั้น ฝั่ง ปู่ ๑๒๓๔๕๖๗๘๙๐ ฿1,250.50";
+        let db = FontDb::global();
+        for family in ["TH Sarabun New", "Angsana New", "Cordia New", "BrowalliaUPC"] {
+            if db.has_family(family) {
+                continue;
+            }
+            let r = resolve(family, false, false);
+            let face = r.face.get();
+            if !face.covers('\u{0E19}') {
+                eprintln!("skipped {family}: no Thai face from its substitute list is installed");
+                continue;
+            }
+            assert!(r.substituted, "{family}");
+            let thai: Vec<char> = RUN.chars().filter(|c| ('\u{0E00}'..='\u{0E7F}').contains(c) && !face.covers(*c)).collect();
+            assert!(thai.is_empty(), "{family} → {} lacks {thai:?}", face.family);
+            // A listed Thai face with Latin letters and digits wins over one without them.
+            let latin = |name: &str| {
+                let f = db.face(name, "Regular");
+                f.named(name) && f.covers('\u{0E19}') && f.covers('D') && f.covers('5')
+            };
+            if substitutes(family).iter().any(|s| db.has_family(s) && latin(s)) {
+                let missing: Vec<char> = RUN.chars().filter(|c| !c.is_whitespace() && !face.covers(*c)).collect();
+                assert!(missing.is_empty(), "{family} → {} lacks {missing:?}", face.family);
+            }
+        }
+    }
+
+    #[test]
+    fn thonburi_stacks_thai_marks_through_its_apple_tables() {
+        // Thonburi has `morx` but no GSUB: the shaper must still move a tone mark up over an upper
+        // vowel (ปั่) instead of drawing it where it sits on a bare consonant (ป่).
+        let db = FontDb::global();
+        if !db.has_family("Thonburi") {
+            eprintln!("skipped: Thonburi not installed");
+            return;
+        }
+        let face = db.face("Thonburi", "Regular");
+        let tone = |text: &str| crate::shape(&face, text, &[], |c| c).into_iter().last().map(|g| (g.gid, g.y_offset));
+        let (bare, stacked) = (tone("\u{0E1B}\u{0E48}"), tone("\u{0E1B}\u{0E31}\u{0E48}"));
+        assert!(bare.is_some() && stacked.is_some());
+        assert_ne!(bare, stacked, "the tone mark over ั is raised or swapped");
     }
 }

@@ -109,3 +109,160 @@ fn myanmar_in_a_latin_font_falls_back_to_a_regular_myanmar_face() {
     let x0 = l.caret(&Pos::body(0, 0)).map(|c| c.x).unwrap_or(0.0);
     assert!(x6 > x0);
 }
+
+/// The issue's run (#1549): Thai letters and digits, Latin letters, digits and the baht sign.
+const THAI_RUN: &str = "[D] น้ำ ค่ำ ปั้น ฝั่ง ปู่ ๑๒๓๔๕๖๗๘๙๐ ฿1,250.50";
+
+/// Is a font with Thai letters installed? `false` skips the test.
+fn thai_font_installed() -> bool {
+    wordcraft_fonts::FontDb::global().fallback_for('\u{0E19}', 0).is_some()
+}
+
+/// Body paragraph 0 of `text`, its run set in `font` at 16 pt (`None` keeps the document's
+/// default font), and the face of every cluster: (cluster start, face).
+fn cluster_faces(text: &str, font: Option<&str>) -> Vec<(usize, wordcraft_fonts::FaceRef)> {
+    let mut d = Document::from_text(text);
+    let p = d.para_mut(StoryRef::Body, &Path::top(0)).unwrap();
+    p.runs[0].props.font = font.map(Into::into);
+    p.runs[0].props.size = Some(16.0);
+    let l = lay(&d);
+    let pl = para_layout(&l, 0);
+    pl.clusters.iter().map(|c| (c.start, pl.styles[c.style as usize].face)).collect()
+}
+
+#[test]
+fn a_missing_thai_font_draws_the_whole_run_in_one_thai_face() {
+    if !thai_font_installed() {
+        eprintln!("skipped: no Thai font installed");
+        return;
+    }
+    // Word substitutes one font (Cordia New) for a missing Thai font, so the Latin letters, the
+    // digits and the baht sign keep the Thai letters' face and size. A Thai name the lists don't
+    // spell out ("TH Niramit AS") is matched by its "TH " prefix and substituted the same way.
+    let db = wordcraft_fonts::FontDb::global();
+    for font in ["TH Sarabun New", "Angsana New", "TH Niramit AS"] {
+        if db.has_family(font) {
+            continue;
+        }
+        let faces = cluster_faces(THAI_RUN, Some(font));
+        let first = faces[0].1;
+        let names: Vec<&str> = faces.iter().map(|(_, f)| f.family.as_str()).collect();
+        assert!(faces.iter().all(|(_, f)| f.id() == first.id()), "{font}: one face for the run, not {names:?}");
+        assert!(first.covers('\u{0E19}') && first.covers('D') && first.covers('1') && first.covers('\u{0E3F}'), "{font} → {}", first.family);
+    }
+}
+
+#[test]
+fn a_thai_substitute_without_latin_hands_the_run_to_one_face_covering_it() {
+    if !thai_font_installed() {
+        eprintln!("skipped: no Thai font installed");
+        return;
+    }
+    // When the substitute lacks the run's Thai letters (no listed Thai font is installed, so the
+    // Latin fallback family stands in) or its Latin ones, the run moves to one face covering all.
+    let latin = wordcraft_fonts::word::resolve("Source Sans 3", false, false).face;
+    let face = crate::para::thai_run_face("TH Sarabun New", true, latin, THAI_RUN, false, false).expect("one face covers the run");
+    assert_ne!(face.id(), latin.id());
+    for c in THAI_RUN.chars().filter(|c| !c.is_whitespace()) {
+        assert!(face.covers(c), "{} covers {c}", face.family);
+    }
+    // Only for a Thai family that was substituted.
+    assert!(crate::para::thai_run_face("Calibri", true, latin, THAI_RUN, false, false).is_none());
+    assert!(crate::para::thai_run_face("TH Sarabun New", false, latin, THAI_RUN, false, false).is_none());
+    // A substitute that already covers the run keeps it.
+    assert!(crate::para::thai_run_face("TH Sarabun New", true, face, THAI_RUN, false, false).is_none());
+    // Text that is neither Thai nor Latin doesn't make the run move.
+    assert!(crate::para::thai_run_face("TH Sarabun New", true, latin, "abc \u{2603}", false, false).is_none());
+}
+
+#[test]
+fn latin_text_in_a_missing_latin_font_stays_in_its_substitute_beside_thai() {
+    if !thai_font_installed() {
+        eprintln!("skipped: no Thai font installed");
+        return;
+    }
+    // Word keeps Latin text in the Latin font's substitute; only the Thai (or Myanmar) letters
+    // fall back. A missing Latin family (and the default body font, Aptos, wherever it is
+    // missing) must not move "Hello" into a Thai face.
+    let myanmar = myanmar_face().is_some();
+    for font in [Some("No Such Latin Font 1549"), None] {
+        let requested = font.unwrap_or(wordcraft_doc::styles::BODY_FONT);
+        let latin = wordcraft_fonts::word::resolve(requested, false, false).face;
+        for text in ["Hello \u{0E2A}\u{0E27}\u{0E31}\u{0E2A}\u{0E14}\u{0E35}", "Hello \u{1019}\u{103C}\u{1014}\u{103A}\u{1019}\u{102C}"] {
+            if text.contains('\u{1019}') && !myanmar {
+                continue;
+            }
+            let faces = cluster_faces(text, font);
+            let hello: Vec<_> = faces.iter().filter(|(at, _)| *at < 5).collect();
+            assert_eq!(hello.len(), 5, "{faces:?}");
+            assert!(
+                hello.iter().all(|(_, f)| f.id() == latin.id()),
+                "{requested}: Hello in {}, not {:?}",
+                latin.family,
+                hello.iter().map(|(_, f)| f.family.as_str()).collect::<Vec<_>>()
+            );
+            assert!(faces.iter().any(|(at, f)| *at >= 6 && f.id() != latin.id()), "the other script falls back");
+        }
+    }
+}
+
+#[test]
+fn thai_in_an_installed_latin_font_keeps_the_latin_face_for_latin() {
+    if !thai_font_installed() {
+        eprintln!("skipped: no Thai font installed");
+        return;
+    }
+    // The family exists, so nothing is substituted: Latin stays in it and only the Thai letters
+    // fall back, character by character, as before.
+    let faces = cluster_faces(THAI_RUN, Some("Source Sans 3"));
+    let latin = wordcraft_fonts::word::resolve("Source Sans 3", false, false).face;
+    assert!(faces.iter().any(|(_, f)| f.id() == latin.id()), "Latin clusters stay in Source Sans 3");
+    assert!(faces.iter().any(|(_, f)| f.id() != latin.id() && f.covers('\u{0E19}')), "Thai clusters fall back to a Thai face");
+    assert_eq!(faces[0].1.id(), latin.id(), "[D] opens the run in Source Sans 3");
+}
+
+#[test]
+fn a_missing_latin_font_with_a_thai_complex_script_font_keeps_both() {
+    if !thai_font_installed() {
+        eprintln!("skipped: no Thai font installed");
+        return;
+    }
+    // A run with its own complex-script font (`w:cs`) draws the Thai letters in that font's
+    // substitute and the Latin letters in the Latin font's substitute, as Word does.
+    let mut d = Document::from_text(THAI_RUN);
+    let p = d.para_mut(StoryRef::Body, &Path::top(0)).unwrap();
+    p.runs[0].props.font = Some("No Such Latin Font 1549".into());
+    p.runs[0].props.font_cs = Some("TH Sarabun New".into());
+    let l = lay(&d);
+    let pl = para_layout(&l, 0);
+    let faces: Vec<_> = pl.clusters.iter().map(|c| pl.styles[c.style as usize].face).collect();
+    let latin = wordcraft_fonts::word::resolve("No Such Latin Font 1549", false, false).face;
+    let thai = wordcraft_fonts::word::resolve("TH Sarabun New", false, false).face;
+    assert_eq!(faces[0].id(), latin.id(), "[D] in the Latin substitute");
+    assert!(faces.iter().any(|f| f.id() == thai.id()), "Thai letters in the Thai substitute {}", thai.family);
+}
+
+#[test]
+fn a_missing_roman_thai_font_is_not_drawn_in_cambria() {
+    // Word draws a missing font the font table classes as roman in Cambria, but a missing Thai
+    // font keeps its Thai substitute: the same face whether or not the table calls it roman.
+    let db = wordcraft_fonts::FontDb::global();
+    if db.has_family("TH Sarabun New") {
+        eprintln!("skipped: TH Sarabun New is installed");
+        return;
+    }
+    let face = |roman: bool| {
+        let mut d = Document::from_text("\u{0E19}\u{0E49}\u{0E33} Thai");
+        if roman {
+            d.settings.roman_fonts = vec!["TH Sarabun New".into()];
+        }
+        let p = d.para_mut(StoryRef::Body, &Path::top(0)).unwrap();
+        p.runs[0].props.font = Some("TH Sarabun New".into());
+        let l = lay(&d);
+        let pl = para_layout(&l, 0);
+        pl.styles[pl.clusters.last().expect("a cluster").style as usize].face
+    };
+    let cambria = wordcraft_fonts::word::resolve("Cambria", false, false).face;
+    assert_ne!(face(true).id(), cambria.id());
+    assert_eq!(face(true).id(), face(false).id());
+}

@@ -674,10 +674,42 @@ fn east_asian(c: char) -> bool {
 const MISSING_ROMAN_FONT: &str = "Cambria";
 
 /// The family to look `font` up as: [`MISSING_ROMAN_FONT`] for a missing roman font, else `font`.
+/// A missing Thai font keeps its name: it is drawn in a Thai face, not in Cambria (#1549).
 fn lookup_family<'f>(doc: &Document, font: &'f str) -> &'f str {
     let db = wordcraft_fonts::FontDb::global();
     let roman = doc.settings.roman_fonts.iter().any(|f| f.eq_ignore_ascii_case(font));
-    if roman && !db.has_family(font) && !db.has_family(wordcraft_fonts::word::charset_base_family(font)) { MISSING_ROMAN_FONT } else { font }
+    if roman
+        && !wordcraft_fonts::word::is_thai_family(font)
+        && !wordcraft_doc::symbol_fonts::is_symbol_font(font)
+        && !db.has_family(font)
+        && !db.has_family(wordcraft_fonts::word::charset_base_family(font))
+    {
+        MISSING_ROMAN_FONT
+    } else {
+        font
+    }
+}
+
+/// One face for a run in a Thai font that isn't installed (#1549): Word substitutes one font
+/// (Cordia New) for the whole run, so the Latin letters, digits and ฿ keep the Thai letters' face
+/// and size. `None` unless `font` is a Thai family, it was substituted, and its substitute
+/// `primary` lacks some of the run's Thai or Latin characters; then the first face covering all of
+/// them, if one does. Other families keep Latin text in their own substitute, as Word does.
+pub(crate) fn thai_run_face(font: &str, substituted: bool, primary: FaceRef, text: &str, bold: bool, italic: bool) -> Option<FaceRef> {
+    if !substituted || !wordcraft_fonts::word::is_thai_family(font) {
+        return None;
+    }
+    let run: Vec<char> = text.chars().filter(|c| thai_or_latin(*c)).collect();
+    if run.iter().all(|c| primary.covers(*c)) {
+        return None;
+    }
+    wordcraft_fonts::FontDb::global().fallback_for_run(&run, primary.id(), bold, italic).map(|f| FaceRef::of(&f))
+}
+
+/// Text a Thai substitute draws: Thai letters, digits and signs (฿), and Latin letters, digits
+/// and punctuation.
+fn thai_or_latin(c: char) -> bool {
+    matches!(u32::from(c), 0x0021..=0x024F | 0x0E00..=0x0E7F) && !c.is_whitespace() && !c.is_control() && c != SOFT_HYPHEN
 }
 
 impl<'a> Builder<'a> {
@@ -775,6 +807,13 @@ impl<'a> Builder<'a> {
             .map(|r| r.face);
         let use_levels = para_text && !self.levels.is_empty();
         let context = if self.env.numeral == NumeralMode::Context && use_levels { context_digit_dirs(text, &self.levels, base) } else { Vec::new() };
+        // A missing Thai font: one face for the run's Thai and Latin text (#1549). A run with its
+        // own complex-script font keeps that font for the Thai letters.
+        let run_face: Option<FaceRef> = if primary_cs.is_none_or(|f| f.id() == primary.id()) {
+            thai_run_face(&rc.font, resolved.substituted, primary, text, rc.bold, rc.italic)
+        } else {
+            None
+        };
         // One fallback face for the run's East Asian characters: the first face in fallback order
         // covering every character the primary font lacks, so the run draws in a single CJK face
         // instead of mixing faces per character (e.g. a bundled Japanese Mincho for JIS-covered
@@ -788,7 +827,7 @@ impl<'a> Builder<'a> {
             if ea.is_empty() {
                 None
             } else {
-                wordcraft_fonts::FontDb::global().fallback_for_east_asian(&ea, primary.id(), rc.bold, rc.italic).map(|f| FaceRef::of(&f))
+                wordcraft_fonts::FontDb::global().fallback_for_run(&ea, primary.id(), rc.bold, rc.italic).map(|f| FaceRef::of(&f))
             }
         };
         // Split by font coverage (fallback faces), small caps case, script formatting and direction.
@@ -812,6 +851,8 @@ impl<'a> Builder<'a> {
             let face = match cur {
                 Some(k) if mark => k.face,
                 _ if !complex && east_asian(c) && primary_ea.is_some_and(|f| f.covers(c)) => primary_ea,
+                // The run's one substitute face for a missing Thai font (#1549).
+                _ if !c.is_control() && c != SOFT_HYPHEN && run_face.is_some_and(|f| f.covers(dc)) => run_face,
                 _ if prim.covers(dc) || c.is_whitespace() || c.is_control() || c == SOFT_HYPHEN => None,
                 // Stay in the fallback face the word started in while it covers the letters.
                 Some(SegKey { face: Some(f), .. }) if f.covers(dc) => Some(f),
