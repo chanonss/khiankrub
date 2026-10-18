@@ -1954,6 +1954,20 @@ fn layout_size_refuses_a_page_its_margins_dont_fit() {
     assert_eq!((s.doc.last_section.page_w, s.doc.last_section.page_h), (180.0, 180.0), "exactly 36 pt of room is enough");
 }
 
+/// A negative margin (or gutter) counts as zero, so it can't offset an oversized one past the
+/// text-room check: `layout.margins` refuses and changes nothing.
+#[test]
+fn layout_margins_negative_cannot_hide_an_oversized_margin() {
+    let mut s = s();
+    run(&mut s, "layout.margins", json!({"preset": "normal"}));
+    let before = s.doc.last_section.clone();
+    for v in [json!({"top": 2000, "bottom": -2000}), json!({"left": 2000, "right": -2000}), json!({"left": 600, "right": 0, "gutter": -600})] {
+        let e = s.run("layout.margins", &v).unwrap_err().to_string();
+        assert!(e.contains("margins leave no room for text"), "{v}: {e}");
+        assert_eq!(s.doc.last_section, before, "{v} changes nothing");
+    }
+}
+
 /// #1433: the smallest page there can be (0.1" wide, no margins, set straight through Page
 /// Setup's section) still lays out and exports text, a table and two columns.
 #[test]

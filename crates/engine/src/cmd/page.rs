@@ -474,7 +474,9 @@ fn margins(s: &mut Session, v: &Value) -> CmdResult {
             )
         }
     };
-    let gutter = p::f32(v, "gutter");
+    // Negative margins count as zero before the fit check, so one can't offset another.
+    let (t, b, l, r) = (t.max(0.0), b.max(0.0), l.max(0.0), r.max(0.0));
+    let gutter = p::f32(v, "gutter").map(|g| g.max(0.0));
     let cur = sect(s);
     if !margins_fit((cur.page_w, cur.page_h), (t, b, l, r), gutter.unwrap_or(cur.gutter)) {
         return Err(CmdError::Params("margins leave no room for text".into()));
@@ -485,12 +487,12 @@ fn margins(s: &mut Session, v: &Value) -> CmdResult {
         s.doc.settings.mirror_margins = on;
     }
     with_sect(s, |x| {
-        x.margin_top = t.max(0.0);
-        x.margin_bottom = b.max(0.0);
-        x.margin_left = l.max(0.0);
-        x.margin_right = r.max(0.0);
+        x.margin_top = t;
+        x.margin_bottom = b;
+        x.margin_left = l;
+        x.margin_right = r;
         if let Some(g) = gutter {
-            x.gutter = g.max(0.0);
+            x.gutter = g;
         }
     })
 }
