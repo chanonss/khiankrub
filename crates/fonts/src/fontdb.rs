@@ -1187,20 +1187,24 @@ impl FontDb {
         if self.is_loaded(family) {
             return true;
         }
-        let paths: Vec<std::path::PathBuf> = {
-            let cat = self.read_catalog();
-            let families: Vec<&str> = cat
-                .iter()
-                .filter(|c| c.family.eq_ignore_ascii_case(family) || c.legacy.eq_ignore_ascii_case(family))
-                .map(|c| c.family.as_str())
-                .collect();
-            let mut p: Vec<_> = cat.iter().filter(|c| families.iter().any(|f| c.family.eq_ignore_ascii_case(f))).map(|c| c.path.clone()).collect();
-            p.sort();
-            p.dedup();
-            p
-        };
+        let paths = self.family_paths(family);
         let files = paths.iter().filter_map(|p| std::fs::read(p).ok()).collect();
         self.add_fonts(files) > 0
+    }
+
+    /// The cataloged files holding `family`'s faces (by typographic or legacy name), sorted.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn family_paths(&self, family: &str) -> Vec<std::path::PathBuf> {
+        let cat = self.read_catalog();
+        let families: Vec<&str> = cat
+            .iter()
+            .filter(|c| c.family.eq_ignore_ascii_case(family) || c.legacy.eq_ignore_ascii_case(family))
+            .map(|c| c.family.as_str())
+            .collect();
+        let mut p: Vec<_> = cat.iter().filter(|c| families.iter().any(|f| c.family.eq_ignore_ascii_case(f))).map(|c| c.path.clone()).collect();
+        p.sort();
+        p.dedup();
+        p
     }
 
     /// Resolve a family + style to a face, falling back to the closest style of the family, then to
@@ -1557,6 +1561,15 @@ impl FontDb {
                     break;
                 }
             }
+            // Each character has a face now, but the families a script prefers may lack the
+            // run's other letters (Noto Sans Thai has no Latin): look for one installed font
+            // that maps the whole run.
+            if base.is_none() {
+                // Look again even when this search loaded nothing: another thread's may just have
+                // loaded the font (and taken its files off the index).
+                self.indexed_run_fallback(chars);
+                base = self.loaded_covering(chars, exclude);
+            }
         }
         let base = base?;
         if !bold && !italic {
@@ -1631,7 +1644,29 @@ impl FontDb {
     /// yet indexed as the search reaches it. Returns whether a loaded face now covers `c`.
     #[cfg(not(target_arch = "wasm32"))]
     fn indexed_fallback(&self, c: char) -> bool {
-        let cp = u32::from(c);
+        self.load_indexed(&[c], false)
+    }
+
+    /// Load the family of the first cataloged font file (in path order) that maps every char of a
+    /// run no loaded face covers whole: all its styles, as path order may reach the Bold file
+    /// before the Regular.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn indexed_run_fallback(&self, chars: &[char]) {
+        if !self.sys.lock().unwrap_or_else(|e| e.into_inner()).enabled || chars.iter().any(|c| c.is_control()) {
+            return;
+        }
+        self.load_indexed(chars, true);
+    }
+
+    /// Load the first cataloged font file (in path order) that maps every char of `chars`,
+    /// reading each file not yet indexed as the search reaches it; with `whole_family`, the rest
+    /// of the file's family too when none of it is loaded. Returns whether a loaded face now
+    /// covers them all.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn load_indexed(&self, chars: &[char], whole_family: bool) -> bool {
+        let covered = |db: &FontDb| db.read_faces().iter().any(|f| chars.iter().all(|c| f.covers(*c)));
+        let cps: Vec<u32> = chars.iter().map(|c| u32::from(*c)).collect();
+        let maps_all = |ranges: &[(u32, u32)]| cps.iter().all(|cp| ranges_hold(ranges, *cp));
         let mut index = self.coverage.lock().unwrap_or_else(|e| e.into_inner());
         let generation = self.catalog_gen.load(Ordering::Acquire);
         if index.generation != Some(generation) {
@@ -1645,36 +1680,50 @@ impl FontDb {
             index.generation = Some(generation);
         }
         let CoverageIndex { files, reads, .. } = &mut *index;
+        let mut family = None;
         for file in files.iter_mut().filter(|f| !f.used) {
             let mut data = None;
             match &file.ranges {
-                Some(r) if !ranges_hold(r, cp) => continue,
+                Some(r) if !maps_all(r) => continue,
                 Some(_) => {}
                 None => {
                     *reads += 1;
                     data = read_fallback_file(&file.path);
                     let ranges = data.as_deref().map(coverage_ranges).unwrap_or_default();
-                    let hit = ranges_hold(&ranges, cp);
+                    let hit = maps_all(&ranges);
                     file.ranges = Some(ranges);
                     if !hit {
                         continue;
                     }
                 }
             }
-            // The file maps `c`: load it (once; its faces are loaded fonts from now on).
+            // The file maps them: load it (once; its faces are loaded fonts from now on).
             file.used = true;
+            if whole_family
+                && let Some(name) = self.read_catalog().iter().find(|e| e.path == file.path).map(|e| e.family.clone())
+                && !self.is_loaded(&name)
+            {
+                family = Some(name);
+                break;
+            }
             if data.is_none() {
                 *reads += 1;
                 data = read_fallback_file(&file.path);
             }
             if let Some(data) = data
                 && self.add_font(data) > 0
-                && self.read_faces().iter().any(|f| f.covers(c))
+                && covered(self)
             {
                 return true;
             }
         }
-        false
+        let Some(family) = family else { return false };
+        // Its other files are loaded fonts from now on as well.
+        let paths = self.family_paths(&family);
+        for file in files.iter_mut().filter(|f| paths.contains(&f.path)) {
+            file.used = true;
+        }
+        self.load_cataloged(&family) && covered(self)
     }
 
     /// Glyph outline in font units, y-down (flipped), cached per (face, glyph).

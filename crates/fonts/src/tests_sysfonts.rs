@@ -287,6 +287,54 @@ fn fallback_reads_each_installed_font_file_once_however_many_characters_miss() {
     assert_eq!(index.reads, 2, "each file read once");
 }
 
+/// A bundled Source Sans 3 `file` renamed `family` whose last cmap group (the single character
+/// U+1F916) maps `first..=last` instead.
+fn mapping(file: &str, family: &str, first: u32, last: u32) -> Vec<u8> {
+    let mut data = renamed_to(file, family);
+    let from = [0x0001_F916_u32.to_be_bytes(); 2].concat();
+    let to = [first.to_be_bytes(), last.to_be_bytes()].concat();
+    let mut patched = 0;
+    while let Some(at) = data.windows(from.len()).position(|w| w == from) {
+        data[at..at + to.len()].copy_from_slice(&to);
+        patched += 1;
+    }
+    assert!(patched > 0);
+    data
+}
+
+#[test]
+fn a_run_no_preferred_face_covers_whole_loads_an_installed_font_that_does() {
+    // A Thai run with Latin on Linux: the per-character fallback loads Noto Sans Thai (no Latin)
+    // and stopped there, though another installed font maps the whole run.
+    let dir = font_dir("run");
+    let regular = "SourceSans3-Regular.ttf";
+    std::fs::write(dir.join("1-first.ttf"), mapping(regular, "Sysfont Part1", 0xF_0001, 0xF_0001)).unwrap();
+    std::fs::write(dir.join("2-second.ttf"), mapping(regular, "Sysfont Part2", 0xF_0002, 0xF_0002)).unwrap();
+    // The family's Bold file comes first in path order.
+    std::fs::write(dir.join("3-both-bold.ttf"), mapping("SourceSans3-Bold.ttf", "Sysfont Both3", 0xF_0001, 0xF_0002)).unwrap();
+    std::fs::write(dir.join("3-both.ttf"), mapping(regular, "Sysfont Both3", 0xF_0001, 0xF_0002)).unwrap();
+    let db = FontDb::with_font_dirs(vec![dir]);
+    let latin = db.face(FALLBACK_FAMILY, "Regular");
+    let run = ['\u{F0001}', '\u{F0002}'];
+    // Each character alone falls back to the first file (in path order) that maps it.
+    assert_eq!(db.fallback_for(run[0], latin.id()).map(|f| f.family.clone()).as_deref(), Some("Sysfont Part1"));
+    assert_eq!(db.fallback_for(run[1], latin.id()).map(|f| f.family.clone()).as_deref(), Some("Sysfont Part2"));
+    let f = db.fallback_for_run(&run, latin.id(), false, false).expect("one installed font maps the run");
+    assert_eq!((f.family.as_str(), f.style.as_str()), ("Sysfont Both3", "Regular"));
+    let bold = db.fallback_for_run(&run, latin.id(), true, false).expect("its Bold too");
+    assert_eq!((bold.family.as_str(), bold.style.as_str()), ("Sysfont Both3", "Bold"));
+    // The family loaded once, whole: no file of it is loaded again.
+    let both = || db.read_faces().iter().filter(|f| f.family == "Sysfont Both3").count();
+    assert_eq!(both(), 2);
+    // Nothing maps this run: the answer is none, and asking again reads no file.
+    let none = ['\u{F0001}', '\u{F0003}'];
+    assert!(db.fallback_for_run(&none, latin.id(), false, false).is_none());
+    let reads = db.coverage.lock().unwrap().reads;
+    assert!(db.fallback_for_run(&none, latin.id(), false, false).is_none());
+    assert_eq!(db.coverage.lock().unwrap().reads, reads);
+    assert_eq!(both(), 2);
+}
+
 #[test]
 fn coverage_ranges_hold_exactly_the_mapped_characters() {
     let data = renamed("SourceSans3-Regular.ttf");
