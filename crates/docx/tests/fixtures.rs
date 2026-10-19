@@ -2741,21 +2741,54 @@ fn hostile_vml_paths_stay_finite() {
     }
 }
 
-/// Measured in Word: `w:asciiTheme="minorBidi"` names the theme's complex-script font (`a:cs`);
-/// when that is empty it names nothing, and the run keeps the font it inherits.
+/// Measured in Word for Mac: a `majorBidi`/`minorBidi` theme slot names the theme's font for the
+/// script of the settings' `w:themeFontLang/@w:bidi` (the Latin font for a Latin language), else
+/// the theme's `a:cs`, else Times New Roman; with no bidi language there, Times New Roman whatever
+/// the theme says. The run's own `w:lang` and the inherited fonts play no part. Papers set in
+/// `majorBidi` with Office's usual theme (`Arab` → Times New Roman) came out in Calibri Light.
 #[test]
-fn bidi_theme_slots_name_the_complex_script_font() {
-    let font = |cs: &str| {
+fn bidi_theme_slots_follow_the_theme_font_language() {
+    let tnr = "Times New Roman";
+    // (themeFontLang, a:cs, Arab entries present, run lang) → (majorBidi, minorBidi)
+    let cases: &[(Option<&str>, &str, bool, &str, [&str; 2])] = &[
+        (None, "", true, "", [tnr, tnr]),
+        (None, "Arial", true, r#"<w:lang w:bidi="ar-SA"/>"#, [tnr, tnr]),
+        (Some(r#"w:val="en-US""#), "Arial", true, "", [tnr, tnr]),
+        (Some(r#"w:bidi="ar-SA""#), "", true, r#"<w:lang w:bidi="he-IL"/>"#, ["Georgia", "Trebuchet MS"]),
+        (Some(r#"w:bidi="ar-SA""#), "Arial", true, "", ["Georgia", "Trebuchet MS"]),
+        (Some(r#"w:bidi="he-IL""#), "", true, "", ["Courier New", "Comic Sans MS"]),
+        (Some(r#"w:bidi="ur-PK""#), "Arial", true, "", ["Georgia", "Trebuchet MS"]),
+        (Some(r#"w:bidi="fr-FR""#), "Arial", true, "", ["Verdana", "Impact"]),
+        (Some(r#"w:bidi="th-TH""#), "Arial", true, "", ["Arial", "Arial"]),
+        (Some(r#"w:bidi="th-TH""#), "", true, "", [tnr, tnr]),
+        (Some(r#"w:bidi="ar-SA""#), "Arial", false, "", ["Arial", "Arial"]),
+    ];
+    for (i, (lang, cs, arab, run_lang, want)) in cases.iter().enumerate() {
+        let script = |f: &str| if *arab { format!(r#"<a:font script="Arab" typeface="{f}"/>"#) } else { String::new() };
         let theme = format!(
-            r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="T"><a:themeElements><a:fontScheme name="F"><a:majorFont><a:latin typeface="Cambria"/><a:ea typeface=""/><a:cs typeface="{cs}"/></a:majorFont><a:minorFont><a:latin typeface="Calibri"/><a:ea typeface=""/><a:cs typeface="{cs}"/></a:minorFont></a:fontScheme></a:themeElements></a:theme>"#
+            r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="T"><a:themeElements><a:fontScheme name="F"><a:majorFont><a:latin typeface="Verdana"/><a:ea typeface=""/><a:cs typeface="{cs}"/>{}<a:font script="Hebr" typeface="Courier New"/></a:majorFont><a:minorFont><a:latin typeface="Impact"/><a:ea typeface=""/><a:cs typeface="{cs}"/>{}<a:font script="Hebr" typeface="Comic Sans MS"/></a:minorFont></a:fontScheme></a:themeElements></a:theme>"#,
+            script("Georgia"),
+            script("Trebuchet MS")
         );
-        let rels = [("rId9", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme", "theme/theme1.xml")];
-        let body = r#"<w:p><w:r><w:rPr><w:rFonts w:asciiTheme="minorBidi" w:hAnsiTheme="minorBidi"/></w:rPr><w:t>x</w:t></w:r></w:p>"#;
-        let d = wordcraft_docx::read(&docx(body, &rels, &[("word/theme/theme1.xml", &theme)])).unwrap();
-        paras(&d)[0].runs[0].props.font.clone()
-    };
-    assert_eq!(font(""), None);
-    assert_eq!(font("Times New Roman").as_deref(), Some("Times New Roman"));
+        let font_lang = lang.map(|l| format!("<w:themeFontLang {l}/>")).unwrap_or_default();
+        let settings = format!(r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:settings {W_NS}>{font_lang}</w:settings>"#);
+        let styles = format!(
+            r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles {W_NS}><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Andale Mono" w:hAnsi="Andale Mono" w:cs="Andale Mono"/><w:lang w:val="en-US" w:bidi="ar-SA"/></w:rPr></w:rPrDefault></w:docDefaults></w:styles>"#
+        );
+        let run = |slot: &str| {
+            format!(r#"<w:p><w:r><w:rPr><w:rFonts w:asciiTheme="{slot}" w:hAnsiTheme="{slot}"/>{run_lang}</w:rPr><w:t>x</w:t></w:r></w:p>"#)
+        };
+        let body = [run("majorBidi"), run("minorBidi"), run("majorHAnsi")].concat();
+        let rels = [
+            ("rId7", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/settings", "settings.xml"),
+            ("rId8", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles", "styles.xml"),
+            ("rId9", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme", "theme/theme1.xml"),
+        ];
+        let parts = [("word/theme/theme1.xml", theme.as_str()), ("word/settings.xml", settings.as_str()), ("word/styles.xml", styles.as_str())];
+        let d = wordcraft_docx::read(&docx(&body, &rels, &parts)).unwrap();
+        let fonts: Vec<_> = paras(&d).iter().map(|p| p.runs[0].props.font.clone().unwrap_or_default()).collect();
+        assert_eq!(fonts, [want[0], want[1], "Verdana"], "case {i}");
+    }
 }
 
 /// The font table's family classes: Word draws a missing roman font in a serif face.

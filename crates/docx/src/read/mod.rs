@@ -187,7 +187,8 @@ pub(crate) fn read_opened(pkg: &Package) -> Result<Document, DocxError> {
             log::warn!("docx: ignoring unreadable {what}: {e}");
         }
     };
-    // Styles come before settings, but their theme colours already follow its colour mapping.
+    // Styles come before settings, but their theme colours already follow its colour mapping, and
+    // their `…Bidi` theme fonts its theme font language.
     if let Some(p) = part(rt::SETTINGS) {
         r.read_color_mapping(&p);
     }
@@ -737,15 +738,30 @@ impl Reader<'_> {
             let cs = |n: &str| fs.child(n).and_then(|f| f.child("a:cs")).and_then(|c| c.attr("typeface")).unwrap_or_default().to_string();
             self.pc.major_cs = cs("a:majorFont");
             self.pc.minor_cs = cs("a:minorFont");
+            // Per-script fonts (`a:font script="Arab"`); Office's themes list about 30.
+            let scripts = |n: &str| -> Vec<(String, String)> {
+                let Some(f) = fs.child(n) else { return Vec::new() };
+                f.els()
+                    .filter(|e| e.name == "a:font")
+                    .filter_map(|e| Some((e.attr("script")?, e.attr("typeface")?)))
+                    .filter(|(s, t)| s.len() <= 8 && !t.is_empty() && t.len() < 256)
+                    .take(256)
+                    .map(|(s, t)| (s.to_string(), t.to_string()))
+                    .collect()
+            };
+            self.pc.major_scripts = scripts("a:majorFont");
+            self.pc.minor_scripts = scripts("a:minorFont");
         }
         self.pc.major_font = self.doc.settings.major_font.clone();
         self.pc.minor_font = self.doc.settings.minor_font.clone();
         self.pc.theme = self.doc.settings.theme_colors.clone();
     }
 
-    /// `w:settings/w:clrSchemeMapping`: which scheme colour text1, background1… stand for.
+    /// `w:settings/w:clrSchemeMapping`: which scheme colour text1, background1… stand for. Also
+    /// `w:themeFontLang/@w:bidi`, the language whose script picks the `…Bidi` theme fonts.
     fn read_color_mapping(&mut self, path: &str) {
         let Ok(Some(root)) = self.xml(path) else { return };
+        self.pc.bidi_script = root.child("w:themeFontLang").and_then(|l| l.attr("w:bidi")).filter(|v| !v.trim().is_empty()).map(props::lang_script);
         let Some(m) = root.child("w:clrSchemeMapping") else { return };
         let names = [
             "dark1",

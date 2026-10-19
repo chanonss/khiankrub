@@ -43,9 +43,15 @@ use crate::xml::El;
 pub struct PropCtx {
     pub major_font: String,
     pub minor_font: String,
-    /// The theme's complex-script fonts (`a:cs`), which the `…Bidi` theme slots name.
+    /// The theme's complex-script fonts (`a:cs`), which the `…Bidi` theme slots fall back on.
     pub major_cs: String,
     pub minor_cs: String,
+    /// The theme's per-script fonts (`a:font script="Arab" typeface="…"`).
+    pub major_scripts: Vec<(String, String)>,
+    pub minor_scripts: Vec<(String, String)>,
+    /// The script (ISO 15924) of `w:themeFontLang/@w:bidi`, which picks the font a `…Bidi` theme
+    /// slot names. `None` = the settings name no bidi language.
+    pub bidi_script: Option<&'static str>,
     /// The theme's colour scheme (dk1, lt1, dk2, lt2, accent1..6, hlink, folHlink); empty when the
     /// package has none, and then `w:themeColor` falls back to the fixed colour.
     pub theme_colors: Vec<Rgb>,
@@ -62,6 +68,62 @@ pub struct PropCtx {
 /// paragraph's style chain uses (ECMA-376 §17.3.1.19). A placeholder while reading, never left in
 /// a document (`resolve_list_levels`).
 pub(crate) const LEVEL_ONLY: u32 = u32::MAX;
+
+/// The font Word draws a `minorBidi`/`majorBidi` theme slot in when the settings name no bidi
+/// language, or the theme has no font for it.
+const BIDI_THEME_FALLBACK_FONT: &str = "Times New Roman";
+
+/// The script a language tag is written in, as a theme's `a:font script` names it (ISO 15924, and
+/// Office's own `Uigh` for Uyghur and `Viet` for Vietnamese): an explicit script subtag
+/// (`ku-Arab`), else the language's usual script. Languages not listed are taken as Latin.
+pub(crate) fn lang_script(tag: &str) -> &'static str {
+    const SCRIPTS: &[&str] = &[
+        "Arab", "Armn", "Beng", "Cans", "Cher", "Cyrl", "Deva", "Ethi", "Geor", "Grek", "Gujr", "Guru", "Hang", "Hans", "Hant", "Hebr", "Jpan",
+        "Khmr", "Knda", "Laoo", "Latn", "Mlym", "Mong", "Mymr", "Orya", "Sinh", "Syrc", "Taml", "Telu", "Tfng", "Thaa", "Thai", "Tibt", "Uigh",
+        "Viet", "Yiii",
+    ];
+    let mut parts = tag.split(['-', '_']).filter(|p| !p.is_empty());
+    let lang = parts.next().unwrap_or_default().to_ascii_lowercase();
+    let rest: Vec<&str> = parts.take(8).collect();
+    if let Some(s) = rest.iter().find_map(|p| SCRIPTS.iter().find(|s| s.eq_ignore_ascii_case(p))) {
+        return s;
+    }
+    match lang.as_str() {
+        "ar" | "fa" | "ur" | "ps" | "sd" | "ckb" | "prs" => "Arab",
+        "ug" => "Uigh",
+        "vi" => "Viet",
+        "he" | "yi" => "Hebr",
+        "syr" => "Syrc",
+        "dv" => "Thaa",
+        "th" => "Thai",
+        "hi" | "mr" | "ne" | "sa" | "kok" => "Deva",
+        "bn" | "as" => "Beng",
+        "pa" => "Guru",
+        "gu" => "Gujr",
+        "or" => "Orya",
+        "ta" => "Taml",
+        "te" => "Telu",
+        "kn" => "Knda",
+        "ml" => "Mlym",
+        "si" => "Sinh",
+        "lo" => "Laoo",
+        "km" => "Khmr",
+        "bo" => "Tibt",
+        "my" => "Mymr",
+        "am" | "ti" => "Ethi",
+        "chr" => "Cher",
+        "iu" => "Cans",
+        "ii" => "Yiii",
+        "ka" => "Geor",
+        "hy" => "Armn",
+        "el" => "Grek",
+        "ja" => "Jpan",
+        "ko" => "Hang",
+        "zh" if rest.iter().any(|p| ["tw", "hk", "mo"].iter().any(|r| r.eq_ignore_ascii_case(p))) => "Hant",
+        "zh" => "Hans",
+        _ => "Latn",
+    }
+}
 
 /// The list a level-only `numPr` refers to: the nearest numbering in style `style`'s based-on chain
 /// (its own included) that names a list. `None` when no style in the chain has one.
@@ -85,11 +147,25 @@ impl PropCtx {
     }
 
     fn theme_font(&self, t: &str) -> Option<String> {
-        let (latin, cs) = if t.starts_with("major") { (&self.major_font, &self.major_cs) } else { (&self.minor_font, &self.minor_cs) };
-        // Measured in Word: `minorBidi`/`majorBidi` name the complex-script font, and an empty one
-        // names nothing, so the font beside it or the inherited one applies.
-        let f = if t.ends_with("Bidi") { cs } else { latin };
-        (!f.is_empty()).then(|| f.clone())
+        let major = t.starts_with("major");
+        let latin = if major { &self.major_font } else { &self.minor_font };
+        if t.ends_with("Bidi") {
+            return Some(self.bidi_theme_font(major));
+        }
+        (!latin.is_empty()).then(|| latin.clone())
+    }
+
+    /// The font a `majorBidi`/`minorBidi` theme slot names. Measured in Word for Mac: the theme's
+    /// font for the script of the settings' `w:themeFontLang/@w:bidi` (its `a:latin` for a Latin
+    /// language), else the theme's `a:cs`, else Times New Roman; with no bidi language there,
+    /// Times New Roman whatever the theme says. The run's own `w:lang` plays no part.
+    fn bidi_theme_font(&self, major: bool) -> String {
+        let (latin, cs, scripts) =
+            if major { (&self.major_font, &self.major_cs, &self.major_scripts) } else { (&self.minor_font, &self.minor_cs, &self.minor_scripts) };
+        let named = |f: &String| (!f.is_empty()).then(|| f.clone());
+        let Some(script) = self.bidi_script else { return BIDI_THEME_FALLBACK_FONT.to_string() };
+        let by_script = if script == "Latn" { named(latin) } else { scripts.iter().find(|(s, _)| s == script).and_then(|(_, f)| named(f)) };
+        by_script.or_else(|| named(cs)).unwrap_or_else(|| BIDI_THEME_FALLBACK_FONT.to_string())
     }
 
     /// The theme colour `e` names in `attr` (`w:themeColor`, `w:themeFill`), through the colour
