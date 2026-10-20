@@ -7,6 +7,13 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-20
 
+### Thai test document
+- `examples/thai-test.docx` is the project's Thai test file: Thai text in TH Sarabun New 16 pt with Thai
+  Distribution on most paragraphs (the long name of Bangkok, tone marks and stacked vowels, numerals, a poem)
+  and a small table. Attributed in `ATTRIBUTION.md`.
+- Test `thai_test_document_keeps_thai_distribution_and_fills_its_lines` opens it, checks the alignment survives
+  a save and re-read, and that every wrapped Thai Distribution line ends at the right edge.
+
 ### No Discord button in the title bar
 - The "Discord" join button at the top right of the title bar is removed, and so is its Options checkbox
   ("Show the community button in the title bar"). The old saved setting is ignored. The File menu's

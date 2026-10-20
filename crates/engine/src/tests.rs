@@ -76,6 +76,52 @@ fn view_only_leaves_the_document_untouched_for_every_command() {
     assert!(changed.is_empty(), "these commands edited a view-only document: {changed:?}");
 }
 
+/// `examples/thai-test.docx` (Thai text in TH Sarabun New, Thai Distribution on most paragraphs, a
+/// small table): it reads, keeps the alignment through a save, and every wrapped line of a Thai
+/// Distribution paragraph fills the line (it ends at the right edge; only a paragraph's last line
+/// stays short).
+#[test]
+fn thai_test_document_keeps_thai_distribution_and_fills_its_lines() {
+    use wordcraft_doc::props::Align;
+    use wordcraft_layout::para::LineEnd;
+    let doc = wordcraft_docx::read(include_bytes!("../../../examples/thai-test.docx")).unwrap();
+    let distributed = |d: &wordcraft_doc::Document| {
+        d.para_paths(StoryRef::Body)
+            .iter()
+            .filter(|p| d.para(StoryRef::Body, p).is_some_and(|p| p.props.align == Some(Align::ThaiDistribute)))
+            .count()
+    };
+    let n = distributed(&doc);
+    assert!(n >= 10, "Thai Distribution paragraphs read from the file: {n}");
+    let again = wordcraft_docx::read(&wordcraft_docx::write(&doc).unwrap()).unwrap();
+    assert_eq!(distributed(&again), n, "the alignment survives a save and a read");
+    assert_eq!(doc.plain_text(StoryRef::Body), again.plain_text(StoryRef::Body), "so does the text");
+
+    let layout = wordcraft_layout::layout(&doc, &mut wordcraft_layout::LayoutCache::new(), &wordcraft_layout::LayoutOptions::default());
+    let mut wrapped = 0;
+    for page in &layout.pages {
+        for item in &page.items {
+            let wordcraft_layout::Placed::Lines { story, path, para, l0, l1, x, .. } = item else { continue };
+            let Some(p) = doc.para(*story, path).filter(|p| p.props.align == Some(Align::ThaiDistribute)) else { continue };
+            for li in *l0..*l1 {
+                let line = &para.lines[li];
+                if li + 1 == para.lines.len() || line.end != LineEnd::Wrap {
+                    continue;
+                }
+                let content = p.text[line.start..line.stop].trim_end().len();
+                let end = para.x_of(li, line.start + content).unwrap() + x;
+                assert!(
+                    (end - (x + line.right)).abs() < 0.6,
+                    "a wrapped Thai Distribution line stops short of the edge: {end} vs {}",
+                    x + line.right
+                );
+                wrapped += 1;
+            }
+        }
+    }
+    assert!(wrapped >= 4, "the file has wrapped Thai Distribution lines to check: {wrapped}");
+}
+
 #[test]
 fn doc_extension_dispatches_to_docbin() {
     // Garbage bytes with a .doc name must produce an error through the Word 97-2003
