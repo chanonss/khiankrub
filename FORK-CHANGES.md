@@ -19,6 +19,11 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
   Thai word breaker's, with the full licence text. The published release v0.7.0-thai.1 still carries the earlier
   wording of the same licence text; the next release will carry this one.
 
+### Release v0.7.0-thai.2
+- [v0.7.0-thai.2](https://github.com/chanonss/wordcraft/releases/tag/v0.7.0-thai.2) replaces v0.7.0-thai.1: the same
+  program, built from commit `13f20be`, with no ArtCraft logos in the repository and the licence files inside the
+  app updated (complete ICU4X credit). Its zip's SHA-256 is in the release notes.
+
 ### Release v0.7.0-thai.1
 - First published build for Mac: [v0.7.0-thai.1](https://github.com/chanonss/wordcraft/releases/tag/v0.7.0-thai.1),
   `WordCraft-0.7.0-macos-apple-silicon.zip` (Apple silicon Macs only, macOS 11 or later; not signed by Apple, so the
