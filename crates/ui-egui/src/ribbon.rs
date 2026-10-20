@@ -2740,6 +2740,35 @@ mod tests {
         assert_eq!(text(&h), "Hello!");
     }
 
+    /// The title bar has no Discord community button (this fork removed it), even for a saved
+    /// preference that still has the old setting on.
+    #[test]
+    fn title_bar_has_no_discord_button() {
+        use egui_kittest::kittest::Queryable;
+        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+        app.ui.show_discord = true;
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1440.0, 300.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(4);
+        // Left to right the title bar ends: the search box, [the Discord button], the Account circle.
+        // The control next to Account is the wide search box (260 wide); the removed button was an
+        // 84-wide control between them.
+        let account = h.get_by_label("Account").rect();
+        let next_to_account = h
+            .query_all_by_role(egui::accesskit::Role::Unknown)
+            .map(|n| n.rect())
+            .filter(|r| r.min.y < 40.0 && r.max.x <= account.min.x)
+            .max_by(|a, b| a.max.x.total_cmp(&b.max.x))
+            .expect("the title bar has controls left of Account");
+        assert!(next_to_account.width() > 200.0, "a button sits between the search box and Account: {next_to_account:?}");
+    }
+
     /// The Home tab's Paragraph group has a Thai Distribution button after Justify (and it sets
     /// that alignment, which lays Thai out with its extra space shared between characters).
     #[test]

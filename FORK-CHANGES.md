@@ -5,6 +5,13 @@ Thai-speaking audience. This file lists what differs from the original, newest f
 progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each entry matches a commit on the
 `my-changes` branch.
 
+## 2026-10-20
+
+### No Discord button in the title bar
+- The "Discord" join button at the top right of the title bar is removed, and so is its Options checkbox
+  ("Show the community button in the title bar"). The old saved setting is ignored. The File menu's
+  "Discord community" link and the Help tab's "Community Discord" button are still there.
+
 ## 2026-10-17
 
 ### Table Properties: default cell margins
