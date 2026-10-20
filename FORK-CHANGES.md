@@ -7,6 +7,12 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-20
 
+### Release v0.7.0-thai.1
+- First published build for Mac: [v0.7.0-thai.1](https://github.com/chanonss/wordcraft/releases/tag/v0.7.0-thai.1),
+  `WordCraft-0.7.0-macos-apple-silicon.zip` (Apple silicon Macs only, macOS 11 or later; not signed by Apple, so the
+  first launch needs right-click Open). Built from commit `ee1c0b0`; the notes give the zip's SHA-256.
+- `my-changes` is now the repository's default branch, so the front page shows this fork's README.
+
 ### Ready to share
 - `packaging/macos/local-app.sh` now puts the licences inside `WordCraft.app` (Contents/Resources): the project's
   `LICENSE-MIT` and `LICENSE-APACHE`, `NOTICE` and `ATTRIBUTION.md`, and the four font licences (`OFL-*.txt`), as
