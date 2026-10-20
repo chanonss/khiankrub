@@ -1,3 +1,9 @@
+> **About this fork.** This is a fork of [WordCraft](https://github.com/storytold/wordcraft) by the ArtCraft team,
+> adapted for Thai users by Chanon Sarasuk: Thai Distribution alignment and Thai word breaking, a View only mode,
+> default cell margins in Table Properties, an English-only interface by default, and no Discord button in the title
+> bar. The full list is in [FORK-CHANGES.md](FORK-CHANGES.md). It is not affiliated with or endorsed by the ArtCraft
+> team. Same licence as the original: MIT OR Apache-2.0 (see [License and credits](#license-and-credits)).
+
 <p align="center">
   <a href="https://getartcraft.com/">
     <picture>

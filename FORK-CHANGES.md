@@ -7,6 +7,13 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-20
 
+### Ready to share
+- `packaging/macos/local-app.sh` now puts the licences inside `WordCraft.app` (Contents/Resources): the project's
+  `LICENSE-MIT` and `LICENSE-APACHE`, `NOTICE` and `ATTRIBUTION.md`, and the four font licences (`OFL-*.txt`), as
+  the licences require when the app is passed on.
+- The README starts with an "About this fork" note: who adapted it, what changed, a link here, the credit to the
+  ArtCraft team, and that it is not affiliated with or endorsed by them.
+
 ### Thai test document
 - `examples/thai-test.docx` is the project's Thai test file: Thai text in TH Sarabun New 16 pt with Thai
   Distribution on most paragraphs (the long name of Bangkok, tone marks and stacked vowels, numerals, a poem)
