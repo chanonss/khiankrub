@@ -7,6 +7,11 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-20
 
+### ICU4X credit
+- The `NOTICE` entry for ICU4X now names all eleven `icu_*` crates in the build (all Unicode-3.0), not only the
+  Thai word breaker's, with the full licence text. The published release v0.7.0-thai.1 still carries the earlier
+  wording of the same licence text; the next release will carry this one.
+
 ### Release v0.7.0-thai.1
 - First published build for Mac: [v0.7.0-thai.1](https://github.com/chanonss/wordcraft/releases/tag/v0.7.0-thai.1),
   `WordCraft-0.7.0-macos-apple-silicon.zip` (Apple silicon Macs only, macOS 11 or later; not signed by Apple, so the

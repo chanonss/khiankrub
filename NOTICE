@@ -75,9 +75,11 @@ list (author, source, license) is in ATTRIBUTION.md.
     DEALINGS IN THE SOFTWARE.
 - All UI icons are drawn in code (crates/ui-egui/src/icons.rs) and are original work, MIT OR Apache-2.0.
 
-- Thai word segmentation (icu_segmenter, icu_segmenter_data, icu_locale_fallback and its data,
-  from ICU4X, compiled into the binary; dictionary data for Thai and other scripts) — Unicode License
-  v3 (SPDX Unicode-3.0), Copyright (c) 2020-2024 Unicode, Inc. The licence text:
+- ICU4X (the icu_* crates, with their compiled-in data) — Unicode License v3 (SPDX Unicode-3.0),
+  Copyright (c) 2020-2024 Unicode, Inc. Used for Thai word segmentation (icu_segmenter, icu_segmenter_data,
+  icu_locale_fallback and its data; dictionary data for Thai and other scripts) and, already before that, for
+  Unicode normalisation and properties (icu_normalizer, icu_properties, icu_collections, icu_locale_core,
+  icu_provider and their data). All eleven icu_* crates in this build carry this one licence. The licence text:
 
     UNICODE LICENSE V3
 
