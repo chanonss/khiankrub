@@ -7,6 +7,13 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-20
 
+### ArtCraft logos removed
+- The original's brand license says a published, modified version must remove the ArtCraft logos and may only
+  say in plain text that it is based on WordCraft by the ArtCraft team. This fork therefore no longer contains
+  `docs/brand/` (the logos and their license file), the two logos in the README, or their `ATTRIBUTION.md` rows.
+  `NOTICE` and the README say so and link to the original's brand terms. The app's About screen still has the
+  original wording and links (to be reviewed).
+
 ### ICU4X credit
 - The `NOTICE` entry for ICU4X now names all eleven `icu_*` crates in the build (all Unicode-3.0), not only the
   Thai word breaker's, with the full licence text. The published release v0.7.0-thai.1 still carries the earlier
