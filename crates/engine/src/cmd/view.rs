@@ -51,6 +51,10 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("table.viewGridlines", "View Gridlines", "Table Layout › Table", |s, v| toggle(s, v, |x| &mut x.table_gridlines))
             .params(r#"{"value"?: bool}"#)
             .pure(),
+        // A thin grey outline around the text area of each page (screen only; never printed or exported).
+        CommandSpec::new("view.textBoundaries", "Text Boundaries", "View › Show", |s, v| toggle(s, v, |x| &mut x.text_boundaries))
+            .params(r#"{"value"?: bool}"#)
+            .pure(),
         CommandSpec::new("view.navigationPane", "Navigation Pane", "View › Show", |s, v| toggle(s, v, |x| &mut x.nav_pane)).pure(),
         CommandSpec::new("view.zoom", "Zoom", "View › Zoom", zoom)
             .params(r#"{"value": percent (10-500) | "pageWidth" | "onePage" | "multiplePages"}"#)

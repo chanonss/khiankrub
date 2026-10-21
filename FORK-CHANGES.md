@@ -5,6 +5,15 @@ Thai-speaking audience. This file lists what differs from the original, newest f
 progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each entry matches a commit on the
 `my-changes` branch.
 
+## 2026-10-21
+
+### Text boundaries: a thin grey outline around the text area
+- Print Layout now draws a thin grey outline around each page's text area (inside the margins), as Apple Pages does.
+  Word shows only crop marks in the corners. It is on screen only: it is never printed and never goes into a PDF.
+- On by default. View › Show › **Text Boundaries** turns it off and on (command `view.textBoundaries`). It is hidden
+  in Read Mode and in the Web and Outline views, like the gridlines.
+- Label translated in the 22 interface languages (first draft, not reviewed by native speakers).
+
 ## 2026-10-20
 
 ### ArtCraft logos removed

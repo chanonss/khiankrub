@@ -4103,6 +4103,22 @@ fn table_style_parts_format_every_table_using_the_style() {
     assert_eq!(s.doc.styles.get("Parts").unwrap().table_part(TablePart::LastCol).chr.font, None);
 }
 
+/// View › Show › Text Boundaries (a thin grey outline around each page's text area, on screen only):
+/// on by default, toggled by `view.textBoundaries`, independent of the gridlines, and not an undoable edit.
+#[test]
+fn text_boundaries_are_on_by_default_and_toggle_on_their_own() {
+    let mut s = s();
+    assert!(s.view.text_boundaries && !s.view.gridlines);
+    run(&mut s, "view.textBoundaries", json!({"value": false}));
+    assert!(!s.view.text_boundaries && !s.view.gridlines);
+    run(&mut s, "view.textBoundaries", json!({}));
+    assert!(s.view.text_boundaries, "no value toggles");
+    run(&mut s, "view.gridlines", json!({"value": true}));
+    run(&mut s, "view.textBoundaries", json!({"value": false}));
+    assert!(s.view.gridlines && !s.view.text_boundaries);
+    assert_eq!(s.undo_depth(), 0, "a view setting is not an undoable edit");
+}
+
 #[test]
 fn page_and_table_gridlines_toggle_independently() {
     // #69: View › Gridlines (the page drawing grid) and Table Layout › View Gridlines (table cell

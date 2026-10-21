@@ -119,6 +119,10 @@ pub struct ViewState {
     /// Table Layout › View Gridlines: outlines of table cells (on screen only); on by default, as in Word.
     #[serde(default = "on")]
     pub table_gridlines: bool,
+    /// View › Show › Text Boundaries: a thin grey outline around each page's text area, inside the
+    /// margins (on screen only; on by default in this fork).
+    #[serde(default = "on")]
+    pub text_boundaries: bool,
     pub nav_pane: bool,
     pub styles_pane: bool,
     /// Style Inspector pane (Home › Styles).
@@ -218,6 +222,7 @@ impl Default for ViewState {
             ruler: true,
             gridlines: false,
             table_gridlines: true,
+            text_boundaries: true,
             nav_pane: false,
             styles_pane: false,
             style_inspector: false,

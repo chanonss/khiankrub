@@ -1209,6 +1209,15 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     painter.line_segment([pos2(x0, sy), pos2(x1, sy)], stroke);
                 }
             }
+            // View › Text Boundaries: a thin grey outline around the text area, inside the margins
+            // (Print Layout, on screen only).
+            if app.session.view.text_boundaries && app.session.view.mode == wordcraft_layout::ViewMode::Print && !app.session.view.read_mode {
+                let area = Rect::from_min_max(
+                    pos2(visual_sr.min.x + page.body.x * page_scale, visual_sr.min.y + page.body.y * page_scale),
+                    pos2(visual_sr.min.x + page.body.right() * page_scale, visual_sr.min.y + page.body.bottom() * page_scale),
+                );
+                painter.rect_stroke(area, 0.0, Stroke::new(1.0, t.border_strong), egui::StrokeKind::Outside);
+            }
             // Table Layout › View Gridlines: table cell outlines (on screen only).
             if app.session.view.table_gridlines {
                 for rect in gridline_cells(page) {

@@ -1916,6 +1916,10 @@ fn view(app: &mut WordApp, ui: &mut Ui) {
             if ui.checkbox(&mut w, tl!("Hide White Space")).changed() {
                 let _ = app.run("view.hideWhiteSpace", json!({"value": w}));
             }
+            let mut b = v.text_boundaries;
+            if ui.checkbox(&mut b, tl!("Text Boundaries")).changed() {
+                let _ = app.run("view.textBoundaries", json!({"value": b}));
+            }
         });
     });
     group(ui, "Zoom", None, app, |ui, app| {
@@ -2767,6 +2771,31 @@ mod tests {
             .max_by(|a, b| a.max.x.total_cmp(&b.max.x))
             .expect("the title bar has controls left of Account");
         assert!(next_to_account.width() > 200.0, "a button sits between the search box and Account: {next_to_account:?}");
+    }
+
+    /// The View tab's Show group has a Text Boundaries check box, on by default; clicking it turns the
+    /// outline around the page's text area off and on again.
+    #[test]
+    fn view_tab_has_a_text_boundaries_check_box() {
+        use egui_kittest::kittest::Queryable;
+        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+        app.run("ui.tab", json!({"tab": "View"})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1440.0, 300.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(4);
+        assert!(h.state().session.view.text_boundaries, "on by default");
+        h.get_by_label("Text Boundaries").click();
+        h.run_steps(3);
+        assert!(!h.state().session.view.text_boundaries, "the check box turns it off");
+        h.get_by_label("Text Boundaries").click();
+        h.run_steps(3);
+        assert!(h.state().session.view.text_boundaries, "and on again");
     }
 
     /// The Home tab's Paragraph group has a Thai Distribution button after Justify (and it sets
