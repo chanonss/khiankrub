@@ -3,6 +3,7 @@
 //! Page range and parity shape the PDF. Native printer settings and copy collation go to
 //! the shared spooler; browser printing and saved print PDFs retain copies in the PDF.
 
+use crate::widgets::SteadyUi;
 use std::sync::Arc;
 
 use egui::{Rect, Sense, Stroke, TextureHandle, Ui, pos2, vec2};
@@ -73,7 +74,7 @@ fn choice(ui: &mut Ui, salt: &str, current: &mut String, items: &[(&str, &str)])
     let mut changed = false;
     egui::ComboBox::from_id_salt(salt).width(260.0).selected_text(tl!(shown)).show_ui(ui, |ui| {
         for (id, label) in items {
-            if ui.selectable_label(current == id, tl!(label)).clicked() && current != id {
+            if ui.steady_label(current == id, tl!(label)).clicked() && current != id {
                 *current = (*id).to_string();
                 changed = true;
             }
@@ -174,7 +175,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     ui.label(egui::RichText::new(tl!("Copies")).font(medium(13.0)));
                     ui.horizontal(|ui| {
                         let mut n = app.ui.print.copies;
-                        ui.add(egui::DragValue::new(&mut n).range(1..=wordcraft_engine::print::MAX_COPIES).speed(0.2));
+                        ui.add(crate::numfield::NumField::new(&mut n).range(1..=wordcraft_engine::print::MAX_COPIES).speed(0.2));
                         app.ui.print.copies = n.clamp(1, wordcraft_engine::print::MAX_COPIES);
                         if app.ui.print.copies > 1 {
                             ui.checkbox(&mut app.ui.print.collate, tl!("Collate copies"));

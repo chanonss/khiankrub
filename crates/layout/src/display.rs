@@ -1101,7 +1101,14 @@ fn lines(
                 let arrow = if line.rtl { '←' } else { '→' };
                 match c.kind {
                     ClKind::Space if marks.spaces => {
-                        out.push(Draw::Mark { x: (cx + nx) / 2.0 - size * 0.12, baseline: base - size * 0.08, size, ch: '·', color: None })
+                        let centre = (cx + nx) / 2.0;
+                        // A face with Thai letters: the dot sits at the middle of their bodies, which a
+                        // Thai font draws lower than the Latin dot's usual height. Else the usual place.
+                        let (x, baseline) = match pl.styles.get(c.style as usize).and_then(|st| thai_body_middle(st.face, size)) {
+                            Some(mid) => space_dot_at(size, centre, base - mid),
+                            None => (centre - size * 0.12, base - size * 0.08),
+                        };
+                        out.push(Draw::Mark { x, baseline, size, ch: '·', color: None })
                     }
                     ClKind::Tab if marks.tabs => {
                         out.push(Draw::Mark { x: cx + ((nx - cx) / 2.0 - size * 0.3).max(0.0), baseline: base, size, ch: arrow, color: None })
@@ -1715,4 +1722,62 @@ fn upright_east_asian(items: Vec<Draw>) -> Vec<Draw> {
         }
     }
     out
+}
+
+/// How far above the baseline the middle of the Thai letter bodies is in `face` at `size` points,
+/// measured on the shape of ก, the first Thai consonant; `None` when the face has no Thai.
+fn thai_body_middle(face: wordcraft_fonts::FaceRef, size: f32) -> Option<f32> {
+    use kurbo::Shape;
+    let gid = face.glyph_for('\u{0E01}');
+    if gid == 0 {
+        return None;
+    }
+    let outline = wordcraft_fonts::FontDb::global().outline(&face, gid);
+    // The outline is y-down from the baseline, so the middle is at minus the box's centre.
+    let middle = -outline.bounding_box().center().y * f64::from(size) / face.upem.max(1.0);
+    (middle.is_finite() && middle > 0.0).then_some(middle as f32)
+}
+
+/// Where the space mark's glyph (the middle dot of the mark font) goes so that the middle of its ink
+/// is at (`centre`, `y`): the glyph's x and its baseline.
+fn space_dot_at(size: f32, centre: f32, y: f32) -> (f32, f32) {
+    use kurbo::Shape;
+    let face = wordcraft_fonts::word::resolve("Source Sans 3", false, false).face;
+    let gid = face.glyph_for('·');
+    let outline = wordcraft_fonts::FontDb::global().outline(&face, gid);
+    let bb = outline.bounding_box();
+    let k = f64::from(size) / face.upem.max(1.0);
+    if gid == 0 || !bb.center().x.is_finite() {
+        return (centre - size * 0.12, y);
+    }
+    ((f64::from(centre) - bb.center().x * k) as f32, (f64::from(y) - bb.center().y * k) as f32)
+}
+
+#[cfg(test)]
+mod space_dot_tests {
+    use super::{space_dot_at, thai_body_middle};
+    use kurbo::Shape;
+
+    /// The space mark's dot is placed so the middle of its ink is exactly where asked.
+    #[test]
+    fn the_space_dot_lands_on_the_requested_centre() {
+        let size = 16.0_f32;
+        let (x, baseline) = space_dot_at(size, 100.0, 50.0);
+        let face = wordcraft_fonts::word::resolve("Source Sans 3", false, false).face;
+        let bb = wordcraft_fonts::FontDb::global().outline(&face, face.glyph_for('·')).bounding_box();
+        let k = f64::from(size) / face.upem;
+        assert!((f64::from(x) + bb.center().x * k - 100.0).abs() < 0.01);
+        assert!((f64::from(baseline) + bb.center().y * k - 50.0).abs() < 0.01);
+    }
+
+    /// In a face with Thai, the middle of the letter bodies is a sensible height above the baseline;
+    /// a face without Thai gives none. (Skipped when this machine has no Thai font.)
+    #[test]
+    fn thai_body_middle_is_inside_the_letter_height() {
+        let latin = wordcraft_fonts::word::resolve("Source Sans 3", false, false).face;
+        assert_eq!(thai_body_middle(latin, 16.0), None, "Source Sans has no Thai");
+        let Some(thai) = wordcraft_fonts::FontDb::global().fallback_for('\u{0E01}', latin.id()) else { return };
+        let mid = thai_body_middle(wordcraft_fonts::FaceRef::of(&thai), 16.0).expect("a face with ก has a middle");
+        assert!(mid > 1.0 && mid < 12.0, "middle {mid} pt above the baseline at 16 pt");
+    }
 }

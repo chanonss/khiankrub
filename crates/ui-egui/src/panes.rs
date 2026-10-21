@@ -2,6 +2,7 @@
 //! Accessibility and Alt Text (see `a11y_pane`), Restrict Editing ([`crate::dialogs_review`]), Comments,
 //! and the SmartArt Text Pane.
 
+use crate::widgets::SteadyUi;
 use egui::{Stroke, Ui, vec2};
 use serde_json::{Value, json};
 use wordcraft_doc::{Pos, StoryRef};
@@ -137,7 +138,7 @@ fn nav(app: &mut WordApp, ui: &mut Ui) {
     ui.add_space(4.0);
     ui.horizontal(|ui| {
         for (k, l) in [("headings", "Headings"), ("pages", "Pages"), ("results", "Results")] {
-            if ui.selectable_label(app.ui.nav_tab == k, tl!(l)).clicked() {
+            if ui.steady_label(app.ui.nav_tab == k, tl!(l)).clicked() {
                 app.ui.nav_tab = k.into();
             }
         }
@@ -148,7 +149,7 @@ fn nav(app: &mut WordApp, ui: &mut Ui) {
             let l = app.session.layout();
             for (i, p) in l.pages.iter().enumerate() {
                 let label = crate::i18n::fmt(tl!("Page {page}"), &[("page", &p.number.to_string())]);
-                if ui.selectable_label(app.session.page_hint == i, label).clicked() {
+                if ui.steady_label(app.session.page_hint == i, label).clicked() {
                     let _ = app.run("edit.goto", json!({"page": i + 1}));
                 }
             }
@@ -218,12 +219,14 @@ fn nav_heading(ui: &mut Ui, level: u8, text: &str, selected: bool) -> egui::Resp
     ui.horizontal(|ui| {
         ui.add_space(level as f32 * 14.0);
         let label = egui::RichText::new(text).font(if level == 0 { semibold(12.5) } else { regular(12.5) });
-        ui.add_sized(
-            vec2(ui.available_width(), ui.spacing().interact_size.y),
-            // The trailing grow atom takes the spare width, so the text starts flush left
-            // under its parent instead of centred, as in Word (#1199).
-            egui::Button::selectable(selected, (label, egui::Atom::grow())).truncate(),
-        )
+        ui.steady_scope(selected, |ui| {
+            ui.add_sized(
+                vec2(ui.available_width(), ui.spacing().interact_size.y),
+                // The trailing grow atom takes the spare width, so the text starts flush left
+                // under its parent instead of centred, as in Word (#1199).
+                egui::Button::selectable(selected, (label, egui::Atom::grow())).truncate(),
+            )
+        })
         .on_hover_text(text)
     })
     .inner
@@ -303,7 +306,7 @@ fn styles(app: &mut WordApp, ui: &mut Ui) {
     if ui.button(tl!("Manage Styles…")).clicked() {
         let _ = app.run("styles.manage", json!({}));
     }
-    if ui.selectable_label(app.session.view.style_inspector, tl!("Style Inspector")).clicked() {
+    if ui.steady_label(app.session.view.style_inspector, tl!("Style Inspector")).clicked() {
         let _ = app.run("styles.inspector", json!({}));
     }
     ui.separator();
@@ -320,7 +323,7 @@ fn styles(app: &mut WordApp, ui: &mut Ui) {
     egui::ScrollArea::vertical().show(ui, |ui| {
         for (id, name, is_char) in list {
             ui.horizontal(|ui| {
-                let r = ui.selectable_label(id == cur, &name);
+                let r = ui.steady_label(id == cur, &name);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(egui::RichText::new(if is_char { "a" } else { "¶" }).weak());
                 });

@@ -10,6 +10,7 @@
 //! the colour back to a dialog's field. The colour a command takes is any `RRGGBB`, so a custom
 //! colour needs nothing new below the UI.
 
+use crate::widgets::SteadyUi;
 use egui::{Color32, Id, Pos2, Rect, Sense, Stroke, Ui, pos2, vec2};
 use serde_json::{Value, json};
 use wordcraft_doc::Rgb;
@@ -487,7 +488,7 @@ fn body(ui: &mut Ui, d: &mut ColorsDialog) -> Option<bool> {
     ui.add_space(6.0);
     ui.horizontal(|ui| {
         for (tab, label) in [(ColorsTab::Standard, "Standard"), (ColorsTab::Custom, "Custom")] {
-            if ui.selectable_label(d.tab == tab, tl!(label)).clicked() {
+            if ui.steady_label(d.tab == tab, tl!(label)).clicked() {
                 d.tab = tab;
             }
         }
@@ -676,8 +677,8 @@ fn custom(ui: &mut Ui, d: &mut ColorsDialog) {
             })
             .width(90.0)
             .show_ui(ui, |ui| {
-                ui.selectable_value(&mut d.model, Model::Rgb, "RGB");
-                ui.selectable_value(&mut d.model, Model::Hsl, "HSL");
+                ui.steady_value(&mut d.model, Model::Rgb, "RGB");
+                ui.steady_value(&mut d.model, Model::Hsl, "HSL");
             });
         ui.end_row();
         match d.model {
@@ -687,7 +688,7 @@ fn custom(ui: &mut Ui, d: &mut ColorsDialog) {
                 for (i, label) in ["Red:", "Green:", "Blue:"].into_iter().enumerate() {
                     ui.label(tl!(label));
                     if let Some(v) = c.get_mut(i) {
-                        changed |= ui.add(egui::DragValue::new(v).range(0..=255).speed(1.0)).changed();
+                        changed |= ui.add(crate::numfield::NumField::new(v).range(0..=255).speed(1.0)).changed();
                     }
                     ui.end_row();
                 }
@@ -703,7 +704,7 @@ fn custom(ui: &mut Ui, d: &mut ColorsDialog) {
                 for (i, label) in ["Hue:", "Sat:", "Lum:"].into_iter().enumerate() {
                     ui.label(tl!(label));
                     if let Some(x) = v.get_mut(i) {
-                        changed |= ui.add(egui::DragValue::new(x).range(0..=255).speed(1.0)).changed();
+                        changed |= ui.add(crate::numfield::NumField::new(x).range(0..=255).speed(1.0)).changed();
                     }
                     ui.end_row();
                 }

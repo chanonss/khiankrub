@@ -770,7 +770,7 @@ fn list_rows<'a>(
                     }
                     p(ui, it).clicked()
                 }
-                None => ui.selectable_label(if highlight.is_some() { lit } else { it == current }, it.as_str()).clicked(),
+                None => ui.steady_label(if highlight.is_some() { lit } else { it == current }, it.as_str()).clicked(),
             };
             if clicked {
                 out = Some(it.clone());
@@ -875,6 +875,63 @@ fn icon_text_button_with(ui: &mut Ui, icon: &str, text: &str, font: egui::FontId
         icons::paint(ui.painter(), Rect::from_center_size(c, vec2(DROPDOWN, DROPDOWN)), "dropdown", st.text, st.text);
     }
     resp
+}
+
+/// Selectable labels (tabs, list entries) that keep their size under the pointer.
+///
+/// egui draws a selectable label without a frame at rest and with one on hover. It sizes the resting
+/// label with the frame's border taken out of its padding but never draws that border, so a hovered
+/// label came out 2 px wider (and taller) and everything next to it jumped. With no border at rest
+/// the sizes agree. The look is egui's own.
+pub trait SteadyUi {
+    /// Runs `add` (which should add one `Button::selectable`) so that, when it is not `selected`, it
+    /// keeps its size under the pointer.
+    fn steady_scope<R>(&mut self, selected: bool, add: impl FnOnce(&mut egui::Ui) -> R) -> R;
+    /// Like [`egui::Ui::selectable_label`].
+    fn steady_label<'a>(&mut self, checked: bool, text: impl egui::IntoAtoms<'a>) -> egui::Response;
+    /// Like [`egui::Ui::selectable_value`].
+    fn steady_value<'a, Value: PartialEq>(&mut self, current: &mut Value, selected: Value, text: impl egui::IntoAtoms<'a>) -> egui::Response;
+    /// Like [`egui::Ui::toggle_value`].
+    fn steady_toggle<'a>(&mut self, selected: &mut bool, text: impl egui::IntoAtoms<'a>) -> egui::Response;
+}
+
+impl SteadyUi for egui::Ui {
+    fn steady_label<'a>(&mut self, checked: bool, text: impl egui::IntoAtoms<'a>) -> egui::Response {
+        if checked {
+            // Drawn with its frame at rest, so its size doesn't depend on the border.
+            return self.add(egui::Button::selectable(true, text));
+        }
+        self.steady_scope(false, |ui| ui.add(egui::Button::selectable(false, text)))
+    }
+
+    fn steady_scope<R>(&mut self, selected: bool, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
+        if selected {
+            return add(self);
+        }
+        self.scope(|ui| {
+            ui.style_mut().visuals.widgets.inactive.bg_stroke = egui::Stroke::NONE;
+            add(ui)
+        })
+        .inner
+    }
+
+    fn steady_value<'a, Value: PartialEq>(&mut self, current: &mut Value, selected: Value, text: impl egui::IntoAtoms<'a>) -> egui::Response {
+        let mut response = self.steady_label(*current == selected, text);
+        if response.clicked() && *current != selected {
+            *current = selected;
+            response.mark_changed();
+        }
+        response
+    }
+
+    fn steady_toggle<'a>(&mut self, selected: &mut bool, text: impl egui::IntoAtoms<'a>) -> egui::Response {
+        let mut response = self.steady_label(*selected, text);
+        if response.clicked() {
+            *selected = !*selected;
+            response.mark_changed();
+        }
+        response
+    }
 }
 
 #[cfg(test)]

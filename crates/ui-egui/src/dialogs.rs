@@ -6,6 +6,7 @@
 //! `dialogs_keyboard`, Customize Ribbon in `dialogs_ribbon`). Every dialog ends by running a
 //! command (or shows one's result), so agents get the same result without the dialog.
 
+use crate::widgets::SteadyUi;
 use std::collections::BTreeSet;
 
 use egui::{Sense, Ui, vec2};
@@ -1406,14 +1407,14 @@ fn page_paper_group(ui: &mut Ui, paper: &mut (f32, f32), landscape: &mut bool, c
         let shown = tl!(entry.unwrap_or(l.custom));
         let combo = egui::ComboBox::from_id_salt("ps_paper_size").width(180.0).height(400.0).selected_text(shown).show_ui(ui, |ui| {
             for (n, w, h) in wordcraft_geom::PAPER_SIZES {
-                if ui.selectable_label(entry == Some(*n), tl!(n)).clicked() {
+                if ui.steady_label(entry == Some(*n), tl!(n)).clicked() {
                     let (w, h) = (w / ppu, h / ppu);
                     *paper = if *landscape { (w.max(h), w.min(h)) } else { (w.min(h), w.max(h)) };
                     *custom = false;
                 }
             }
             // Custom size keeps the numbers to edit, and stays chosen while they match a name.
-            if ui.selectable_label(entry.is_none(), tl!(l.custom)).clicked() {
+            if ui.steady_label(entry.is_none(), tl!(l.custom)).clicked() {
                 *custom = true;
             }
         });
@@ -1423,9 +1424,9 @@ fn page_paper_group(ui: &mut Ui, paper: &mut (f32, f32), landscape: &mut bool, c
         use wordcraft_engine::cmd::page::{MAX_PAGE_SIDE, MIN_PAGE_SIDE};
         let range = MIN_PAGE_SIDE / ppu..=MAX_PAGE_SIDE / ppu;
         ui.label(tl!(l.width));
-        let w = ui.add(egui::DragValue::new(&mut paper.0).speed(3.6 / ppu).range(range.clone()).measure(unit).max_decimals(2));
+        let w = ui.add(crate::numfield::NumField::new(&mut paper.0).speed(3.6 / ppu).range(range.clone()).measure(unit).max_decimals(2));
         ui.label(tl!(l.height));
-        let h = ui.add(egui::DragValue::new(&mut paper.1).speed(3.6 / ppu).range(range).measure(unit).max_decimals(2));
+        let h = ui.add(crate::numfield::NumField::new(&mut paper.1).speed(3.6 / ppu).range(range).measure(unit).max_decimals(2));
         if (w.changed() || h.changed()) && paper.0 != paper.1 {
             *landscape = paper.0 > paper.1;
         }
@@ -1605,7 +1606,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 color_field(ui, &theme, color, "Automatic", "auto");
                 ui.end_row();
                 ui.label(tl!("Spacing (pt):"));
-                ui.add(egui::DragValue::new(spacing).speed(0.1).range(-20.0..=20.0));
+                ui.add(crate::numfield::NumField::new(spacing).speed(0.1).range(-20.0..=20.0));
                 ui.end_row();
             });
             ui.separator();
@@ -1660,7 +1661,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         } => {
             ui.horizontal(|ui| {
                 for (k, name) in ["Indents and Spacing", "Line and Page Breaks", "Asian Typography"].into_iter().enumerate() {
-                    if ui.selectable_label(*tab as usize == k, tl!(name)).clicked() {
+                    if ui.steady_label(*tab as usize == k, tl!(name)).clicked() {
                         *tab = k as u8;
                     }
                 }
@@ -1680,8 +1681,14 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                             }
                         }
                     });
-                    const ALIGNS: [(&str, &str); 5] =
-                        [("left", "Left"), ("center", "Center"), ("right", "Right"), ("justify", "Justify"), ("thaiDistribute", "Thai Distribution")];
+                    const ALIGNS: [(&str, &str); 6] = [
+                        ("left", "Left"),
+                        ("center", "Center"),
+                        ("right", "Right"),
+                        ("justify", "Justify"),
+                        ("distribute", "Distributed"),
+                        ("thaiDistribute", "Thai Distribution"),
+                    ];
                     ui.horizontal(|ui| {
                         ui.label(tl!("Alignment:"));
                         let shown = if mixed.contains("align") {
@@ -1691,7 +1698,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                         };
                         egui::ComboBox::from_id_salt("para_align").selected_text(shown).show_ui(ui, |ui| {
                             for (v, l) in ALIGNS {
-                                if ui.selectable_value(align, v.to_string(), tl!(l)).clicked() {
+                                if ui.steady_value(align, v.to_string(), tl!(l)).clicked() {
                                     mixed.remove("align");
                                 }
                             }
@@ -1766,7 +1773,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         Dialog::Find { query, replace, match_case, whole_word, regex, extra, tab, goto_what, goto_target, message, focus } => {
             ui.horizontal(|ui| {
                 for (t, label) in [(FindTab::Find, "Find"), (FindTab::Replace, "Replace"), (FindTab::GoTo, "Go To")] {
-                    if ui.selectable_label(*tab == t, tl!(label)).clicked() && *tab != t {
+                    if ui.steady_label(*tab == t, tl!(label)).clicked() && *tab != t {
                         *tab = t;
                         message.clear();
                     }
@@ -1805,7 +1812,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 ui.checkbox(&mut extra.wildcards, tl!("Use wildcards"));
             });
             let arrow = if extra.more { "▾" } else { "▸" };
-            if ui.selectable_label(extra.more, format!("{arrow} {}", tl!("Search Options"))).clicked() {
+            if ui.steady_label(extra.more, format!("{arrow} {}", tl!("Search Options"))).clicked() {
                 extra.more = !extra.more;
             }
             if extra.more {
@@ -1839,7 +1846,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             if !replace_mode {
                 ui.horizontal(|ui| {
                     let lit = app.session.find.highlight;
-                    if ui.selectable_label(lit, tl!("Reading Highlight")).clicked() {
+                    if ui.steady_label(lit, tl!("Reading Highlight")).clicked() {
                         let mut v = opts.clone();
                         v["highlight"] = json!(!lit);
                         match app.run("edit.advancedFind", v) {
@@ -1898,7 +1905,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 ui.vertical(|ui| {
                     ui.label(tl!("Enclosure"));
                     for (v, l) in [("circle", "Circle"), ("square", "Square"), ("triangle", "Triangle"), ("diamond", "Diamond")] {
-                        ui.add_enabled_ui(style != "none", |ui| ui.selectable_value(shape, v.to_string(), tl!(l)));
+                        ui.add_enabled_ui(style != "none", |ui| ui.steady_value(shape, v.to_string(), tl!(l)));
                     }
                 });
             });
@@ -1923,10 +1930,10 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         Dialog::InsertTable { rows, cols } => {
             egui::Grid::new("it").num_columns(2).show(ui, |ui| {
                 ui.label(tl!("Number of columns:"));
-                ui.add(egui::DragValue::new(cols).range(1..=63));
+                ui.add(crate::numfield::NumField::new(cols).range(1..=63));
                 ui.end_row();
                 ui.label(tl!("Number of rows:"));
-                ui.add(egui::DragValue::new(rows).range(1..=1000));
+                ui.add(crate::numfield::NumField::new(rows).range(1..=1000));
                 ui.end_row();
             });
             let (ok, cancel) = buttons(ui, tl!("OK"));
@@ -1939,16 +1946,34 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             ui.label(egui::RichText::new(tl!("Margins")).font(semibold(12.5)));
             egui::Grid::new("ps").num_columns(4).show(ui, |ui| {
                 ui.label(tl!("Top:"));
-                ui.add(egui::DragValue::new(top).speed(3.6 / crate::options::unit().pt_per_unit()).measure(crate::options::unit()).max_decimals(2));
+                ui.add(
+                    crate::numfield::NumField::new(top)
+                        .speed(3.6 / crate::options::unit().pt_per_unit())
+                        .measure(crate::options::unit())
+                        .max_decimals(2),
+                );
                 ui.label(tl!("Bottom:"));
                 ui.add(
-                    egui::DragValue::new(bottom).speed(3.6 / crate::options::unit().pt_per_unit()).measure(crate::options::unit()).max_decimals(2),
+                    crate::numfield::NumField::new(bottom)
+                        .speed(3.6 / crate::options::unit().pt_per_unit())
+                        .measure(crate::options::unit())
+                        .max_decimals(2),
                 );
                 ui.end_row();
                 ui.label(if *mirror { tl!("Inside:") } else { tl!("Left:") });
-                ui.add(egui::DragValue::new(left).speed(3.6 / crate::options::unit().pt_per_unit()).measure(crate::options::unit()).max_decimals(2));
+                ui.add(
+                    crate::numfield::NumField::new(left)
+                        .speed(3.6 / crate::options::unit().pt_per_unit())
+                        .measure(crate::options::unit())
+                        .max_decimals(2),
+                );
                 ui.label(if *mirror { tl!("Outside:") } else { tl!("Right:") });
-                ui.add(egui::DragValue::new(right).speed(3.6 / crate::options::unit().pt_per_unit()).measure(crate::options::unit()).max_decimals(2));
+                ui.add(
+                    crate::numfield::NumField::new(right)
+                        .speed(3.6 / crate::options::unit().pt_per_unit())
+                        .measure(crate::options::unit())
+                        .max_decimals(2),
+                );
                 ui.end_row();
             });
             ui.label(egui::RichText::new(tl!("Orientation")).font(semibold(12.5)));
@@ -1968,9 +1993,9 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             });
             egui::Grid::new("ps_grid").num_columns(4).show(ui, |ui| {
                 ui.add_enabled(grid.0 >= 2, egui::Label::new(tl!("Characters per line:")));
-                ui.add_enabled(grid.0 >= 2, egui::DragValue::new(&mut grid.2).range(1..=1000));
+                ui.add_enabled(grid.0 >= 2, crate::numfield::NumField::new(&mut grid.2).range(1..=1000));
                 ui.add_enabled(grid.0 >= 1, egui::Label::new(tl!("Lines per page:")));
-                ui.add_enabled(grid.0 >= 1, egui::DragValue::new(&mut grid.1).range(1..=1000));
+                ui.add_enabled(grid.0 >= 1, crate::numfield::NumField::new(&mut grid.1).range(1..=1000));
                 ui.end_row();
             });
             ui.horizontal(|ui| {
@@ -2022,8 +2047,8 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             // Word's "Link to:" choices; the places are read once, when that tab is first shown.
             ui.horizontal(|ui| {
                 ui.label(tl!("Link to:"));
-                ui.selectable_value(place, false, tl!("Existing File or Web Page"));
-                if ui.selectable_value(place, true, tl!("Place in This Document")).clicked() && targets.is_none() {
+                ui.steady_value(place, false, tl!("Existing File or Web Page"));
+                if ui.steady_value(place, true, tl!("Place in This Document")).clicked() && targets.is_none() {
                     *targets = app.run("link.targets", json!({})).ok();
                 }
             });
@@ -2046,7 +2071,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                     egui::ScrollArea::vertical().max_height(220.0).min_scrolled_height(160.0).auto_shrink([false, true]).show(ui, |ui| {
                         let is = |pick: &Option<(Value, String)>, key: &str, val: &Value| pick.as_ref().is_some_and(|(v, _)| v.get(key) == Some(val));
                         let top = tl!("Top of the Document").to_string();
-                        if ui.selectable_label(is(pick, "top", &json!(true)), &top).clicked() {
+                        if ui.steady_label(is(pick, "top", &json!(true)), &top).clicked() {
                             chosen = Some((json!({"top": true}), top));
                         }
                         let headings = targets.as_ref().and_then(|t| t.get("headings")).and_then(Value::as_array).cloned().unwrap_or_default();
@@ -2058,7 +2083,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                             let name = h.get("text").and_then(Value::as_str).unwrap_or_default().to_string();
                             ui.horizontal(|ui| {
                                 ui.add_space(14.0 * level.saturating_sub(1).min(8) as f32 + 8.0);
-                                if ui.selectable_label(is(pick, "heading", &block), &name).clicked() {
+                                if ui.steady_label(is(pick, "heading", &block), &name).clicked() {
                                     chosen = Some((json!({"heading": block}), name));
                                 }
                             });
@@ -2070,7 +2095,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                         for m in marks.iter().filter_map(Value::as_str) {
                             ui.horizontal(|ui| {
                                 ui.add_space(8.0);
-                                if ui.selectable_label(is(pick, "bookmark", &json!(m)), m).clicked() {
+                                if ui.steady_label(is(pick, "bookmark", &json!(m)), m).clicked() {
                                     chosen = Some((json!({"bookmark": m}), m.to_string()));
                                 }
                             });
@@ -2193,15 +2218,15 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 let shown = ALIGNS.iter().find(|(k, _)| k == align).map_or("Center", |(_, l)| l);
                 egui::ComboBox::from_id_salt("phonetic_align").selected_text(tl!(shown)).show_ui(ui, |ui| {
                     for (k, l) in ALIGNS {
-                        ui.selectable_value(align, k.to_string(), tl!(l));
+                        ui.steady_value(align, k.to_string(), tl!(l));
                     }
                 });
                 ui.end_row();
                 ui.label(tl!("Offset (pt):"));
-                ui.add(egui::DragValue::new(offset).speed(0.5).range(-100.0..=100.0));
+                ui.add(crate::numfield::NumField::new(offset).speed(0.5).range(-100.0..=100.0));
                 ui.end_row();
                 ui.label(tl!("Size (pt):"));
-                ui.add(egui::DragValue::new(size).speed(0.5).range(1.0..=200.0));
+                ui.add(crate::numfield::NumField::new(size).speed(0.5).range(1.0..=200.0));
                 ui.end_row();
             });
             let mut remove = false;
@@ -2256,15 +2281,15 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 }
                 ui.end_row();
                 ui.label(tl!("Size:"));
-                ui.add(egui::DragValue::new(size).range(1.0..=1638.0).speed(0.5));
+                ui.add(crate::numfield::NumField::new(size).range(1.0..=1638.0).speed(0.5));
                 ui.end_row();
                 ui.label(tl!("Color:"));
                 ui.text_edit_singleline(color);
                 ui.end_row();
                 ui.label(tl!("Space before/after:"));
                 ui.horizontal(|ui| {
-                    ui.add(egui::DragValue::new(before).range(0.0..=1584.0));
-                    ui.add(egui::DragValue::new(after).range(0.0..=1584.0));
+                    ui.add(crate::numfield::NumField::new(before).range(0.0..=1584.0));
+                    ui.add(crate::numfield::NumField::new(after).range(0.0..=1584.0));
                 });
                 ui.end_row();
             });
@@ -2378,7 +2403,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             ui.horizontal(|ui| {
                 for (i, l) in ["About", "Contributors", "Models"].into_iter().enumerate() {
                     let i = i as u8;
-                    if ui.selectable_label(*tab == i, tl!(l)).clicked() {
+                    if ui.steady_label(*tab == i, tl!(l)).clicked() {
                         *tab = i;
                     }
                 }
@@ -2489,7 +2514,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 ui.label(tl!("Fields:"));
                 egui::ScrollArea::vertical().max_height(220.0).show(ui, |ui| {
                     for f in fields.iter() {
-                        let resp = ui.selectable_label(field == f, f);
+                        let resp = ui.steady_label(field == f, f);
                         if resp.clicked() {
                             field.clone_from(f);
                         }
@@ -2626,7 +2651,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 ui.set_min_width(300.0);
                 egui::ScrollArea::vertical().id_salt("select_table").max_height(220.0).show(ui, |ui| {
                     for (i, name) in sheets.iter().enumerate() {
-                        let r = ui.selectable_label(*selected == i, name.as_str());
+                        let r = ui.steady_label(*selected == i, name.as_str());
                         if r.clicked() || r.double_clicked() {
                             *selected = i;
                         }
@@ -2688,7 +2713,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 } else {
                     egui::ComboBox::from_id_salt("merge_rule_field").selected_text(field.as_str()).width(200.0).show_ui(ui, |ui| {
                         for f in fields.iter() {
-                            ui.selectable_value(field, f.clone(), f);
+                            ui.steady_value(field, f.clone(), f);
                         }
                     });
                 }
@@ -2895,10 +2920,10 @@ fn recipient_filter(ui: &mut Ui, fields: &[String], filter: &mut RecipientFilter
         let shown = if value.is_empty() { tl!("(none)").to_string() } else { value.clone() };
         egui::ComboBox::from_id_salt(id).width(130.0).selected_text(shown).show_ui(ui, |ui| {
             if none {
-                ui.selectable_value(value, String::new(), tl!("(none)"));
+                ui.steady_value(value, String::new(), tl!("(none)"));
             }
             for n in &names {
-                ui.selectable_value(value, n.clone(), n.as_str());
+                ui.steady_value(value, n.clone(), n.as_str());
             }
         });
     };
@@ -2914,14 +2939,14 @@ fn recipient_filter(ui: &mut Ui, fields: &[String], filter: &mut RecipientFilter
                 ui.label("");
             } else {
                 egui::ComboBox::from_id_salt(("rf_join", i)).width(60.0).selected_text(tl!(if r.or { "Or" } else { "And" })).show_ui(ui, |ui| {
-                    ui.selectable_value(&mut r.or, false, tl!("And"));
-                    ui.selectable_value(&mut r.or, true, tl!("Or"));
+                    ui.steady_value(&mut r.or, false, tl!("And"));
+                    ui.steady_value(&mut r.or, true, tl!("Or"));
                 });
             }
             field_combo(ui, ("rf_field", i), &mut r.field, false);
             egui::ComboBox::from_id_salt(("rf_op", i)).width(150.0).selected_text(tl!(r.op.label())).show_ui(ui, |ui| {
                 for op in FilterOp::ALL {
-                    ui.selectable_value(&mut r.op, op, tl!(op.label()));
+                    ui.steady_value(&mut r.op, op, tl!(op.label()));
                 }
             });
             ui.add_enabled(r.op.has_value(), egui::TextEdit::singleline(&mut r.value).desired_width(130.0));
@@ -2953,8 +2978,8 @@ fn recipient_filter(ui: &mut Ui, fields: &[String], filter: &mut RecipientFilter
                 egui::ComboBox::from_id_salt(("rs_dir", i)).width(110.0).selected_text(tl!(if *desc { "Descending" } else { "Ascending" })).show_ui(
                     ui,
                     |ui| {
-                        ui.selectable_value(desc, false, tl!("Ascending"));
-                        ui.selectable_value(desc, true, tl!("Descending"));
+                        ui.steady_value(desc, false, tl!("Ascending"));
+                        ui.steady_value(desc, true, tl!("Descending"));
                     },
                 );
             });
@@ -2966,8 +2991,8 @@ fn recipient_filter(ui: &mut Ui, fields: &[String], filter: &mut RecipientFilter
 /// The Table Properties dialog's fields: Table, Row, Column and Cell sections.
 fn table_properties(ui: &mut Ui, f: &mut TableForm) {
     let unit = crate::options::unit();
-    fn len(v: &mut f32, lo: f32, unit: wordcraft_geom::Unit) -> egui::DragValue<'_> {
-        egui::DragValue::new(v).speed(0.01).range(lo..=22.0).measure(unit).max_decimals(2)
+    fn len(v: &mut f32, lo: f32, unit: wordcraft_geom::Unit) -> crate::numfield::NumField<'_> {
+        crate::numfield::NumField::new(v).speed(0.01).range(lo..=22.0).measure(unit).max_decimals(2)
     }
     let heading = |ui: &mut Ui, s: &str| {
         ui.add_space(4.0);
@@ -2986,7 +3011,10 @@ fn table_properties(ui: &mut Ui, f: &mut TableForm) {
         });
         ui.end_row();
         ui.label(tl!("Indent from left:"));
-        ui.add_enabled(f.align == "left", egui::DragValue::new(&mut f.indent).speed(0.01).range(-11.0..=22.0).measure(unit).max_decimals(2));
+        ui.add_enabled(
+            f.align == "left",
+            crate::numfield::NumField::new(&mut f.indent).speed(0.01).range(-11.0..=22.0).measure(unit).max_decimals(2),
+        );
         ui.end_row();
         ui.label(tl!("Table direction:"));
         ui.horizontal(|ui| {
@@ -2997,8 +3025,8 @@ fn table_properties(ui: &mut Ui, f: &mut TableForm) {
     });
     // The engine keeps the margins within 2 inches (144 pt).
     let max_margin = 144.0 / unit.pt_per_unit();
-    fn margin(v: &mut f32, max: f32, unit: wordcraft_geom::Unit) -> egui::DragValue<'_> {
-        egui::DragValue::new(v).speed(0.01).range(0.0..=max).measure(unit).max_decimals(2)
+    fn margin(v: &mut f32, max: f32, unit: wordcraft_geom::Unit) -> crate::numfield::NumField<'_> {
+        crate::numfield::NumField::new(v).speed(0.01).range(0.0..=max).measure(unit).max_decimals(2)
     }
     heading(ui, "Default cell margins");
     egui::Grid::new("tp_margins").num_columns(4).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
@@ -3021,8 +3049,8 @@ fn table_properties(ui: &mut Ui, f: &mut TableForm) {
             ui.add_enabled(f.row_height_on, len(&mut f.row_height, 0.02, unit));
             ui.add_enabled_ui(f.row_height_on, |ui| {
                 egui::ComboBox::from_id_salt("tp_rule").selected_text(tl!(if f.row_exact { "Exactly" } else { "At least" })).show_ui(ui, |ui| {
-                    ui.selectable_value(&mut f.row_exact, false, tl!("At least"));
-                    ui.selectable_value(&mut f.row_exact, true, tl!("Exactly"));
+                    ui.steady_value(&mut f.row_exact, false, tl!("At least"));
+                    ui.steady_value(&mut f.row_exact, true, tl!("Exactly"));
                 });
             });
         });
@@ -3061,7 +3089,18 @@ fn paragraph_dialog(rp: &wordcraft_doc::resolve::ResolvedPara, tab: u8) -> Dialo
     let unit = crate::options::unit().pt_per_unit();
     Dialog::Paragraph {
         rtl: rp.bidi,
-        align: format!("{:?}", rp.align.visual(rp.bidi)).to_lowercase(),
+        align: {
+            use wordcraft_doc::props::Align;
+            match rp.align.visual(rp.bidi) {
+                Align::Left => "left",
+                Align::Center => "center",
+                Align::Right => "right",
+                Align::Justify => "justify",
+                Align::Distribute => "distribute",
+                Align::ThaiDistribute => "thaiDistribute",
+            }
+            .to_string()
+        },
         left: vl / unit,
         right: vr / unit,
         first: rp.indent_first / unit,
@@ -3119,9 +3158,9 @@ fn para_number(ui: &mut Ui, value: &mut f32, kind: ParaNumber, key: &str, mixed:
     let blank = mixed.contains(key);
     // A value from the document outside the range (line spacing 6) stays until edited.
     let field = match kind {
-        ParaNumber::Length => egui::DragValue::new(value).speed(3.6 / unit.pt_per_unit()).max_decimals(2),
-        ParaNumber::Points => egui::DragValue::new(value).speed(1.0).range(0.0..=1584.0).clamp_existing_to_range(false),
-        ParaNumber::Lines => egui::DragValue::new(value).speed(0.05).range(0.5..=5.0).clamp_existing_to_range(false),
+        ParaNumber::Length => crate::numfield::NumField::new(value).speed(3.6 / unit.pt_per_unit()).max_decimals(2),
+        ParaNumber::Points => crate::numfield::NumField::new(value).speed(1.0).range(0.0..=1584.0).clamp_existing_to_range(false),
+        ParaNumber::Lines => crate::numfield::NumField::new(value).speed(0.05).range(0.5..=5.0).clamp_existing_to_range(false),
     };
     let field = match kind {
         ParaNumber::Length if blank => field.measure_blank(unit),
@@ -3210,7 +3249,7 @@ fn bookmark(app: &mut WordApp, ui: &mut Ui, name: &mut String, by_location: &mut
                 ui.set_height(150.0);
                 egui::ScrollArea::vertical().id_salt("bookmark_list").max_height(150.0).auto_shrink([false, false]).show(ui, |ui| {
                     for n in &marks {
-                        if ui.selectable_label(*n == *name, n.as_str()).clicked() {
+                        if ui.steady_label(*n == *name, n.as_str()).clicked() {
                             *name = n.clone();
                         }
                     }
@@ -3271,8 +3310,8 @@ fn manage_styles(app: &mut WordApp, ui: &mut Ui, alphabetical: &mut bool, select
         egui::ComboBox::from_id_salt("manage_styles_sort")
             .selected_text(if *alphabetical { tl!("Alphabetical") } else { tl!("As Recommended") })
             .show_ui(ui, |ui| {
-                ui.selectable_value(alphabetical, false, tl!("As Recommended"));
-                ui.selectable_value(alphabetical, true, tl!("Alphabetical"));
+                ui.steady_value(alphabetical, false, tl!("As Recommended"));
+                ui.steady_value(alphabetical, true, tl!("Alphabetical"));
             });
     });
     let t = Tokens::get(ui.ctx());
@@ -3293,7 +3332,7 @@ fn manage_styles(app: &mut WordApp, ui: &mut Ui, alphabetical: &mut bool, select
                 if hidden {
                     name = name.weak();
                 }
-                let r = ui.selectable_label(*selected == id, name);
+                let r = ui.steady_label(*selected == id, name);
                 // Bring the selection into view once, when it changes (opening, New Style…).
                 if *selected == id && ui.data(|d| d.get_temp::<String>(shown)).as_deref() != Some(id.as_str()) {
                     r.scroll_to_me(Some(egui::Align::Center));
@@ -3472,7 +3511,7 @@ fn goto_body(app: &mut WordApp, ui: &mut Ui, what: &mut GoToWhat, target: &mut S
         ui.vertical(|ui| {
             ui.label(tl!("Go to what:"));
             for (w, label) in [(GoToWhat::Page, "Page"), (GoToWhat::Bookmark, "Bookmark")] {
-                if ui.selectable_label(*what == w, tl!(label)).clicked() && *what != w {
+                if ui.steady_label(*what == w, tl!(label)).clicked() && *what != w {
                     *what = w;
                     target.clear();
                     message.clear();
@@ -3490,7 +3529,7 @@ fn goto_body(app: &mut WordApp, ui: &mut Ui, what: &mut GoToWhat, target: &mut S
                 ui.label(tl!("Enter bookmark name:"));
                 egui::ComboBox::from_id_salt("goto_bookmark").width(220.0).selected_text(target.as_str()).show_ui(ui, |ui| {
                     for b in &bookmarks {
-                        ui.selectable_value(target, b.clone(), b.as_str());
+                        ui.steady_value(target, b.clone(), b.as_str());
                     }
                 });
                 if bookmarks.is_empty() {
@@ -3564,11 +3603,11 @@ fn icons_body(app: &mut WordApp, ui: &mut Ui, query: &mut String, category: &mut
     ui.add_space(4.0);
     ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing = vec2(4.0, 4.0);
-        if ui.selectable_label(category.is_empty(), tl!("All")).clicked() {
+        if ui.steady_label(category.is_empty(), tl!("All")).clicked() {
             category.clear();
         }
         for c in Category::ALL {
-            if ui.selectable_label(*category == c.name(), tl!(c.name())).clicked() {
+            if ui.steady_label(*category == c.name(), tl!(c.name())).clicked() {
                 *category = c.name().to_string();
             }
         }
@@ -3669,7 +3708,7 @@ fn page_valign_combo(ui: &mut egui::Ui, valign: &mut wordcraft_doc::section::Pag
         let shown = CHOICES.iter().find(|(v, _)| v == valign).map_or("", |(_, l)| tl!(l));
         egui::ComboBox::from_id_salt("ps_valign").selected_text(shown).show_ui(ui, |ui| {
             for (v, l) in CHOICES {
-                ui.selectable_value(valign, v, tl!(l));
+                ui.steady_value(valign, v, tl!(l));
             }
         });
     });
@@ -3874,6 +3913,37 @@ mod tests {
         }
         let _ = app.run("edit.undo", json!({}));
         assert_eq!((0..3).map(|i| para_props(&app, i)).collect::<Vec<_>>(), was, "undo takes all of it back");
+    }
+
+    /// Opening the Paragraph dialog on a Thai Distribution (or Distributed) paragraph shows the alignment by
+    /// its name, not as raw text, and OK without a change keeps it.
+    #[test]
+    fn paragraph_dialog_names_thai_distribution_and_keeps_it() {
+        use egui_kittest::kittest::{NodeT, Queryable};
+        for (command, want, name) in [
+            ("para.thaiDistribute", wordcraft_doc::Align::ThaiDistribute, "Thai Distribution"),
+            ("para.distribute", wordcraft_doc::Align::Distribute, "Distributed"),
+        ] {
+            let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+            app.run("text.insert", json!({"text": "สวัสดีครับ"})).unwrap();
+            app.run(command, json!({})).unwrap();
+            app.dialog = Dialog::open("paragraph", &mut app);
+            let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+                |ui, app: &mut WordApp| {
+                    let ctx = ui.ctx().clone();
+                    app.logic(&ctx);
+                    app.ui(ui);
+                },
+                app,
+            );
+            h.run_steps(4);
+            let combo = h.get_by_role(egui::accesskit::Role::ComboBox);
+            assert_eq!(NodeT::accesskit_node(&combo).value().as_deref(), Some(name), "{command}");
+            h.get_by_role_and_label(egui::accesskit::Role::Button, "OK").click();
+            h.run_steps(4);
+            let align = h.state().session.doc.para_at(&wordcraft_doc::Pos::body(0, 0)).and_then(|p| p.props.align);
+            assert_eq!(align, Some(want), "{command}: OK without a change keeps the alignment");
+        }
     }
 
     /// The Alignment list lists Thai Distribution, and choosing it with OK sets it on the paragraph.
@@ -4344,7 +4414,8 @@ mod tests {
         h.state_mut().run("layout.orientation", json!({"value": "portrait"})).unwrap();
         h.state_mut().run("ui.dialog", json!({"name": "pageSetup"})).unwrap();
         h.run_steps(3);
-        h.get_by_value("8.27\"").focus();
+        // The text box comes first; the text inside it carries the same value.
+        h.get_all_by_value("8.27\"").next().unwrap().focus();
         h.run_steps(2);
         h.key_press_modifiers(egui::Modifiers::COMMAND, egui::Key::A);
         h.event(egui::Event::Text("15".into()));

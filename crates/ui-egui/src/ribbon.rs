@@ -1,5 +1,6 @@
 //! The ribbon: tab strip and every tab's groups. Each control runs a command by id.
 
+use crate::widgets::SteadyUi;
 use egui::{Align2, Rect, Sense, Stroke, Ui, pos2, vec2};
 use serde_json::{Value, json};
 
@@ -43,7 +44,7 @@ fn reading_toolbar(app: &mut WordApp, ui: &mut Ui, t: Tokens) {
                 };
                 ui.menu_button(format!("{}: {}", tl!("Column width"), tl!(active)), |ui| {
                     for (name, value) in [("Auto", "auto"), ("Narrow", "narrow"), ("Medium", "medium"), ("Wide", "wide"), ("Page", "page")] {
-                        if ui.selectable_label(active == name, tl!(name)).clicked() {
+                        if ui.steady_label(active == name, tl!(name)).clicked() {
                             let _ = app.run("view.readColumnWidth", json!({"value": value}));
                             ui.close();
                         }
@@ -53,7 +54,7 @@ fn reading_toolbar(app: &mut WordApp, ui: &mut Ui, t: Tokens) {
                 let pct = (app.session.view.read_zoom * 100.0).round() as u32;
                 ui.menu_button(format!("{}: {pct}%", tl!("Text size")), |ui| {
                     for percent in [75, 90, 100, 110, 125, 150] {
-                        if ui.selectable_label(pct == percent, format!("{percent}%")).clicked() {
+                        if ui.steady_label(pct == percent, format!("{percent}%")).clicked() {
                             let _ = app.run("view.readTextSize", json!({"value": percent}));
                             ui.close();
                         }
@@ -63,12 +64,12 @@ fn reading_toolbar(app: &mut WordApp, ui: &mut Ui, t: Tokens) {
                 let spacing = app.session.view.read_line_spacing;
                 let label = spacing.map_or_else(|| tl!("Document").to_owned(), |v| format!("{v}×"));
                 ui.menu_button(format!("{}: {}", tl!("Line spacing"), label), |ui| {
-                    if ui.selectable_label(spacing.is_none(), tl!("Document")).clicked() {
+                    if ui.steady_label(spacing.is_none(), tl!("Document")).clicked() {
                         let _ = app.run("view.readLineSpacing", json!({"value": "document"}));
                         ui.close();
                     }
                     for value in [1.0, 1.25, 1.5, 2.0] {
-                        if ui.selectable_label(spacing == Some(value), format!("{value}×")).clicked() {
+                        if ui.steady_label(spacing == Some(value), format!("{value}×")).clicked() {
                             let _ = app.run("view.readLineSpacing", json!({"value": value}));
                             ui.close();
                         }
@@ -254,18 +255,18 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     };
                     let mode = crate::widgets::icon_text_menu_button(ui, mode_icon, mode_label, regular(12.0));
                     egui::Popup::menu(&mode).show(|ui| {
-                        if ui.selectable_label(!view_only && !track, tl!(tl!("Editing — edit the document directly"))).clicked() {
+                        if ui.steady_label(!view_only && !track, tl!(tl!("Editing — edit the document directly"))).clicked() {
                             // Leave view-only first: it refuses the tracking command.
                             let _ = app.run("review.viewOnly", json!({"value": false}));
                             let _ = app.run("review.trackChanges", json!({"value": false}));
                             ui.close();
                         }
-                        if ui.selectable_label(!view_only && track, tl!(tl!("Reviewing — edits become suggestions"))).clicked() {
+                        if ui.steady_label(!view_only && track, tl!(tl!("Reviewing — edits become suggestions"))).clicked() {
                             let _ = app.run("review.viewOnly", json!({"value": false}));
                             let _ = app.run("review.trackChanges", json!({"value": true}));
                             ui.close();
                         }
-                        if ui.selectable_label(view_only, tl!(tl!("View only — no changes or suggestions"))).clicked() {
+                        if ui.steady_label(view_only, tl!(tl!("View only — no changes or suggestions"))).clicked() {
                             let _ = app.run("review.viewOnly", json!({"value": true}));
                             ui.close();
                         }
@@ -333,7 +334,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                             ui.painter().text(r.center(), Align2::CENTER_CENTER, "»", medium(12.5), t.text);
                             egui::Popup::menu(&resp).show(|ui| {
                                 for (tab, shown) in left_out {
-                                    if ui.selectable_label(false, shown).clicked() {
+                                    if ui.steady_label(false, shown).clicked() {
                                         let _ = app.run("ui.tab", json!({"tab": tab}));
                                         ui.close();
                                     }
@@ -1486,22 +1487,30 @@ fn layout(app: &mut WordApp, ui: &mut Ui) {
             let mut l = rp.indent_left / k;
             let mut b = rp.space_before;
             ui.label(egui::RichText::new(tl!("Left:")).small());
-            if ui.add_sized(FIELD, egui::DragValue::new(&mut l).speed(3.6 / k).range(-792.0 / k..=1584.0 / k).measure(u).max_decimals(2)).changed() {
+            if ui
+                .add_sized(FIELD, crate::numfield::NumField::new(&mut l).speed(3.6 / k).range(-792.0 / k..=1584.0 / k).measure(u).max_decimals(2))
+                .changed()
+            {
                 let _ = app.run("para.indents", json!({"left": l * k}));
             }
             spaced(ui, egui::RichText::new(tl!("Before:")).small());
-            if ui.add_sized(FIELD, egui::DragValue::new(&mut b).speed(1.0).range(0.0..=1584.0).suffix(format!(" {}", tl!("pt")))).changed() {
+            if ui.add_sized(FIELD, crate::numfield::NumField::new(&mut b).speed(1.0).range(0.0..=1584.0).suffix(format!(" {}", tl!("pt")))).changed()
+            {
                 let _ = app.run("para.spacing", json!({"before": b}));
             }
             ui.end_row();
             let mut r = rp.indent_right / k;
             let mut a = rp.space_after;
             ui.label(egui::RichText::new(tl!("Right:")).small());
-            if ui.add_sized(FIELD, egui::DragValue::new(&mut r).speed(3.6 / k).range(-792.0 / k..=1584.0 / k).measure(u).max_decimals(2)).changed() {
+            if ui
+                .add_sized(FIELD, crate::numfield::NumField::new(&mut r).speed(3.6 / k).range(-792.0 / k..=1584.0 / k).measure(u).max_decimals(2))
+                .changed()
+            {
                 let _ = app.run("para.indents", json!({"right": r * k}));
             }
             spaced(ui, egui::RichText::new(tl!("After:")).small());
-            if ui.add_sized(FIELD, egui::DragValue::new(&mut a).speed(1.0).range(0.0..=1584.0).suffix(format!(" {}", tl!("pt")))).changed() {
+            if ui.add_sized(FIELD, crate::numfield::NumField::new(&mut a).speed(1.0).range(0.0..=1584.0).suffix(format!(" {}", tl!("pt")))).changed()
+            {
                 let _ = app.run("para.spacing", json!({"after": a}));
             }
             ui.end_row();
@@ -1571,7 +1580,7 @@ fn rotation_field(ui: &mut Ui, app: &mut WordApp) {
     let deg0 = wordcraft_engine::cmd::objects::selected(&app.session).and_then(|(_, o)| o.frame().map(|(_, _, f)| f.spin().deg)).unwrap_or(0.0);
     ui.label(egui::RichText::new(tl!("Rotation:")).small());
     let mut deg = deg0;
-    let r = ui.add(egui::DragValue::new(&mut deg).speed(1.0).range(-360.0..=360.0).max_decimals(1).suffix("°"));
+    let r = ui.add(crate::numfield::NumField::new(&mut deg).speed(1.0).range(-360.0..=360.0).max_decimals(1).suffix("°"));
     if r.changed() {
         if r.dragged() && !r.drag_started() {
             app.session.join_next_undo();
@@ -1940,7 +1949,12 @@ fn view(app: &mut WordApp, ui: &mut Ui) {
         big(ui, app, "darkMode", "Switch\nModes", "view.darkMode", json!({}), false);
         menu_button(ui, app, "interfaceTheme", Some("Interface\nTheme"), "Interface Theme", true, "", |ui, app| {
             for a in crate::theme::Appearance::ALL {
-                if ui.add(egui::Button::selectable(app.ui.theme == a, tl!(a.label())).min_size(vec2(200.0, 0.0))).clicked() {
+                if ui
+                    .steady_scope(app.ui.theme == a, |ui| {
+                        ui.add(egui::Button::selectable(app.ui.theme == a, tl!(a.label())).min_size(vec2(200.0, 0.0)))
+                    })
+                    .clicked()
+                {
                     let _ = app.run("ui.theme", json!({"value": a.code()}));
                     ui.close();
                 }
@@ -2129,7 +2143,7 @@ fn chart_design(app: &mut WordApp, ui: &mut Ui) {
                 crate::widgets::row(ui, |ui| {
                     ui.label(egui::RichText::new(tl!(label)).small());
                     let mut v = v0;
-                    let r = ui.add(egui::DragValue::new(&mut v).speed(1.0).range(36.0..=2000.0).suffix(" pt"));
+                    let r = ui.add(crate::numfield::NumField::new(&mut v).speed(1.0).range(36.0..=2000.0).suffix(" pt"));
                     if r.changed() {
                         if r.dragged() && !r.drag_started() {
                             app.session.join_next_undo();
@@ -2217,7 +2231,7 @@ fn shape_format(app: &mut WordApp, ui: &mut Ui) {
                 for (label, key, v0) in [("W:", "width", w0), ("H:", "height", h0)] {
                     ui.label(egui::RichText::new(tl!(label)).small());
                     let mut v = v0;
-                    let r = ui.add(egui::DragValue::new(&mut v).speed(1.0).range(4.0..=2000.0).suffix(" pt"));
+                    let r = ui.add(crate::numfield::NumField::new(&mut v).speed(1.0).range(4.0..=2000.0).suffix(" pt"));
                     if r.changed() {
                         if r.dragged() && !r.drag_started() {
                             app.session.join_next_undo();
@@ -2342,7 +2356,7 @@ fn picture_format(app: &mut WordApp, ui: &mut Ui) {
             };
             let key = egui::Id::new(("picture_transparency", media, off));
             let mut v = ui.data(|d| d.get_temp::<f64>(key)).unwrap_or(0.0);
-            let r = ui.add(egui::DragValue::new(&mut v).speed(1.0).range(0.0..=100.0).suffix("%"));
+            let r = ui.add(crate::numfield::NumField::new(&mut v).speed(1.0).range(0.0..=100.0).suffix("%"));
             if r.changed() {
                 ui.data_mut(|d| d.insert_temp(key, v));
                 if r.dragged() && !r.drag_started() {
@@ -2394,7 +2408,7 @@ fn picture_format(app: &mut WordApp, ui: &mut Ui) {
             crate::widgets::row(ui, |ui| {
                 ui.label(egui::RichText::new(tl!("W:")).small());
                 let mut w = w0;
-                let r = ui.add(egui::DragValue::new(&mut w).speed(1.0).range(4.0..=2000.0).suffix(format!(" {}", tl!("pt"))));
+                let r = ui.add(crate::numfield::NumField::new(&mut w).speed(1.0).range(4.0..=2000.0).suffix(format!(" {}", tl!("pt"))));
                 if r.changed() {
                     if r.dragged() && !r.drag_started() {
                         app.session.join_next_undo();
@@ -2403,7 +2417,7 @@ fn picture_format(app: &mut WordApp, ui: &mut Ui) {
                 }
                 ui.label(egui::RichText::new(tl!("H:")).small());
                 let mut h = h0;
-                let r = ui.add(egui::DragValue::new(&mut h).speed(1.0).range(4.0..=2000.0).suffix(format!(" {}", tl!("pt"))));
+                let r = ui.add(crate::numfield::NumField::new(&mut h).speed(1.0).range(4.0..=2000.0).suffix(format!(" {}", tl!("pt"))));
                 if r.changed() {
                     if r.dragged() && !r.drag_started() {
                         app.session.join_next_undo();
@@ -2419,7 +2433,7 @@ fn picture_format(app: &mut WordApp, ui: &mut Ui) {
                 for (i, side) in ["L", "T", "R", "B"].iter().enumerate() {
                     ui.label(egui::RichText::new(tl!(side)).small());
                     let mut v = crop0[i] * 100.0;
-                    let r = ui.add(egui::DragValue::new(&mut v).speed(0.5).range(0.0..=45.0).suffix("%"));
+                    let r = ui.add(crate::numfield::NumField::new(&mut v).speed(0.5).range(0.0..=45.0).suffix("%"));
                     if r.changed() {
                         if r.dragged() && !r.drag_started() {
                             app.session.join_next_undo();
@@ -2592,7 +2606,8 @@ fn cell_size_boxes(ui: &mut Ui, app: &mut WordApp) {
         crate::widgets::row(ui, |ui| {
             ui.add_sized(vec2(48.0, 18.0), egui::Label::new(egui::RichText::new(tl!(label)).small()));
             let mut v = pt / k;
-            let r = ui.add_sized(vec2(72.0, 18.0), egui::DragValue::new(&mut v).speed(0.01).range(0.02..=22.0).measure(unit).max_decimals(2));
+            let r =
+                ui.add_sized(vec2(72.0, 18.0), crate::numfield::NumField::new(&mut v).speed(0.01).range(0.02..=22.0).measure(unit).max_decimals(2));
             if r.changed() {
                 out = Some((v * k, r.dragged() && !r.drag_started()));
             }

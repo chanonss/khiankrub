@@ -4,6 +4,7 @@
 //! limits and logs, operators, matrices). Tiles and button pictures are rendered by the math
 //! engine itself.
 
+use crate::widgets::SteadyUi;
 use egui::{Align2, Rect, Sense, Stroke, Ui, pos2, vec2};
 use serde_json::json;
 use wordcraft_doc::math::parse_linear;
@@ -220,7 +221,7 @@ fn symbols(ui: &mut Ui, app: &mut WordApp) {
             ui.set_width(420.0);
             ui.horizontal_wrapped(|ui| {
                 for (i, (name, _)) in SYMBOL_SETS.iter().enumerate() {
-                    if ui.selectable_label(i == set, tl!(name)).clicked() {
+                    if ui.steady_label(i == set, tl!(name)).clicked() {
                         ui.data_mut(|d| {
                             d.insert_temp(id, i);
                             d.insert_temp(start_id, 0usize);

@@ -7,6 +7,24 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-21
 
+### Fixes from testing (tabs, number fields, space marks, alignment name)
+- **Tabs and lists no longer move under the pointer.** egui gave a hovered selectable label a border that
+  counted toward its size, so tab strips and lists grew by 2 px on hover and pushed their neighbours (and a
+  centred dialog by 1 px). All 125 such labels now use `SteadyUi` (`steady_label`, `steady_value`,
+  `steady_toggle`, `steady_scope` in `widgets.rs`). It affected 15 dialogs: Paragraph, Icons, Link, New and
+  Modify Table Style, Go To, Find, Replace, Organizer, Borders, About, Manage Styles, Enclose, Define List and
+  Customize Ribbon. A test sweeps every dialog, Options page, File page and ribbon tab and checks that hovering
+  any control moves nothing (`hover_stability.rs`; the full sweep is `--ignored`).
+- **Number fields are plain text boxes.** The fields for lengths, sizes and counts no longer change when dragged
+  sideways and no longer show the resize cursor: you click, the number is selected, and you type. They keep the
+  range, decimals and units (`NumField` in `numfield.rs`, replacing egui's `DragValue` at 56 places). Up and Down
+  step the value; Escape goes back to the number before the edit. Sliders (the zoom slider) are unchanged.
+- **Space marks centred on Thai text.** With formatting marks on, the dot for a space sat high, near the tops of the
+  Thai letters. In a font that has Thai it is now centred on the middle of the letter bodies (measured on the
+  shape of ก) and in the middle of the gap. Other fonts are unchanged.
+- **Paragraph dialog names Thai Distribution.** Its Alignment box showed the raw text `thaidistribute` and OK without
+  a change could not read it back. It now shows "Thai Distribution" and keeps it; "Distributed" is listed too.
+
 ### Other interface languages removed
 - The 22 interface translations (Bulgarian, Czech, German, Spanish, Estonian, French, Croatian, Hungarian, Italian,
   Japanese, Korean, Polish, Portuguese (Brazil), Russian, Serbian in both scripts, Swedish, Turkish, Ukrainian,

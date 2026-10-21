@@ -4,6 +4,7 @@
 //! result without the UI. The picker is shown through [`crate::dialogs_insert::InsertDialog`];
 //! the pane through [`crate::panes`].
 
+use crate::widgets::SteadyUi;
 use egui::{Color32, Painter, Rect, Sense, Stroke, Ui, pos2, vec2};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -160,7 +161,7 @@ pub fn picker_ui(app: &mut WordApp, ui: &mut Ui, f: &mut SmartArtForm) -> bool {
         ui.vertical(|ui| {
             ui.set_width(120.0);
             for cat in CATEGORIES {
-                if ui.selectable_label(f.category == cat, tl!(cat)).clicked() {
+                if ui.steady_label(f.category == cat, tl!(cat)).clicked() {
                     f.category = cat.to_string();
                     if !f.shown().contains(&f.layout)
                         && let Some(first) = f.shown().first()

@@ -3,6 +3,7 @@
 //! `styles.copyFrom`, `styles.delete`, `styles.rename`), so agents get the same result without
 //! the dialogs.
 
+use crate::widgets::SteadyUi;
 use egui::{Ui, vec2};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -187,7 +188,7 @@ pub fn organizer(app: &mut WordApp, ui: &mut Ui, f: &mut OrganizerForm) -> bool 
             list_frame(ui, "organizer_mine", &mut |ui| {
                 for st in &mine {
                     let id = s(st, "id");
-                    if ui.selectable_label(f.left == id, format!("{}  {}", glyph(&s(st, "type")), s(st, "name"))).clicked() {
+                    if ui.steady_label(f.left == id, format!("{}  {}", glyph(&s(st, "type")), s(st, "name"))).clicked() {
                         f.left = id;
                         f.rename = None;
                     }
@@ -206,7 +207,7 @@ pub fn organizer(app: &mut WordApp, ui: &mut Ui, f: &mut OrganizerForm) -> bool 
             ui.label(egui::RichText::new(name).font(semibold(12.5))).on_hover_text(f.file.as_str());
             list_frame(ui, "organizer_other", &mut |ui| {
                 for (n, ty) in &f.other {
-                    if ui.selectable_label(f.right == *n, format!("{}  {n}", glyph(ty))).clicked() {
+                    if ui.steady_label(f.right == *n, format!("{}  {n}", glyph(ty))).clicked() {
                         f.right = n.clone();
                     }
                 }

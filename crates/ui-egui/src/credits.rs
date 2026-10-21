@@ -3,6 +3,7 @@
 //! build.rs from contributors/contributors.json (craftrules standards/contributors.md); nothing is
 //! read at run time.
 
+use crate::widgets::SteadyUi;
 use std::cmp::Ordering;
 
 use egui::RichText;
@@ -217,7 +218,7 @@ pub fn contributors_ui(ui: &mut egui::Ui) {
     ui.horizontal_wrapped(|ui| {
         ui.label(tl!("Show"));
         for m in NameMode::ALL {
-            if ui.selectable_label(v.names == m, tl!(m.label())).clicked() {
+            if ui.steady_label(v.names == m, tl!(m.label())).clicked() {
                 v.names = m;
             }
         }
@@ -225,7 +226,7 @@ pub fn contributors_ui(ui: &mut egui::Ui) {
         ui.label(tl!("Sort"));
         egui::ComboBox::from_id_salt("credits_sort").selected_text(tl!(v.key.label().0)).show_ui(ui, |ui| {
             for k in SortKey::ALL {
-                if ui.selectable_label(v.key == k, tl!(k.label().0)).clicked() {
+                if ui.steady_label(v.key == k, tl!(k.label().0)).clicked() {
                     v.key = k;
                     v.ascending = k.default_ascending();
                 }
@@ -235,10 +236,10 @@ pub fn contributors_ui(ui: &mut egui::Ui) {
             v.ascending = !v.ascending;
         }
         ui.separator();
-        if ui.selectable_label(!v.table, tl!("Grab bag")).clicked() {
+        if ui.steady_label(!v.table, tl!("Grab bag")).clicked() {
             v.table = false;
         }
-        if ui.selectable_label(v.table, tl!("Table")).clicked() {
+        if ui.steady_label(v.table, tl!("Table")).clicked() {
             v.table = true;
         }
     });

@@ -3,6 +3,7 @@
 //! (`layout.columns`, `insert.symbol`, `insert.field`), so scripts and agents get the same result
 //! without the dialog. Shown through [`crate::dialogs::Dialog::Insert`].
 
+use crate::widgets::SteadyUi;
 use egui::{Color32, Rect, Sense, Stroke, Ui, pos2, vec2};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -374,7 +375,7 @@ fn columns_ui(app: &mut WordApp, ui: &mut Ui, f: &mut ColumnsForm) -> bool {
     ui.horizontal(|ui| {
         ui.label(tl!("Number of columns:"));
         let mut n = f.count;
-        if ui.add(egui::DragValue::new(&mut n).range(1..=12)).changed() {
+        if ui.add(crate::numfield::NumField::new(&mut n).range(1..=12)).changed() {
             f.set_count(n);
         }
         ui.add_space(16.0);
@@ -397,12 +398,13 @@ fn columns_ui(app: &mut WordApp, ui: &mut Ui, f: &mut ColumnsForm) -> bool {
                         let editable = i == 0 || !f.equal;
                         ui.label(format!("{}:", i + 1));
                         if let Some(c) = f.cols.get_mut(i) {
-                            let w = egui::DragValue::new(&mut c.0).speed(0.01).range(ColumnsForm::min_w()..=max).measure(unit).max_decimals(2);
+                            let w =
+                                crate::numfield::NumField::new(&mut c.0).speed(0.01).range(ColumnsForm::min_w()..=max).measure(unit).max_decimals(2);
                             if ui.add_enabled(editable, w).changed() {
                                 changed = Some(i);
                             }
                             if i + 1 < n {
-                                let s = egui::DragValue::new(&mut c.1).speed(0.01).range(0.0..=max).measure(unit).max_decimals(2);
+                                let s = crate::numfield::NumField::new(&mut c.1).speed(0.01).range(0.0..=max).measure(unit).max_decimals(2);
                                 if ui.add_enabled(editable, s).changed() {
                                     changed = Some(i);
                                 }
@@ -441,7 +443,7 @@ fn columns_ui(app: &mut WordApp, ui: &mut Ui, f: &mut ColumnsForm) -> bool {
         let shown = options.iter().find(|(k, _)| *k == f.apply).map(|(_, l)| *l).unwrap_or("This section");
         egui::ComboBox::from_id_salt("columns_apply").selected_text(tl!(shown)).width(180.0).show_ui(ui, |ui| {
             for (k, l) in &options {
-                ui.selectable_value(&mut f.apply, (*k).to_string(), tl!(l));
+                ui.steady_value(&mut f.apply, (*k).to_string(), tl!(l));
             }
         });
     });
@@ -721,7 +723,7 @@ fn symbol_ui(app: &mut WordApp, ui: &mut Ui, f: &mut SymbolForm) -> bool {
     ui.set_width(GRID_COLS as f32 * CELL + 24.0);
     ui.horizontal(|ui| {
         for (i, l) in ["Symbols", "Special Characters"].into_iter().enumerate() {
-            if ui.selectable_label(f.tab == i as u8, tl!(l)).clicked() {
+            if ui.steady_label(f.tab == i as u8, tl!(l)).clicked() {
                 f.tab = i as u8;
             }
         }
@@ -766,7 +768,7 @@ fn symbol_ui(app: &mut WordApp, ui: &mut Ui, f: &mut SymbolForm) -> bool {
             egui::ComboBox::from_id_salt("symbol_subset").selected_text(current).width(170.0).show_ui(ui, |ui| {
                 for (name, a, b) in SUBSETS {
                     let i = f.chars.partition_point(|c| (*c as u32) < *a);
-                    if f.chars.get(i).is_some_and(|c| (*c as u32) <= *b) && ui.selectable_label(*name == current, *name).clicked() {
+                    if f.chars.get(i).is_some_and(|c| (*c as u32) <= *b) && ui.steady_label(*name == current, *name).clicked() {
                         chosen = Some(*name);
                     }
                 }
@@ -885,7 +887,7 @@ fn special_ui(app: &mut WordApp, ui: &mut Ui, f: &mut SymbolForm, insert: &mut O
             for (i, (name, c, cmd)) in SPECIAL.iter().enumerate() {
                 let shown = if c.is_whitespace() || matches!(*c, '\u{00AD}' | '\u{200B}' | '\u{2060}') { String::new() } else { c.to_string() };
                 ui.label(egui::RichText::new(shown).font(regular(15.0)).color(t.text));
-                let resp = ui.selectable_label(f.special == i, tl!(name));
+                let resp = ui.steady_label(f.special == i, tl!(name));
                 if resp.clicked() {
                     f.special = i;
                 }
@@ -1178,7 +1180,7 @@ fn field_ui(app: &mut WordApp, ui: &mut Ui, f: &mut FieldForm) -> bool {
             let shown = tl!(f.category.as_str()).to_string();
             egui::ComboBox::from_id_salt("field_category").selected_text(shown).width(190.0).show_ui(ui, |ui| {
                 for c in FIELD_CATEGORIES {
-                    ui.selectable_value(&mut f.category, (*c).to_string(), tl!(c));
+                    ui.steady_value(&mut f.category, (*c).to_string(), tl!(c));
                 }
             });
             ui.label(tl!("Field names:"));
@@ -1186,7 +1188,7 @@ fn field_ui(app: &mut WordApp, ui: &mut Ui, f: &mut FieldForm) -> bool {
             egui::Frame::new().stroke(Stroke::new(1.0, t.border)).inner_margin(2.0).show(ui, |ui| {
                 egui::ScrollArea::vertical().id_salt("field_names").max_height(230.0).auto_shrink([false, false]).show(ui, |ui| {
                     for (name, cat, _) in FIELDS {
-                        if (f.category == "(All)" || f.category == *cat) && ui.selectable_label(f.name == *name, *name).clicked() {
+                        if (f.category == "(All)" || f.category == *cat) && ui.steady_label(f.name == *name, *name).clicked() {
                             picked = Some(*name);
                         }
                     }
@@ -1246,7 +1248,7 @@ fn field_options(ui: &mut Ui, f: &mut FieldForm, t: &Tokens) {
                 egui::ScrollArea::vertical().id_salt("field_dates").max_height(170.0).auto_shrink([false, false]).show(ui, |ui| {
                     for pic in DATE_FORMATS {
                         let sample = wordcraft_engine::cmd::insert::format_date(pic);
-                        if ui.selectable_label(f.date_format == *pic, sample).on_hover_text(*pic).clicked() {
+                        if ui.steady_label(f.date_format == *pic, sample).on_hover_text(*pic).clicked() {
                             f.date_format = (*pic).to_string();
                         }
                     }
@@ -1264,7 +1266,7 @@ fn field_options(ui: &mut Ui, f: &mut FieldForm, t: &Tokens) {
                 ui,
                 |ui| {
                     for (v, l) in NUMBER_FORMATS {
-                        ui.selectable_value(&mut f.number_format, (*v).to_string(), if *l == "(none)" { tl!(l) } else { l });
+                        ui.steady_value(&mut f.number_format, (*v).to_string(), if *l == "(none)" { tl!(l) } else { l });
                     }
                 },
             );
@@ -1277,7 +1279,7 @@ fn field_options(ui: &mut Ui, f: &mut FieldForm, t: &Tokens) {
             } else {
                 egui::ComboBox::from_id_salt("field_bookmark").selected_text(f.target.clone()).width(200.0).show_ui(ui, |ui| {
                     for b in &f.bookmarks {
-                        ui.selectable_value(&mut f.target, b.clone(), b);
+                        ui.steady_value(&mut f.target, b.clone(), b);
                     }
                 });
             }
@@ -1288,7 +1290,7 @@ fn field_options(ui: &mut Ui, f: &mut FieldForm, t: &Tokens) {
             if !f.merge_fields.is_empty() {
                 ui.horizontal_wrapped(|ui| {
                     for m in f.merge_fields.clone() {
-                        if ui.selectable_label(f.target == m, &m).clicked() {
+                        if ui.steady_label(f.target == m, &m).clicked() {
                             f.target = m;
                         }
                     }
@@ -1299,7 +1301,7 @@ fn field_options(ui: &mut Ui, f: &mut FieldForm, t: &Tokens) {
             ui.label(tl!("Style name:"));
             egui::ComboBox::from_id_salt("field_style").selected_text(f.target.clone()).width(200.0).show_ui(ui, |ui| {
                 for n in &f.styles {
-                    ui.selectable_value(&mut f.target, n.clone(), n);
+                    ui.steady_value(&mut f.target, n.clone(), n);
                 }
             });
             ui.add_space(4.0);

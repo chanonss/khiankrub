@@ -2,6 +2,7 @@
 //! (`para.tabs`; `para.borders`, `para.shading`, `format.set`, `format.shading`,
 //! `design.pageBorders`) as one undo step, so agents get the same result without the dialog.
 
+use crate::widgets::SteadyUi;
 use egui::{Rect, Sense, Stroke, Ui, pos2, vec2};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -225,7 +226,7 @@ pub fn tabs(app: &mut WordApp, ui: &mut Ui, f: &mut TabsForm) -> bool {
                                 let mut pv = t.pos / k;
                                 let r = ui.add_sized(
                                     vec2(58.0, 18.0),
-                                    egui::DragValue::new(&mut pv).speed(0.05).range(-1584.0 / k..=1584.0 / k).measure(u).max_decimals(2),
+                                    crate::numfield::NumField::new(&mut pv).speed(0.05).range(-1584.0 / k..=1584.0 / k).measure(u).max_decimals(2),
                                 );
                                 if r.changed() {
                                     f.set_pos(i, pv * k);
@@ -242,7 +243,7 @@ pub fn tabs(app: &mut WordApp, ui: &mut Ui, f: &mut TabsForm) -> bool {
                                     ui,
                                     |ui| {
                                         for v in crate::ruler_tabs::KINDS {
-                                            ui.selectable_value(&mut a, v, tl!(crate::ruler_tabs::kind_label(v)));
+                                            ui.steady_value(&mut a, v, tl!(crate::ruler_tabs::kind_label(v)));
                                         }
                                     },
                                 );
@@ -259,7 +260,7 @@ pub fn tabs(app: &mut WordApp, ui: &mut Ui, f: &mut TabsForm) -> bool {
                                     .unwrap_or_default();
                                 egui::ComboBox::from_id_salt("tab_leader").width(64.0).selected_text(shown).show_ui(ui, |ui| {
                                     for (v, label, _) in LEADERS {
-                                        ui.selectable_value(&mut l, v, tl!(label));
+                                        ui.steady_value(&mut l, v, tl!(label));
                                     }
                                 });
                                 if l != t.leader {
@@ -300,7 +301,7 @@ pub fn tabs(app: &mut WordApp, ui: &mut Ui, f: &mut TabsForm) -> bool {
         ui.vertical(|ui| {
             ui.set_min_width(130.0);
             ui.label(tl!("Default tab stops:"));
-            ui.add(egui::DragValue::new(&mut f.default_tab).speed(0.05).range(1.0 / k..=1584.0 / k).measure(u).max_decimals(2));
+            ui.add(crate::numfield::NumField::new(&mut f.default_tab).speed(0.05).range(1.0 / k..=1584.0 / k).measure(u).max_decimals(2));
             ui.add_space(8.0);
             ui.label(tl!("Tab stops to be cleared:"));
             let list = if f.clear_all {
@@ -530,7 +531,7 @@ impl BordersForm {
 pub fn borders(app: &mut WordApp, ui: &mut Ui, f: &mut BordersForm) -> bool {
     ui.horizontal(|ui| {
         for (i, l) in ["Borders", "Page Border", "Shading"].into_iter().enumerate() {
-            if ui.selectable_label(f.tab == i as u8, tl!(l)).clicked() {
+            if ui.steady_label(f.tab == i as u8, tl!(l)).clicked() {
                 f.tab = i as u8;
             }
         }
@@ -610,7 +611,7 @@ fn lines(ui: &mut Ui, id: &str, l: &mut LineForm, theme: &[Rgb], fill: Option<Rg
             let current = STYLES.iter().find(|(s, _)| *s == l.style).map(|(_, n)| *n).unwrap_or("Single");
             egui::ComboBox::from_id_salt((id, "style")).selected_text(tl!(current)).width(120.0).show_ui(ui, |ui| {
                 for (s, n) in STYLES {
-                    ui.selectable_value(&mut l.style, s, tl!(n));
+                    ui.steady_value(&mut l.style, s, tl!(n));
                 }
             });
             ui.label(tl!("Color:"));
@@ -621,7 +622,7 @@ fn lines(ui: &mut Ui, id: &str, l: &mut LineForm, theme: &[Rgb], fill: Option<Rg
                 .width(120.0)
                 .show_ui(ui, |ui| {
                     for w in WIDTHS {
-                        ui.selectable_value(&mut l.width, w, crate::i18n::fmt(tl!("{n} pt"), &[("n", &w.to_string())]));
+                        ui.steady_value(&mut l.width, w, crate::i18n::fmt(tl!("{n} pt"), &[("n", &w.to_string())]));
                     }
                 });
         });
@@ -638,7 +639,7 @@ fn lines(ui: &mut Ui, id: &str, l: &mut LineForm, theme: &[Rgb], fill: Option<Rg
                     sides.push((BETWEEN, "Between"));
                 }
                 for (i, n) in sides {
-                    if ui.selectable_label(l.sides.get(i).copied().unwrap_or(false), tl!(n)).clicked() {
+                    if ui.steady_label(l.sides.get(i).copied().unwrap_or(false), tl!(n)).clicked() {
                         l.toggle(i);
                     }
                 }

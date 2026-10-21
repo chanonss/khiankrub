@@ -4,6 +4,7 @@
 //! goes into its pane's function. Settings agents can change too go through `file.options`; the
 //! rest live in [`crate::UiState`] (saved in `ui.json`).
 
+use crate::widgets::SteadyUi;
 use std::cell::Cell;
 
 use egui::{RichText, Ui, vec2};
@@ -56,7 +57,7 @@ pub trait MeasureExt {
     fn measure_blank(self, unit: Unit) -> Self;
 }
 
-impl MeasureExt for egui::DragValue<'_> {
+impl MeasureExt for crate::numfield::NumField<'_> {
     fn measure(self, unit: Unit) -> Self {
         let sep = decimal();
         self.suffix(unit.suffix())
@@ -463,7 +464,7 @@ fn advanced(app: &mut WordApp, ui: &mut Ui) {
     egui::Grid::new("options_display").num_columns(2).spacing(vec2(8.0, 6.0)).show(ui, |ui| {
         ui.label(tl!("Recent documents to show:"));
         let mut n = app.ui.recent_shown();
-        if ui.add(egui::DragValue::new(&mut n).range(0..=crate::MAX_RECENT).speed(0.2)).changed() {
+        if ui.add(crate::numfield::NumField::new(&mut n).range(0..=crate::MAX_RECENT).speed(0.2)).changed() {
             app.ui.recent_count = n;
         }
         ui.end_row();
@@ -474,11 +475,11 @@ fn advanced(app: &mut WordApp, ui: &mut Ui) {
         let name = UNITS.iter().find(|(u, _)| *u == units).map_or("Inches", |(_, n)| n);
         let shown = if auto { format!("{} ({})", tl!("Automatic"), tl!(name)) } else { tl!(name).to_string() };
         egui::ComboBox::from_id_salt("options_units").selected_text(shown).width(200.0).show_ui(ui, |ui| {
-            if ui.selectable_label(auto, tl!("Automatic")).clicked() {
+            if ui.steady_label(auto, tl!("Automatic")).clicked() {
                 set(app, json!({"units": "auto"}));
             }
             for (u, label) in UNITS {
-                if ui.selectable_label(!auto && units == u, tl!(label)).clicked() {
+                if ui.steady_label(!auto && units == u, tl!(label)).clicked() {
                     set(app, json!({"units": u}));
                 }
             }
@@ -493,11 +494,11 @@ fn advanced(app: &mut WordApp, ui: &mut Ui) {
         let automatic = crate::i18n::fmt(tl!("Automatic ({region})"), &[("region", system_tag.as_str())]);
         let shown = chosen.clone().unwrap_or_else(|| automatic.clone());
         egui::ComboBox::from_id_salt("options_region").selected_text(shown).width(200.0).show_ui(ui, |ui| {
-            if ui.selectable_label(chosen.is_none(), automatic.as_str()).clicked() {
+            if ui.steady_label(chosen.is_none(), automatic.as_str()).clicked() {
                 set(app, json!({"region": "auto"}));
             }
             for tag in REGIONS {
-                if ui.selectable_label(chosen.as_deref() == Some(tag), tag).clicked() {
+                if ui.steady_label(chosen.as_deref() == Some(tag), tag).clicked() {
                     set(app, json!({"region": tag}));
                 }
             }
@@ -548,7 +549,7 @@ fn theme_picker(app: &mut WordApp, ui: &mut Ui) {
         ui.label(tl!("Interface theme:"));
         egui::ComboBox::from_id_salt("interface_theme").selected_text(tl!(app.ui.theme.label())).width(220.0).show_ui(ui, |ui| {
             for a in Appearance::ALL {
-                if ui.selectable_label(app.ui.theme == a, tl!(a.label())).clicked() {
+                if ui.steady_label(app.ui.theme == a, tl!(a.label())).clicked() {
                     let _ = app.run("ui.theme", json!({"value": a.code()}));
                 }
             }
@@ -567,11 +568,11 @@ fn interface_size_picker(app: &mut WordApp, ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.label(tl!("Interface size:"));
         egui::ComboBox::from_id_salt("interface_size").selected_text(selected).width(220.0).show_ui(ui, |ui| {
-            if ui.selectable_label(size.is_auto(), auto).clicked() {
+            if ui.steady_label(size.is_auto(), auto).clicked() {
                 let _ = app.run("ui.interfaceSize", json!({"value": "auto"}));
             }
             for pct in InterfaceSize::PRESETS {
-                if ui.selectable_label(size.percent() == Some(pct), format!("{pct}%")).clicked() {
+                if ui.steady_label(size.percent() == Some(pct), format!("{pct}%")).clicked() {
                     let _ = app.run("ui.interfaceSize", json!({"percent": pct}));
                 }
             }
@@ -594,7 +595,7 @@ fn animations_picker(app: &mut WordApp, ui: &mut Ui) {
         ui.label(tl!("Animation effects:"));
         egui::ComboBox::from_id_salt("animation_effects").selected_text(tl!(app.ui.animations.label())).width(220.0).show_ui(ui, |ui| {
             for a in Animations::ALL {
-                if ui.selectable_label(app.ui.animations == a, tl!(a.label())).clicked() {
+                if ui.steady_label(app.ui.animations == a, tl!(a.label())).clicked() {
                     let _ = app.run("ui.animations", json!({"value": a.code()}));
                 }
             }
@@ -685,7 +686,7 @@ fn numeral_picker(app: &mut WordApp, ui: &mut Ui) {
         let mut sel = app.session.view.numeral;
         egui::ComboBox::from_id_salt("numerals").selected_text(tl!(sel.label())).width(220.0).show_ui(ui, |ui| {
             for m in [NumeralMode::Arabic, NumeralMode::Hindi, NumeralMode::Context, NumeralMode::System] {
-                ui.selectable_value(&mut sel, m, tl!(m.label()));
+                ui.steady_value(&mut sel, m, tl!(m.label()));
             }
         });
         if sel != app.session.view.numeral {
@@ -963,7 +964,10 @@ mod tests {
         h.run_steps(4);
         assert_eq!((unit(), decimal()), (Unit::Centimeters, ','));
         assert_eq!(length(72.0), "2,54 cm");
-        assert_eq!(h.query_all_by_value("2,54 cm").count(), 4, "four margins in centimetres with a decimal comma");
+        // A text box shows its value on the box and on the text inside it: count the boxes.
+        let boxes =
+            h.query_all_by_value("2,54 cm").filter(|n| egui_kittest::kittest::NodeT::accesskit_node(n).role() == egui::accesskit::Role::TextInput);
+        assert_eq!(boxes.count(), 4, "four margins in centimetres with a decimal comma");
 
         h.state_mut().run("file.options", json!({"units": "inches"})).unwrap();
         h.run_steps(4);

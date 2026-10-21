@@ -2,6 +2,7 @@
 //! with the most-used formatting controls. It mirrors Word's trigger (selection, not caret),
 //! position (above, clamped to the viewport, flipping below when tight) and dismissal rules.
 
+use crate::widgets::SteadyUi;
 use egui::{Align, CornerRadius, Layout, Order, Rect, Sense, Vec2, pos2};
 use serde_json::{Value, json};
 
@@ -290,7 +291,7 @@ fn highlight_menu(ui: &mut egui::Ui, app: &mut WordApp) {
             }
         }
     });
-    if ui.selectable_label(false, "No Color").clicked() {
+    if ui.steady_label(false, "No Color").clicked() {
         let _ = app.run("format.highlight", json!({"color": "none"}));
         ui.close();
     }
@@ -299,7 +300,7 @@ fn highlight_menu(ui: &mut egui::Ui, app: &mut WordApp) {
 /// Font colour: Automatic, the colour grid, Recent Colors and More Colors… (#606).
 fn font_color_menu(ui: &mut egui::Ui, app: &mut WordApp) {
     egui::ScrollArea::vertical().max_height(280.0).show(ui, |ui| {
-        if ui.selectable_label(false, "Automatic").clicked() {
+        if ui.steady_label(false, "Automatic").clicked() {
             let _ = app.run("format.color", json!({"color": "auto"}));
             ui.close();
             return;

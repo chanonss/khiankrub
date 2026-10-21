@@ -2,6 +2,7 @@
 //! control in Design Mode), check boxes that tick on click, and the list or calendar of a
 //! drop-down, combo box or date picker. Everything ends in a `developer.*` command.
 
+use crate::widgets::SteadyUi;
 use egui::{Align2, Rect, Stroke, Ui, pos2, vec2};
 use serde_json::json;
 use wordcraft_doc::Pos;
@@ -173,7 +174,7 @@ pub fn popup(app: &mut WordApp, ctx: &egui::Context) {
                 ControlKind::ComboBox { items, .. } | ControlKind::DropDown { items, .. } => {
                     egui::ScrollArea::vertical().max_height(260.0).show(ui, |ui| {
                         for (i, item) in items.iter().enumerate() {
-                            if ui.selectable_label(false, &item.display).clicked() {
+                            if ui.steady_label(false, &item.display).clicked() {
                                 let _ = app.run("developer.chooseItem", json!({"at": at_json, "index": i}));
                                 close = true;
                             }

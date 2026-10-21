@@ -62,6 +62,7 @@ pub mod ink;
 pub mod keys;
 pub mod keytips;
 pub mod mini_toolbar;
+pub mod numfield;
 pub mod objects;
 pub mod options;
 pub mod panes;
@@ -2449,6 +2450,8 @@ fn control_click_as_secondary(events: &mut [egui::Event], held: &mut bool) {
     }
 }
 
+#[cfg(test)]
+mod hover_stability;
 #[cfg(test)]
 mod tests_perf;
 

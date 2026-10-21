@@ -3,6 +3,7 @@
 //! The form ends in commands (`references.noteOptions`, `references.convertNotes`,
 //! `references.footnote` / `references.endnote`), so agents get the same result without it.
 
+use crate::widgets::SteadyUi;
 use egui::{Ui, vec2};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -72,7 +73,7 @@ fn choice(ui: &mut Ui, id: &str, value: &mut String, options: &[(&str, &str)], t
     let label = options.iter().find(|(v, _)| *v == value.as_str()).map(|(_, l)| show(l)).unwrap_or_default();
     egui::ComboBox::from_id_salt(id).selected_text(label).width(170.0).show_ui(ui, |ui| {
         for (v, l) in options {
-            ui.selectable_value(value, v.to_string(), show(l));
+            ui.steady_value(value, v.to_string(), show(l));
         }
     });
 }
@@ -125,7 +126,7 @@ pub fn note_options(app: &mut WordApp, ui: &mut Ui, f: &mut NoteForm) -> bool {
         ui.end_row();
         ui.label(tl!("Start at:"));
         if let Some(v) = f.start.get_mut(k) {
-            ui.add(egui::DragValue::new(v).range(1..=32_767).speed(0.2));
+            ui.add(crate::numfield::NumField::new(v).range(1..=32_767).speed(0.2));
         }
         ui.end_row();
         ui.label(tl!("Numbering"));

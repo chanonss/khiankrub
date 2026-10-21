@@ -3,6 +3,7 @@
 //! it now, then Assign / Remove / Reset All. Every change runs `tools.customizeKeyboard`, so
 //! agents get the same result without the dialog; the keys persist with the preferences.
 
+use crate::widgets::SteadyUi;
 use egui::{Sense, Ui, vec2};
 use serde::Serialize;
 use serde_json::json;
@@ -110,7 +111,12 @@ pub(crate) fn list(ui: &mut Ui, id: &str, size: egui::Vec2, rows: &[(String, Str
         egui::ScrollArea::vertical().id_salt(id).auto_shrink([false, false]).show_rows(ui, row_h, rows.len(), |ui, range| {
             ui.with_layout(egui::Layout::top_down_justified(egui::Align::LEFT), |ui| {
                 for (value, text) in rows.get(range).unwrap_or_default() {
-                    if ui.add(egui::Button::selectable(value == selected, text.as_str()).min_size(vec2(0.0, row_h))).clicked() {
+                    if ui
+                        .steady_scope(value == selected, |ui| {
+                            ui.add(egui::Button::selectable(value == selected, text.as_str()).min_size(vec2(0.0, row_h)))
+                        })
+                        .clicked()
+                    {
                         picked = Some(value.clone());
                     }
                 }

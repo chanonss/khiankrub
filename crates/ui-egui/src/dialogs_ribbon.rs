@@ -5,6 +5,7 @@
 //! command list next to the toolbar's commands. Every change runs `tools.customizeRibbon`, so
 //! agents get the same result without the dialog; the layout persists with the preferences.
 
+use crate::widgets::SteadyUi;
 use egui::{Ui, vec2};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -87,7 +88,7 @@ fn label_of(app: &WordApp, id: &str) -> String {
 pub fn customize_ribbon(app: &mut WordApp, ui: &mut Ui, f: &mut RibbonForm) -> bool {
     ui.horizontal(|ui| {
         for (page, name) in [(Page::Ribbon, "Ribbon"), (Page::QuickAccess, "Quick Access Toolbar")] {
-            if ui.selectable_label(f.page == page, tl!(name)).clicked() && f.page != page {
+            if ui.steady_label(f.page == page, tl!(name)).clicked() && f.page != page {
                 f.page = page;
                 f.renaming = None;
                 f.confirm_reset = false;
@@ -326,7 +327,7 @@ fn tree_rows_ui(app: &mut WordApp, ui: &mut Ui, f: &mut RibbonForm, rows: &[Row]
                     change(app, f, json!({ key: row.item.tab }));
                 }
             }
-            let resp = ui.add(egui::Button::selectable(f.selected == row.item, row.text.as_str()));
+            let resp = ui.steady_scope(f.selected == row.item, |ui| ui.add(egui::Button::selectable(f.selected == row.item, row.text.as_str())));
             if resp.clicked() {
                 f.selected = row.item.clone();
                 f.renaming = None;

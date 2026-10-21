@@ -5,6 +5,7 @@
 //! agents get the same result without them. Shown through [`crate::dialogs::Dialog::Review`] and
 //! [`crate::panes`].
 
+use crate::widgets::SteadyUi;
 use egui::{Ui, vec2};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -375,7 +376,7 @@ fn list_change(app: &mut WordApp, f: &mut AutoCorrectForm, params: Value) -> boo
 fn autocorrect_ui(app: &mut WordApp, ui: &mut Ui, f: &mut AutoCorrectForm) -> bool {
     ui.horizontal(|ui| {
         for (i, l) in ["AutoCorrect", "AutoFormat As You Type", "Math AutoCorrect"].into_iter().enumerate() {
-            if ui.selectable_label(f.tab == i as u8, tl!(l)).clicked() {
+            if ui.steady_label(f.tab == i as u8, tl!(l)).clicked() {
                 f.tab = i as u8;
             }
         }
@@ -444,7 +445,7 @@ fn autocorrect_tab(app: &mut WordApp, ui: &mut Ui, f: &mut AutoCorrectForm) {
         egui::Grid::new("ac_list_grid").num_columns(2).spacing(vec2(8.0, 1.0)).striped(true).show(ui, |ui| {
             for (a, b, _) in list.iter().filter(|(a, _, _)| typed.is_empty() || a.to_lowercase().starts_with(&typed)).take(500) {
                 let selected = f.from == *a;
-                if ui.add_sized(vec2(110.0, 16.0), egui::Button::selectable(selected, a.as_str())).clicked() {
+                if ui.steady_scope(selected, |ui| ui.add_sized(vec2(110.0, 16.0), egui::Button::selectable(selected, a.as_str()))).clicked() {
                     picked = Some((a.clone(), b.clone()));
                 }
                 ui.label(b.as_str());
@@ -484,7 +485,7 @@ fn exceptions(app: &mut WordApp, ui: &mut Ui, f: &mut AutoCorrectForm) {
         let mut picked = None;
         egui::ScrollArea::vertical().id_salt("ac_exceptions").max_height(90.0).auto_shrink([false, true]).show(ui, |ui| {
             for e in &list {
-                if ui.add(egui::Button::selectable(f.exception == *e, e.as_str())).clicked() {
+                if ui.steady_scope(f.exception == *e, |ui| ui.add(egui::Button::selectable(f.exception == *e, e.as_str()))).clicked() {
                     picked = Some(e.clone());
                 }
             }
@@ -624,7 +625,7 @@ fn setup_ui(app: &mut WordApp, ui: &mut Ui, st: &mut RestrictPane) {
         let current = EDIT_MODES.get(st.mode).map(|m| m.1).unwrap_or("");
         egui::ComboBox::from_id_salt("restrict_mode").selected_text(tl!(current)).width(220.0).show_ui(ui, |ui| {
             for (i, (_, label)) in EDIT_MODES.iter().enumerate() {
-                ui.selectable_value(&mut st.mode, i, tl!(label));
+                ui.steady_value(&mut st.mode, i, tl!(label));
             }
         });
     });

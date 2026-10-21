@@ -7,6 +7,7 @@
 //! scripts and agents get the same result without the dialog. Shown through
 //! [`crate::dialogs::Dialog::Layout`].
 
+use crate::widgets::SteadyUi;
 use egui::{Ui, vec2};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -179,19 +180,23 @@ fn line_numbers_ui(app: &mut WordApp, ui: &mut Ui, f: &mut LineNumbersForm) -> b
     ui.add_enabled_ui(f.on, |ui| {
         egui::Grid::new("lnum").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
             ui.label(tl!("Start at:"));
-            ui.add(egui::DragValue::new(&mut f.start).range(1..=32_767));
+            ui.add(crate::numfield::NumField::new(&mut f.start).range(1..=32_767));
             ui.end_row();
             ui.label(tl!("From text:"));
             ui.horizontal(|ui| {
                 ui.checkbox(&mut f.auto_distance, tl!("Auto"));
                 ui.add_enabled(
                     !f.auto_distance,
-                    egui::DragValue::new(&mut f.distance).speed(0.01).range(0.0..=22.0 * 72.0 / unit().pt_per_unit()).measure(unit()).max_decimals(2),
+                    crate::numfield::NumField::new(&mut f.distance)
+                        .speed(0.01)
+                        .range(0.0..=22.0 * 72.0 / unit().pt_per_unit())
+                        .measure(unit())
+                        .max_decimals(2),
                 );
             });
             ui.end_row();
             ui.label(tl!("Count by:"));
-            ui.add(egui::DragValue::new(&mut f.count_by).range(1..=100));
+            ui.add(crate::numfield::NumField::new(&mut f.count_by).range(1..=100));
             ui.end_row();
         });
         heading(ui, "Numbering:");
@@ -241,12 +246,16 @@ fn hyphenation_ui(app: &mut WordApp, ui: &mut Ui, f: &mut HyphenationForm) -> bo
     ui.checkbox(&mut f.caps, tl!("Hyphenate words in CAPS"));
     egui::Grid::new("hyph").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
         ui.label(tl!("Hyphenation zone:"));
-        ui.add(egui::DragValue::new(&mut f.zone).speed(0.01).range(0.0..=22.0 * 72.0 / unit().pt_per_unit()).measure(unit()).max_decimals(2));
+        ui.add(
+            crate::numfield::NumField::new(&mut f.zone).speed(0.01).range(0.0..=22.0 * 72.0 / unit().pt_per_unit()).measure(unit()).max_decimals(2),
+        );
         ui.end_row();
         ui.label(tl!("Limit consecutive hyphens to:"));
         let no_limit = tl!("No limit").to_string();
         ui.add(
-            egui::DragValue::new(&mut f.limit).range(0..=99).custom_formatter(move |n, _| if n < 0.5 { no_limit.clone() } else { format!("{n:.0}") }),
+            crate::numfield::NumField::new(&mut f.limit)
+                .range(0..=99)
+                .custom_formatter(move |n, _| if n < 0.5 { no_limit.clone() } else { format!("{n:.0}") }),
         );
         ui.end_row();
     });
@@ -353,7 +362,7 @@ fn manual_ui(app: &mut WordApp, ui: &mut Ui, f: &mut ManualForm) -> bool {
         let mut from = 0;
         for pt in f.points.clone() {
             ui.label(egui::RichText::new(f.word.chars().skip(from).take(pt.saturating_sub(from)).collect::<String>()).size(16.0));
-            if ui.selectable_label(f.choice == pt, egui::RichText::new("-").size(16.0)).clicked() {
+            if ui.steady_label(f.choice == pt, egui::RichText::new("-").size(16.0)).clicked() {
                 f.choice = pt;
             }
             from = pt;
@@ -454,7 +463,7 @@ fn language_ui(app: &mut WordApp, ui: &mut Ui, f: &mut LanguageForm) -> bool {
             ui.set_min_width(300.0);
             for (tag, name) in &list {
                 let on = f.lang.eq_ignore_ascii_case(tag);
-                let r = ui.selectable_label(on, name.as_str());
+                let r = ui.steady_label(on, name.as_str());
                 if r.clicked() {
                     f.lang = tag.clone();
                 }
@@ -517,7 +526,7 @@ fn envelopes_ui(app: &mut WordApp, ui: &mut Ui, f: &mut EnvelopeForm) -> bool {
         let label = |i: usize| ENVELOPE_SIZES.get(i).map(|(n, w, h)| envelope_label(n, *w, *h)).unwrap_or_default();
         egui::ComboBox::from_id_salt("env_size").selected_text(label(f.size)).width(220.0).show_ui(ui, |ui| {
             for i in 0..ENVELOPE_SIZES.len() {
-                ui.selectable_value(&mut f.size, i, label(i));
+                ui.steady_value(&mut f.size, i, label(i));
             }
         });
     });
@@ -634,7 +643,7 @@ fn labels_ui(app: &mut WordApp, ui: &mut Ui, f: &mut LabelsForm) -> bool {
         ui.label(tl!("Label:"));
         egui::ComboBox::from_id_salt("label_product").selected_text(product_label(f.product)).width(300.0).show_ui(ui, |ui| {
             for i in 0..LABEL_PRODUCTS.len() {
-                ui.selectable_value(&mut f.product, i, product_label(i));
+                ui.steady_value(&mut f.product, i, product_label(i));
             }
         });
     });
@@ -645,9 +654,9 @@ fn labels_ui(app: &mut WordApp, ui: &mut Ui, f: &mut LabelsForm) -> bool {
         ui.radio_value(&mut f.single, true, tl!("Single label"));
         ui.add_enabled_ui(f.single, |ui| {
             ui.label(tl!("Row:"));
-            ui.add(egui::DragValue::new(&mut f.row).range(1..=rows));
+            ui.add(crate::numfield::NumField::new(&mut f.row).range(1..=rows));
             ui.label(tl!("Column:"));
-            ui.add(egui::DragValue::new(&mut f.col).range(1..=cols));
+            ui.add(crate::numfield::NumField::new(&mut f.col).range(1..=cols));
         });
     });
     f.row = f.row.clamp(1, rows.max(1));
@@ -717,7 +726,7 @@ fn formula_ui(app: &mut WordApp, ui: &mut Ui, f: &mut FormulaForm) -> bool {
         let mut picked = None;
         egui::ComboBox::from_id_salt("formula_paste").selected_text("").width(140.0).show_ui(ui, |ui| {
             for name in FORMULA_FUNCTIONS {
-                if ui.selectable_label(false, name).clicked() {
+                if ui.steady_label(false, name).clicked() {
                     picked = Some(name);
                 }
             }
@@ -783,7 +792,7 @@ fn sort_ui(app: &mut WordApp, ui: &mut Ui, f: &mut SortForm) -> bool {
         egui::ComboBox::from_id_salt("sort_column").selected_text(f.column_label(f.column)).width(180.0).show_ui(ui, |ui| {
             for i in 0..f.headers.len() {
                 let label = f.column_label(i);
-                ui.selectable_value(&mut f.column, i, label);
+                ui.steady_value(&mut f.column, i, label);
             }
         });
         ui.vertical(|ui| {

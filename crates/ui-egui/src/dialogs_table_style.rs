@@ -3,6 +3,7 @@
 //! (line style, width and colour, and which edges) and cell alignment, over a live preview. OK
 //! runs `table.newStyle` / `table.modifyStyle` with only what changed.
 
+use crate::widgets::SteadyUi;
 use egui::{Rect, Sense, Stroke, Ui, pos2, vec2};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -476,7 +477,7 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: Form) -> bool {
         ui.label(tl!("Style based on:"));
         egui::ComboBox::from_id_salt("tstyle_base").width(200.0).selected_text(base_name).show_ui(ui, |ui| {
             for (sid, sname) in &styles {
-                if ui.selectable_label(sid == based_on, sname).clicked() && sid != based_on {
+                if ui.steady_label(sid == based_on, sname).clicked() && sid != based_on {
                     *based_on = sid.clone();
                     rebased = true;
                 }
@@ -488,7 +489,7 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: Form) -> bool {
             ui,
             |ui| {
                 for (i, (_, n)) in PARTS.iter().enumerate() {
-                    ui.selectable_value(region, i, tl!(*n));
+                    ui.steady_value(region, i, tl!(*n));
                 }
             },
         );
@@ -513,9 +514,9 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: Form) -> bool {
                 r.font = f;
             }
             ui.add(egui::TextEdit::singleline(&mut r.size).desired_width(36.0)).on_hover_text(tl!("Size:"));
-            ui.toggle_value(&mut r.bold, egui::RichText::new("B").strong()).on_hover_text(tl!("Bold"));
-            ui.toggle_value(&mut r.italic, egui::RichText::new("I").italics()).on_hover_text(tl!("Italic"));
-            ui.toggle_value(&mut r.underline, egui::RichText::new("U").underline()).on_hover_text(tl!("Underline"));
+            ui.steady_toggle(&mut r.bold, egui::RichText::new("B").strong()).on_hover_text(tl!("Bold"));
+            ui.steady_toggle(&mut r.italic, egui::RichText::new("I").italics()).on_hover_text(tl!("Italic"));
+            ui.steady_toggle(&mut r.underline, egui::RichText::new("U").underline()).on_hover_text(tl!("Underline"));
             ui.push_id("tstyle_color", |ui| {
                 ui.label(tl!("Font color:"));
                 color_menu(ui, &theme, &mut r.color);
@@ -527,7 +528,7 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: Form) -> bool {
             ui.label(tl!("Style:"));
             egui::ComboBox::from_id_salt("tstyle_pen_style").selected_text(tl!(current)).width(90.0).show_ui(ui, |ui| {
                 for (s, n) in LINE_STYLES {
-                    ui.selectable_value(&mut pen.style, s, tl!(n));
+                    ui.steady_value(&mut pen.style, s, tl!(n));
                 }
             });
             ui.label(tl!("Width:"));
@@ -536,7 +537,7 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: Form) -> bool {
                 .width(70.0)
                 .show_ui(ui, |ui| {
                     for w in WIDTHS {
-                        ui.selectable_value(&mut pen.width, w, crate::i18n::fmt(tl!("{n} pt"), &[("n", &w.to_string())]));
+                        ui.steady_value(&mut pen.width, w, crate::i18n::fmt(tl!("{n} pt"), &[("n", &w.to_string())]));
                     }
                 });
             ui.push_id("tstyle_pen_color", |ui| {
@@ -547,7 +548,7 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: Form) -> bool {
                 for (label, edges) in EDGES {
                     ui.horizontal(|ui| {
                         edge_glyph(ui, edges);
-                        if ui.selectable_label(edges_on(&r.borders, edges), tl!(label)).clicked() {
+                        if ui.steady_label(edges_on(&r.borders, edges), tl!(label)).clicked() {
                             pick_edges(&mut r.borders, edges, pen);
                             ui.close();
                         }

@@ -5,6 +5,7 @@
 //! `references.markEntry`, `references.toc`, `references.sources`, `references.citation`), so
 //! agents get the same result without the dialog. Shown through [`crate::dialogs::Dialog::Refs`].
 
+use crate::widgets::SteadyUi;
 use egui::{Sense, Ui, vec2};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -146,7 +147,7 @@ fn choice<T: PartialEq + Clone>(ui: &mut Ui, id: &str, value: &mut T, options: &
     let label = options.iter().find(|(v, _)| v == value).map(|(_, l)| tl!(l).to_string()).unwrap_or_default();
     egui::ComboBox::from_id_salt(id).selected_text(label).width(150.0).show_ui(ui, |ui| {
         for (v, l) in options {
-            ui.selectable_value(value, v.clone(), tl!(l));
+            ui.steady_value(value, v.clone(), tl!(l));
         }
     });
 }
@@ -306,7 +307,7 @@ fn caption_ui(app: &mut WordApp, ui: &mut Ui, f: &mut CaptionForm) -> Next {
         let labels: Vec<(String, &str)> = f.labels.iter().map(|l| (l.clone(), l.as_str())).collect();
         egui::ComboBox::from_id_salt("cap_label").selected_text(tl!(&f.label)).width(150.0).show_ui(ui, |ui| {
             for (v, l) in &labels {
-                ui.selectable_value(&mut f.label, v.clone(), tl!(l));
+                ui.steady_value(&mut f.label, v.clone(), tl!(l));
             }
         });
         ui.end_row();
@@ -409,7 +410,7 @@ fn cross_ref_ui(app: &mut WordApp, ui: &mut Ui, f: &mut CrossRefForm) -> Next {
                 ui.weak(tl!("Nothing of this type in the document."));
             }
             for (i, t) in f.targets.iter().enumerate() {
-                if ui.selectable_label(f.selected == Some(i), t).clicked() {
+                if ui.steady_label(f.selected == Some(i), t).clicked() {
                     f.selected = Some(i);
                 }
             }
@@ -440,7 +441,7 @@ fn numbering_ui(ui: &mut Ui, f: &mut CaptionForm, was: &CaptionForm) -> Next {
             let shown = opts.iter().find(|(l, _)| *l == f.chapter_level).map(|(_, s)| s.clone()).unwrap_or_default();
             egui::ComboBox::from_id_salt("cap_level").selected_text(shown).width(150.0).show_ui(ui, |ui| {
                 for (l, s) in &opts {
-                    ui.selectable_value(&mut f.chapter_level, *l, s);
+                    ui.steady_value(&mut f.chapter_level, *l, s);
                 }
             });
             ui.end_row();
@@ -552,7 +553,7 @@ fn index_ui(app: &mut WordApp, ui: &mut Ui, f: &mut IndexForm) -> Next {
         });
         ui.end_row();
         ui.label(tl!("Columns:"));
-        ui.add(egui::DragValue::new(&mut f.columns).range(1..=4));
+        ui.add(crate::numfield::NumField::new(&mut f.columns).range(1..=4));
         ui.end_row();
         ui.label("");
         ui.checkbox(&mut f.right_align, tl!("Page numbers at the right margin"));
@@ -649,7 +650,7 @@ fn mark_ui(app: &mut WordApp, ui: &mut Ui, f: &mut MarkForm) -> Next {
             let opts: Vec<(String, &str)> = f.bookmarks.iter().map(|b| (b.clone(), b.as_str())).collect();
             egui::ComboBox::from_id_salt("xe_bm").selected_text(f.bookmark.clone()).width(140.0).show_ui(ui, |ui| {
                 for (v, l) in &opts {
-                    ui.selectable_value(&mut f.bookmark, v.clone(), *l);
+                    ui.steady_value(&mut f.bookmark, v.clone(), *l);
                 }
             });
         });
@@ -798,7 +799,7 @@ fn toc_ui(app: &mut WordApp, ui: &mut Ui, f: &mut TocForm) -> Next {
     ui.checkbox(&mut f.hyperlinks, tl!("Link entries to their headings"));
     ui.horizontal(|ui| {
         ui.label(tl!("Levels:"));
-        ui.add(egui::DragValue::new(&mut f.levels).range(1..=9));
+        ui.add(crate::numfield::NumField::new(&mut f.levels).range(1..=9));
     });
     ui.add_space(4.0);
     let mut then = None;
@@ -832,7 +833,11 @@ fn toc_options_ui(app: &mut WordApp, ui: &mut Ui, f: &mut TocForm, was: &TocForm
                 // Built-in styles read in the interface language; the document keeps the English name.
                 let shown = app.session.doc.styles.styles.iter().find(|st| st.name == *name).map_or_else(|| name.clone(), crate::i18n::style_name);
                 ui.label(shown);
-                ui.add(egui::DragValue::new(level).range(0..=9).custom_formatter(|v, _| if v < 0.5 { String::new() } else { format!("{v:.0}") }));
+                ui.add(
+                    crate::numfield::NumField::new(level)
+                        .range(0..=9)
+                        .custom_formatter(|v, _| if v < 0.5 { String::new() } else { format!("{v:.0}") }),
+                );
                 ui.end_row();
             }
         });
@@ -865,7 +870,7 @@ fn toc_styles_ui(app: &mut WordApp, ui: &mut Ui, f: &mut TocForm, level: &mut u8
     egui::ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
         for l in 1..=9u8 {
             let name = app.session.doc.styles.get(&format!("TOC{l}")).map(|s| s.name.clone()).unwrap_or_else(|| format!("TOC {l}"));
-            ui.selectable_value(level, l, name);
+            ui.steady_value(level, l, name);
         }
     });
     ui.add_space(6.0);
@@ -1031,7 +1036,7 @@ fn source_ui(app: &mut WordApp, ui: &mut Ui, f: &mut SourceForm) -> Next {
         let shown = SOURCE_TYPES.iter().find(|(k, ..)| *k == f.source.kind).map(|(_, l, _)| tl!(l).to_string()).unwrap_or_default();
         egui::ComboBox::from_id_salt("src_kind").selected_text(shown).width(200.0).show_ui(ui, |ui| {
             for (k, l, _) in SOURCE_TYPES {
-                ui.selectable_value(&mut f.source.kind, k.to_string(), tl!(l));
+                ui.steady_value(&mut f.source.kind, k.to_string(), tl!(l));
             }
         });
         ui.end_row();
@@ -1084,7 +1089,7 @@ fn sources_ui(app: &mut WordApp, ui: &mut Ui, selected: &mut Option<usize>) -> N
                 ui.label(egui::RichText::new(tl!("No sources yet.")).color(t.text_dim));
             }
             for (i, l) in list.iter().enumerate() {
-                if ui.selectable_label(*selected == Some(i), l).clicked() {
+                if ui.steady_label(*selected == Some(i), l).clicked() {
                     *selected = Some(i);
                 }
             }

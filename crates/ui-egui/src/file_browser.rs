@@ -7,6 +7,7 @@
 //! chosen type, a file name field and the file types. It only lists folders the user navigates to
 //! and never reads a file: the picked path goes to the same follow-up as the system dialog's.
 
+use crate::widgets::SteadyUi;
 use std::path::{Path, PathBuf};
 
 use egui::{Align2, Rect, Sense, Ui, pos2, vec2};
@@ -428,7 +429,7 @@ fn body(ui: &mut Ui, b: &mut FileBrowser, t: &Tokens) -> Option<Option<PathBuf>>
         let current = b.filters.get(b.filter).map(|(l, _)| tl!(l.as_str()).to_string()).unwrap_or_default();
         egui::ComboBox::from_id_salt("builtin_file_browser_type").selected_text(current).width(150.0).show_ui(ui, |ui| {
             for (i, (l, _)) in b.filters.iter().enumerate() {
-                ui.selectable_value(&mut b.filter, i, tl!(l.as_str()));
+                ui.steady_value(&mut b.filter, i, tl!(l.as_str()));
             }
         });
         refilter = b.filter != before;
