@@ -642,8 +642,8 @@ fn parse_info(info: &[u8]) -> Result<Info, DocxError> {
     };
     match (major, minor) {
         (4, 4) => {}
-        (2..=4, 2) => return Err(bad("this file uses Standard encryption (Office 2007), which WordCraft can't open yet")),
-        (3 | 4, 3) => return Err(bad("this file uses extensible encryption, which WordCraft can't open")),
+        (2..=4, 2) => return Err(bad("this file uses Standard encryption (Office 2007), which Khian Krub can't open yet")),
+        (3 | 4, 3) => return Err(bad("this file uses extensible encryption, which Khian Krub can't open")),
         _ => return Err(bad(format!("unknown encryption version {major}.{minor}"))),
     }
     let root = xml::parse(info.get(8..).unwrap_or(&[]))?;

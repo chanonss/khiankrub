@@ -1584,7 +1584,7 @@ pub fn export_flow(flow: &Flow, lang: &str) -> String {
     let mut out = String::new();
     out.push_str("<!DOCTYPE html>\n");
     out.push_str(&format!("<html lang=\"{}\">\n<head>\n<meta charset=\"utf-8\">\n", esc(lang)));
-    out.push_str("<meta name=\"generator\" content=\"WordCraft\">\n");
+    out.push_str("<meta name=\"generator\" content=\"Khian Krub\">\n");
     out.push_str(&format!("<title>{}</title>\n", esc(&m.title)));
     for (k, v) in [("author", &m.author), ("description", &m.description), ("keywords", &m.keywords), ("subject", &m.subject)] {
         if !v.is_empty() {

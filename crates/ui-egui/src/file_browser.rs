@@ -329,7 +329,7 @@ fn body(ui: &mut Ui, b: &mut FileBrowser, t: &Tokens) -> Option<Option<PathBuf>>
     if b.unavailable {
         ui.label(
             egui::RichText::new(tl!(
-                "The system file dialog isn't available, so WordCraft shows its own. To get the system dialog, install a file chooser portal (such as xdg-desktop-portal-gtk) or zenity."
+                "The system file dialog isn't available, so Khian Krub shows its own. To get the system dialog, install a file chooser portal (such as xdg-desktop-portal-gtk) or zenity."
             ))
             .color(t.text_dim),
         );

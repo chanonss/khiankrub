@@ -1,5 +1,6 @@
-WordCraft
+Khian Krub (based on WordCraft)
 Copyright (c) 2026 ArtCraft Team and the WordCraft contributors.
+Modifications copyright (c) 2026 Chanon Sarasuk.
 Licensed under the MIT License or the Apache License, Version 2.0, at your option
 (LICENSE-MIT, LICENSE-APACHE).
 
@@ -17,6 +18,9 @@ list (author, source, license) is in ATTRIBUTION.md.
 - Source Sans 3 and Source Serif 4 (assets/fonts/Source*) — SIL Open Font License 1.1. See assets/fonts/OFL-SourceSans3.txt, OFL-SourceSerif4.txt.
 - Inter (assets/fonts/Inter-*.ttf) — SIL Open Font License 1.1. See assets/fonts/OFL-Inter.txt.
 - JetBrains Mono (assets/fonts/JetBrainsMono-*.ttf) — SIL Open Font License 1.1. See assets/fonts/OFL-JetBrainsMono.txt.
+- Sarabun (Copyright 2018 The Sarabun Project Authors) — SIL Open Font License 1.1. Only the outline of the letter ข
+  is used, traced into the app icon (assets/app-icon/wordcraft.svg); the font itself is not bundled.
+  See assets/app-icon/OFL-Sarabun.txt.
 - Japanese fonts (craft-fonts): builds made with craft-fonts (CRAFT_FONTS_DIR; all official
   releases) embed the fonts listed in
   https://github.com/storytold/craft-fonts/blob/main/ATTRIBUTION.md (BIZ UDPGothic, BIZ UDMincho,

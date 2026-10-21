@@ -7,13 +7,20 @@
   <key>CFBundleDevelopmentRegion</key>
   <string>en</string>
   <key>CFBundleDisplayName</key>
-  <string>WordCraft</string>
+  <string>Khian Krub</string>
   <key>CFBundleName</key>
-  <string>WordCraft</string>
+  <string>Khian Krub</string>
   <key>CFBundleExecutable</key>
-  <string>WordCraft</string>
+  <string>KhianKrub</string>
   <key>CFBundleIdentifier</key>
-  <string>ai.storyteller.wordcraft</string>
+  <string>io.github.chanonss.khiankrub</string>
+  <!-- The name shown in Finder: English letters, with เขียนครับ on Macs set to Thai
+       (InfoPlist.strings in th.lproj, written by local-app.sh). -->
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>en</string>
+    <string>th</string>
+  </array>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundlePackageType</key>
@@ -29,7 +36,7 @@
   <key>WordCraftBuildCommit</key>
   <string>@BUILD_SHA@</string>
   <key>CFBundleIconFile</key>
-  <string>WordCraft</string>
+  <string>KhianKrub</string>
   <key>LSApplicationCategoryType</key>
   <string>public.app-category.productivity</string>
   <!-- Must match MACOSX_DEPLOYMENT_TARGET in package.sh. Big Sur is the first release on
@@ -43,9 +50,9 @@
   <key>NSRequiresAquaSystemAppearance</key>
   <false/>
   <key>NSHumanReadableCopyright</key>
-  <string>Copyright © the WordCraft authors. MIT OR Apache-2.0.</string>
+  <string>MIT OR Apache-2.0. Copyright © 2026 ArtCraft Team and the WordCraft contributors. Modifications copyright © 2026 Chanon Sarasuk.</string>
 
-  <!-- Documents WordCraft opens (system type declarations). -->
+  <!-- Documents Khian Krub opens (system type declarations). -->
   <key>CFBundleDocumentTypes</key>
   <array>
     <dict>

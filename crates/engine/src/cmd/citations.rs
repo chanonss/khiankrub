@@ -347,7 +347,7 @@ pub fn specs() -> Vec<CommandSpec> {
             r#"{"kind"?: "footnote|endnote", "pos"?: "pageBottom|beneathText" (footnotes) | "sectEnd|docEnd" (endnotes), "numFmt"?: "decimal|lowerRoman|upperRoman|lowerLetter|upperLetter|…", "numStart"?: 1-32767, "numRestart"?: "continuous|eachSect|eachPage" (each page: footnotes only), "scope"?: "document|section", "footnoteFormat"?: …, "endnoteFormat"?: …} — no settings: the options in effect at the caret"#,
         ),
         CommandSpec::new("references.researcher", "Researcher", "References › Research", |s, _| {
-            s.status = "Researcher needs an online service; WordCraft keeps your documents offline.".into();
+            s.status = "Researcher needs an online service; Khian Krub keeps your documents offline.".into();
             Ok(json!({"available": false}))
         })
         .pure(),

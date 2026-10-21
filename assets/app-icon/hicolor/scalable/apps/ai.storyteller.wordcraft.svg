@@ -1,16 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- WordCraft placeholder icon (original; MIT OR Apache-2.0). To be replaced by the mascot drawing. -->
-  <rect width="512" height="512" rx="112" fill="#3B5BDB"/>
-  <g transform="rotate(-6 256 256)">
-    <path d="M150 92 H322 L384 154 V420 H150 Z" fill="#efe9dc" stroke="#0b0b0c" stroke-width="14" stroke-linejoin="round"/>
-    <path d="M322 92 V154 H384" fill="none" stroke="#0b0b0c" stroke-width="14" stroke-linejoin="round"/>
-    <g stroke="#0b0b0c" stroke-width="14" stroke-linecap="round">
-      <line x1="190" y1="200" x2="344" y2="200"/>
-      <line x1="190" y1="246" x2="344" y2="246"/>
-      <line x1="190" y1="292" x2="344" y2="292"/>
-      <line x1="190" y1="338" x2="290" y2="338"/>
-    </g>
-  </g>
-  <path d="M300 410 L418 292 L446 320 L328 438 L292 446 Z" fill="#0b0b0c"/>
-  <path d="M418 292 L436 274 L464 302 L446 320 Z" fill="#efe9dc" stroke="#0b0b0c" stroke-width="8"/>
+  <!-- Khian Krub icon (original artwork; MIT OR Apache-2.0): a gold Thai letter ข (kho khai, the first
+       consonant of เขียน, "to write") on deep blue. The letter's outline is traced from Sarabun Bold,
+       Copyright 2018 The Sarabun Project Authors, SIL Open Font License 1.1 (assets/app-icon/OFL-Sarabun.txt),
+       and moved 11 left and 7 up so its weight, not its bounding box, sits in the middle.
+       The file keeps its old name (wordcraft.svg) so every path that loads the icon still works. -->
+  <rect width="512" height="512" rx="112" fill="#1E3A8A"/>
+  <path fill="#F2B705" fill-rule="evenodd" transform="translate(-11 -7)" d="M395.93 111.03 L395.93 329.49 Q395.93 366.23 371.52 386.12 Q347.11 406.00 301.81 406.00 Q256.00 406.00 232.09 386.12 Q208.18 366.23 208.18 329.49 L208.18 295.26 Q208.18 280.16 213.21 269.09 Q218.25 258.01 228.82 242.41 Q239.89 225.80 245.18 213.72 Q250.46 201.64 250.46 184.52 Q250.46 166.40 239.89 157.09 Q229.32 147.78 210.70 147.78 Q194.09 147.78 184.02 152.31 Q203.15 153.32 216.49 166.15 Q229.83 178.99 229.83 202.14 Q229.83 224.29 215.23 239.89 Q200.63 255.50 174.46 255.50 Q147.28 255.50 131.67 238.38 Q116.07 221.27 116.07 190.06 Q116.07 152.31 142.24 129.15 Q168.42 106.00 213.72 106.00 Q258.01 106.00 283.43 125.13 Q308.85 144.26 308.85 178.48 Q308.85 199.12 303.57 212.96 Q298.28 226.81 288.21 245.43 Q280.16 259.02 276.13 268.84 Q272.11 278.65 272.11 290.73 L272.11 329.99 Q272.11 342.58 279.91 349.12 Q287.71 355.66 302.31 355.66 Q316.40 355.66 323.95 349.12 Q331.50 342.58 331.50 329.99 L331.50 111.03 Z M196.60 203.15 Q196.60 193.08 190.56 187.04 Q184.52 181.00 174.46 181.00 Q164.39 181.00 158.10 187.04 Q151.81 193.08 151.81 203.15 Q151.81 213.21 158.10 219.26 Q164.39 225.30 174.46 225.30 Q184.52 225.30 190.56 219.00 Q196.60 212.71 196.60 203.15 Z"/>
 </svg>

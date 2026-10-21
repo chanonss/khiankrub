@@ -384,7 +384,7 @@ fn clamp_side(v: f32) -> f32 {
 
 fn metadata(doc: &Document, opts: &PdfOptions) -> Metadata {
     let c = &doc.core;
-    let mut m = Metadata { creator: "WordCraft".into(), producer: "WordCraft".into(), ..Default::default() };
+    let mut m = Metadata { creator: "Khian Krub".into(), producer: "Khian Krub".into(), ..Default::default() };
     let title = opts.title.clone().unwrap_or_else(|| c.title.clone());
     if !title.trim().is_empty() {
         m.title = Some(title);

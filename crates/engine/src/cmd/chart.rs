@@ -119,7 +119,7 @@ fn has_chart(s: &Session) -> Option<&'static str> {
     match selected(s) {
         Some((_, InlineObject::Graphic { graphic, .. })) if graphic.chart.is_some() => None,
         Some((_, InlineObject::Graphic { graphic, .. })) if graphic.kind == GraphicKind::Chart => {
-            Some("this chart was made in another program: WordCraft shows it but can't edit it")
+            Some("this chart was made in another program: Khian Krub shows it but can't edit it")
         }
         _ => Some("select a chart first"),
     }

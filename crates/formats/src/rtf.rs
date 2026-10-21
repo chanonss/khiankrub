@@ -505,7 +505,7 @@ fn export_with(m: &Meta, w: &Writer, body: &str, sec: &wordcraft_doc::SectionPro
     for c in &w.t.colors {
         out.push_str(&format!("\\red{}\\green{}\\blue{};", c.0, c.1, c.2));
     }
-    out.push_str("}\n{\\*\\generator WordCraft;}\n{\\stylesheet{\\s0\\snext0 Normal;}");
+    out.push_str("}\n{\\*\\generator Khian Krub;}\n{\\stylesheet{\\s0\\snext0 Normal;}");
     for n in 1..=6u32 {
         let sz = HEAD_SIZES.get(n as usize - 1).copied().unwrap_or(12.0);
         out.push_str(&format!("{{\\s{n}\\sbasedon0\\snext0\\outlinelevel{}\\keepn\\b\\fs{} heading {n};}}", n - 1, (sz * 2.0) as i32));
