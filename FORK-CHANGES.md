@@ -7,12 +7,22 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-21
 
+### Other interface languages removed
+- The 22 interface translations (Bulgarian, Czech, German, Spanish, Estonian, French, Croatian, Hungarian, Italian,
+  Japanese, Korean, Polish, Portuguese (Brazil), Russian, Serbian in both scripts, Swedish, Turkish, Ukrainian,
+  Vietnamese, Simplified and Traditional Chinese) are deleted, with the tests about them and the
+  `interface-languages` build option. The interface is English only; there is no Thai interface yet. New labels are
+  written in English only.
+- Thai support for documents is unchanged: Thai Distribution, Thai word breaking, Thai fonts and typing.
+- The Language page in Options keeps "Proofing language" and no longer has an interface language section.
+- Merging the original's later changes will conflict on `crates/ui-egui/src/i18n/` (the files deleted here).
+
 ### Text boundaries: a thin grey outline around the text area
 - Print Layout now draws a thin grey outline around each page's text area (inside the margins), as Apple Pages does.
   Word shows only crop marks in the corners. It is on screen only: it is never printed and never goes into a PDF.
 - On by default. View › Show › **Text Boundaries** turns it off and on (command `view.textBoundaries`). It is hidden
   in Read Mode and in the Web and Outline views, like the gridlines.
-- Label translated in the 22 interface languages (first draft, not reviewed by native speakers).
+- (The label was translated in the 22 interface languages at the time; those were removed later the same day.)
 
 ## 2026-10-20
 
@@ -64,7 +74,7 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 - The Table Properties dialog (Table Layout › Properties) has a **Default cell margins** section: Top, Bottom,
   Left and Right, in the document's unit (up to 2 inches). OK sends them as `cellMargins` to `table.properties`.
   A cell with margins of its own keeps them. The Table Layout › Cell Margins button still resets to the defaults.
-- Heading translated in the 22 interface languages (first draft, not reviewed by native speakers).
+- Heading translated in the 22 interface languages (first draft; those languages were removed later, see above).
 
 ### View only mode (Editing menu)
 - The Editing menu (top right) has a third entry, **View only**: you can read, scroll, search, copy and print,
@@ -72,7 +82,7 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
   paste, undo and redo are all refused, and their buttons grey out. Opening, saving and closing files still work.
 - It is a session setting, not saved in the file. Choosing Editing or Reviewing turns it off.
 - Command `review.viewOnly` (`{"value": true|false}`); the engine refuses edits in `Session::run`.
-- New eye icon; the labels are translated in the 22 interface languages (first-draft translations, not reviewed
+- New eye icon; the labels were translated in the 22 interface languages (since removed; first-draft translations, not reviewed
   by native speakers).
 
 ### macOS app helper
@@ -80,7 +90,7 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
   binary, with the app icon, signed for this Mac only. After a rebuild:
   `cargo build --release -p wordcraft && packaging/macos/local-app.sh`
 
-### English-only interface by default
+### English-only interface by default (superseded: the other languages are now deleted)
 - New Cargo feature `interface-languages` on `wordcraft-ui-egui`, **off by default**: the 22 other interface
   catalogs are not compiled in (about 2.4 MB smaller) and the Language page hides the Interface language section.
   Turn it on with `--features wordcraft-ui-egui/interface-languages`. Tests that need other languages run only then.
@@ -102,4 +112,3 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 ## Building and checking
 - App: `cargo build --release -p wordcraft` (about 3 to 4 minutes), then `packaging/macos/local-app.sh`.
 - Full check before committing: `cargo xtask ci` (fmt, clippy, tests, assets, layers, wasm).
-- Interface languages back on: add `--features wordcraft-ui-egui/interface-languages` to cargo commands.

@@ -142,7 +142,7 @@ pub fn page(app: &mut WordApp, ui: &mut Ui) {
                 "display" => display(app, ui),
                 "proofing" => proofing(app, ui),
                 "save" => save(app, ui),
-                "language" => language(app, ui),
+                "language" => language(ui),
                 "accessibility" => accessibility(app, ui),
                 "advanced" => advanced(app, ui),
                 "agents" => agents(ui),
@@ -416,12 +416,8 @@ fn save(app: &mut WordApp, ui: &mut Ui) {
     note(ui, "The document you are editing keeps the names and dates; only the saved file leaves them out.");
 }
 
-fn language(app: &mut WordApp, ui: &mut Ui) {
-    // English only (the `interface-languages` feature is off): nothing to choose, so no section.
-    if crate::i18n::Lang::all().count() > 1 {
-        section(ui, "Interface language");
-        language_picker(app, ui);
-    }
+fn language(ui: &mut Ui) {
+    // The interface is English only (this fork), so there is no interface language to pick.
     // #414 (detect the document's language) goes here.
     ui.add_space(8.0);
     section(ui, "Proofing language");
@@ -615,30 +611,6 @@ fn animations_picker(app: &mut WordApp, ui: &mut Ui) {
     }
 }
 
-/// Interface language: follow the system (the default) or pick one (#8).
-fn language_picker(app: &mut WordApp, ui: &mut Ui) {
-    use crate::i18n::{AUTO, Lang};
-    // The language names are in their own scripts: fonts for them load from the next frame.
-    app.want_system_cjk = true;
-    let system = crate::i18n::system_lang();
-    let auto_label = crate::i18n::fmt(tl!("Automatic ({language})"), &[("language", system.name())]);
-    let current = if app.ui.language == AUTO { auto_label.clone() } else { Lang::from_pref(&app.ui.language).name().to_string() };
-    ui.horizontal(|ui| {
-        ui.label(tl!("Interface language:"));
-        egui::ComboBox::from_id_salt("interface_language").selected_text(current).width(220.0).show_ui(ui, |ui| {
-            if ui.selectable_label(app.ui.language == AUTO, auto_label.as_str()).clicked() {
-                let _ = app.run("ui.language", json!({"value": AUTO}));
-            }
-            for lang in Lang::all() {
-                if ui.selectable_label(app.ui.language == lang.code(), lang.name()).clicked() {
-                    let _ = app.run("ui.language", json!({"value": lang.code()}));
-                }
-            }
-        });
-    });
-    ui.label(RichText::new(tl!("Automatic follows your system's language. Menus and commands change; your documents don't.")).small().weak());
-}
-
 /// Deserialize `input` over `T`'s defaults one setting at a time: a value of the wrong type is
 /// dropped (its default stays) instead of failing the whole read. Objects nest (`editing`).
 pub fn lenient<T: Serialize + DeserializeOwned + Default>(input: &Value) -> T {
@@ -724,8 +696,6 @@ fn numeral_picker(app: &mut WordApp, ui: &mut Ui) {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(feature = "interface-languages")]
-    use egui_kittest::kittest::NodeT;
     use egui_kittest::kittest::Queryable;
     use serde_json::json;
     use wordcraft_geom::Unit;
@@ -739,10 +709,9 @@ mod tests {
         WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Services::default())
     }
 
-    /// The Language page offers the interface language only when other languages are built in
-    /// (`interface-languages`); English only, there is no empty "Interface language" section.
+    /// The interface is English only, so the Language page has no "Interface language" section.
     #[test]
-    fn language_page_lists_the_interface_language_only_with_other_languages() {
+    fn language_page_has_no_interface_language_section() {
         let mut a = app();
         a.run("ui.backstage", json!({"value": true, "page": "options"})).unwrap();
         a.ui.options_pane = "language".into();
@@ -756,119 +725,7 @@ mod tests {
         );
         h.run_steps(4);
         assert!(h.query_by_label("Proofing language").is_some(), "the Language page is showing");
-        assert_eq!(h.query_by_label("Interface language").is_some(), cfg!(feature = "interface-languages"));
-    }
-
-    #[cfg(feature = "interface-languages")]
-    fn nav_harness(language: &str, percent: u16) -> egui_kittest::Harness<'static, WordApp> {
-        let mut a = app();
-        a.run("ui.language", json!({"value": language})).unwrap();
-        a.run("ui.interfaceSize", json!({"percent": percent})).unwrap();
-        a.run("file.options", json!({"pane": "general"})).unwrap();
-        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).with_pixels_per_point(2.0).build_ui_state(
-            |ui, app: &mut WordApp| {
-                let ctx = ui.ctx().clone();
-                app.logic(&ctx);
-                app.ui(ui);
-            },
-            a,
-        );
-        h.run_steps(4);
-        h
-    }
-
-    /// #1266: check the actual painted text and renderer clip, including the bold selected
-    /// label. AccessKit must still expose the full name and the row must keep its fixed size.
-    #[test]
-    #[cfg(feature = "interface-languages")]
-    fn options_nav_labels_stay_inside_their_rows() {
-        for language in ["en", "ru"] {
-            for percent in [100, 125, 150] {
-                let mut h = nav_harness(language, percent);
-                // An interface size is absolute (#822): `percent` points per 100 screen pixels,
-                // whatever the display's own scale (2.0 here).
-                assert_eq!(h.ctx.pixels_per_point(), f32::from(percent) / 100.0);
-                for selected in ["general", "accessibility"] {
-                    h.state_mut().run("file.options", json!({"pane": selected})).unwrap();
-                    h.run_steps(4);
-                    for id in wordcraft_engine::cmd::options::PANES {
-                        let label = crate::i18n::tr(crate::i18n::Lang::from_pref(language), super::pane_label(id));
-                        let node =
-                            h.query_all_by_label(label).find(|n| n.accesskit_node().toggled().is_some()).expect("pane has its full accessible name");
-                        assert_eq!(
-                            node.accesskit_node().toggled(),
-                            Some(if id == selected { egui::accesskit::Toggled::True } else { egui::accesskit::Toggled::False })
-                        );
-                        let row = node.rect();
-                        assert_eq!(row.size(), egui::vec2(170.0, 30.0));
-                        let (clip, text) = h
-                            .output()
-                            .shapes
-                            .iter()
-                            .find_map(|s| match &s.shape {
-                                egui::Shape::Text(text) if text.galley.text() == label && row.contains(text.pos) => Some((s.clip_rect, text)),
-                                _ => None,
-                            })
-                            .expect("navigation label is painted");
-                        let bounds = text.visual_bounding_rect();
-                        assert!(row.contains_rect(bounds.intersect(clip)), "{language} {percent}% {selected}: {label} paints outside {row:?}");
-                        if language == "ru" && id == "accessibility" {
-                            assert_eq!(label, "Специальные возможности");
-                            assert!(bounds.right() > row.right(), "exercise a label wider than the row");
-                        }
-                        if language == "en" && ["general", "display", "save"].contains(&id) {
-                            assert!(clip.contains_rect(bounds), "short labels must remain fully visible");
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /// Clipping only the painter must leave the entire row clickable, its hover/selection
-    /// backgrounds intact, and the selected pane's settings visible at every interface size.
-    #[test]
-    #[cfg(feature = "interface-languages")]
-    fn options_nav_rows_keep_hover_and_selection() {
-        for language in ["en", "ru"] {
-            for percent in [100, 125, 150] {
-                let mut h = nav_harness(language, percent);
-                for (id, setting) in
-                    [("display", "Spaces"), ("save", "Save documents"), ("accessibility", "Visual effects"), ("general", "Interface")]
-                {
-                    let lang = crate::i18n::Lang::from_pref(language);
-                    let row = h
-                        .query_all_by_label(crate::i18n::tr(lang, super::pane_label(id)))
-                        .find(|n| n.accesskit_node().toggled().is_some())
-                        .expect("pane has its full accessible name")
-                        .rect();
-                    // Both ends of the row, including its empty left inset, stay clickable.
-                    for x in [row.left() + 2.0, row.right() - 2.0] {
-                        h.state_mut().run("file.options", json!({"pane": "agents"})).unwrap();
-                        h.hover_at(egui::pos2(x, row.center().y));
-                        h.run_steps(4);
-                        let t = crate::theme::Tokens::get(&h.ctx);
-                        let background = |h: &egui_kittest::Harness<'_, WordApp>, color| {
-                            h.output().shapes.iter().any(|s| matches!(&s.shape, egui::Shape::Rect(r) if r.rect == row && r.fill == color))
-                        };
-                        assert!(background(&h, t.hover), "{language} {percent}%: hover covers the row");
-                        for pressed in [true, false] {
-                            h.input_mut().events.push(egui::Event::PointerButton {
-                                pos: egui::pos2(x, row.center().y),
-                                button: egui::PointerButton::Primary,
-                                pressed,
-                                modifiers: Default::default(),
-                            });
-                            h.run_steps(1);
-                        }
-                        h.run_steps(4);
-                        assert_eq!(h.state().ui.options_pane, id);
-                        assert!(background(&h, t.checked), "{language} {percent}%: selection covers the row");
-                        assert!(h.query_by_label(crate::i18n::tr(lang, setting)).is_some(), "{id} settings are shown");
-                    }
-                }
-            }
-        }
+        assert!(h.query_by_label("Interface language").is_none());
     }
 
     /// File › Options settings come back after a restart, and a `ui.json` with a wrong value in
@@ -1081,34 +938,6 @@ mod tests {
         h.get_by_label(label).click();
         h.run_steps(4);
         assert!(h.state().ui.alignment_guides, "and on again");
-    }
-
-    /// File › Options › Advanced › Animation: the checkbox is the `ui.caretAnimation` setting,
-    /// and the section is translated.
-    #[test]
-    #[cfg(feature = "interface-languages")]
-    fn advanced_animation_turns_the_caret_animation_off_and_on() {
-        let mut a = app();
-        a.run("file.options", json!({"pane": "advanced"})).unwrap();
-        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
-            |ui, app: &mut WordApp| {
-                let ctx = ui.ctx().clone();
-                app.logic(&ctx);
-                app.ui(ui);
-            },
-            a,
-        );
-        h.run_steps(4);
-        assert!(h.query_by_label("Animation").is_some(), "the section is there");
-        h.get_by_label("Animate the caret (it glides and fades)").click();
-        h.run_steps(4);
-        assert!(!h.state().ui.caret_animation, "the checkbox turns it off");
-        h.get_by_label("Animate the caret (it glides and fades)").click();
-        h.run_steps(4);
-        assert!(h.state().ui.caret_animation, "and on again");
-        h.state_mut().run("ui.language", json!({"value": "es"})).unwrap();
-        h.run_steps(4);
-        assert!(h.query_by_label("Animación").is_some() && h.query_by_label("Animation").is_none());
     }
 
     /// #838: in a Polish region the Page Setup margins read `2,54 cm` (the region's unit and

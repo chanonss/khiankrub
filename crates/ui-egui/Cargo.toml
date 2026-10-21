@@ -5,12 +5,6 @@ edition.workspace = true
 license.workspace = true
 description = "WordCraft egui front end (Word-style ribbon UI); swappable: nothing below depends on it"
 
-[features]
-# The interface in languages other than English (22 catalogs, 2.3 MB of text, and the Language list in
-# Options). Off, the interface is English only and the catalogs are not built in.
-default = []
-interface-languages = []
-
 [lints]
 workspace = true
 

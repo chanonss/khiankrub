@@ -3812,54 +3812,6 @@ mod tests {
         assert!(!command_matches(table, "   "));
     }
 
-    /// Ordinary Turkish queries must find dotted-I labels, while canonical English labels and
-    /// ASCII command IDs retain their old case-insensitive search in every interface language.
-    #[test]
-    #[cfg(feature = "interface-languages")]
-    fn command_search_respects_turkish_i_pairs_and_keeps_canonical_matches() {
-        use egui_kittest::kittest::Queryable;
-        let mut fonts = false;
-        let mut h = egui_kittest::Harness::builder().with_size(vec2(1440.0, 900.0)).build_ui_state(
-            move |ui, app: &mut WordApp| {
-                let ctx = ui.ctx().clone();
-                crate::i18n::set_current(crate::i18n::Lang::from_pref(&app.ui.language));
-                if fonts {
-                    show(app, &ctx);
-                } else {
-                    crate::theme::install_fonts_for(&ctx, false);
-                    fonts = true;
-                }
-            },
-            app_with("Unchanged document"),
-        );
-        let before = serde_json::to_value(&h.state().session.doc).unwrap();
-        for (language, query, expected) in [
-            ("tr", "italik", "İtalik   —   Giriş › Yazı Tipi"),
-            ("tr", "İTALİK", "İtalik   —   Giriş › Yazı Tipi"),
-            ("tr", "içindekiler", "İçindekiler Tablosu   —   Başvurular › İçindekiler Tablosu"),
-            ("tr", "YAZI TİPİ", "İtalik   —   Giriş › Yazı Tipi"),
-            ("tr", "INSERT", "Tablo   —   Ekle › Tablolar"),
-            ("tr", "INSERT.TABLE", "Tablo   —   Ekle › Tablolar"),
-            ("tr", "FORMAT.ITALIC", "İtalik   —   Giriş › Yazı Tipi"),
-            ("tr", "TABLE OF CONTENTS", "İçindekiler Tablosu   —   Başvurular › İçindekiler Tablosu"),
-            ("en", "ITALIC", "Italic   —   Home › Font"),
-            ("en", "FORMAT.ITALIC", "Italic   —   Home › Font"),
-            ("en", "INSERT.TABLE", "Table   —   Insert › Tables"),
-        ] {
-            h.state_mut().ui.language = language.into();
-            h.state_mut().dialog = Some(Dialog::Commands { query: query.into(), swallow: false });
-            h.run_steps(4);
-            assert!(
-                h.query(egui_kittest::kittest::By::new().role(egui::accesskit::Role::Button).label_contains(expected)).is_some(),
-                "{language}: {query}\n{:?}",
-                h.query_all_by_role(egui::accesskit::Role::Button).collect::<Vec<_>>()
-            );
-            assert_eq!(crate::i18n::lowercase("Iİıi"), if language == "tr" { "ıiıi" } else { "ii\u{307}ıi" });
-        }
-        assert_eq!(serde_json::to_value(&h.state().session.doc).unwrap(), before, "search does not change the document");
-        crate::i18n::set_current(crate::i18n::Lang::EN);
-    }
-
     /// Open the Paragraph dialog and press OK without changing anything.
     fn ok_unchanged(app: &mut WordApp) {
         ok_edit(app, |_| {});

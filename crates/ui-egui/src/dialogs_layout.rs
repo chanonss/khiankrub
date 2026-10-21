@@ -993,25 +993,6 @@ mod tests {
         assert!(a.dialog.is_none());
     }
 
-    /// The envelope sizes are in the interface language with the region's decimal separator
-    /// (#1128; the untranslated-text audit found `#10   4.13 × 9.5 in` drawn in English).
-    #[test]
-    #[cfg(feature = "interface-languages")]
-    fn envelope_sizes_follow_the_interface_language_and_region() {
-        let size = |name: &str| ENVELOPE_SIZES.iter().find(|s| s.0 == name).map(|(n, w, h)| envelope_label(n, *w, *h)).unwrap();
-        assert_eq!(size("Envelope #10"), "#10   4.13 × 9.5 in");
-        assert_eq!(size("Envelope DL"), "DL   110 × 220 mm");
-        let mut a = app();
-        a.run("file.options", json!({"region": "it-IT"})).unwrap();
-        crate::options::sync(&a);
-        crate::i18n::set_current(crate::i18n::Lang::from_code("it").unwrap());
-        assert_eq!(size("Envelope #10"), "#10   4,13 × 9,5 pollici");
-        assert_eq!(size("Envelope DL"), "DL   110 × 220 mm");
-        crate::i18n::set_current(crate::i18n::Lang::EN);
-        a.run("file.options", json!({"region": "en-US"})).unwrap();
-        crate::options::sync(&a);
-    }
-
     /// #407: Labels builds a new document of the chosen sheet, or a single label.
     #[test]
     fn labels_dialog_builds_a_sheet() {

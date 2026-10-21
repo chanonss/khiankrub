@@ -3040,34 +3040,6 @@ mod tests {
         assert!(tall.is_empty(), "groups taller than the ribbon: {tall:#?}");
     }
 
-    /// #897: the tabs that didn't fit were drawn under Comments / Editing / Share, so at 1280 pt
-    /// in Polish the table tabs were out of reach. They stay on the strip and a click opens them.
-    #[test]
-    #[cfg(feature = "interface-languages")]
-    fn table_tabs_stay_clickable_when_the_tab_strip_overflows() {
-        use egui_kittest::kittest::Queryable;
-        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::from_text("Text")), crate::Services::default());
-        app.run("insert.table", json!({"rows": 3, "cols": 3})).unwrap();
-        app.run("ui.language", json!({"value": "pl"})).unwrap();
-        let mut h = egui_kittest::Harness::builder().with_size(vec2(1280.0, 900.0)).build_ui_state(
-            |ui, app: &mut WordApp| {
-                let ctx = ui.ctx().clone();
-                app.logic(&ctx);
-                app.ui(ui);
-            },
-            app,
-        );
-        h.run_steps(3);
-        let buttons = [tl!("Comments"), tl!("Editing")].map(|b| h.get_by_label(b).rect());
-        for tab in ["Table Design", "Table Layout"] {
-            let r = h.get_by_label(tl!(tab)).rect();
-            assert!(r.right() <= 1280.0 && buttons.iter().all(|b| !b.intersects(r)), "{tab} {r:?} under {buttons:?}");
-            h.get_by_label(tl!(tab)).click();
-            h.run_steps(2);
-            assert_eq!(h.state().ui.tab, tab);
-        }
-    }
-
     #[test]
     fn fit_tabs_keeps_the_kept_tabs_and_drops_from_the_end() {
         let tabs = [(40.0, true), (50.0, false), (50.0, false), (50.0, false), (60.0, true)];
