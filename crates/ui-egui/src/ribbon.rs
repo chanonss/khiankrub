@@ -474,11 +474,26 @@ fn edge_cue(ui: &mut Ui, rect: Rect, glyph: &str, hint: &str, t: &Tokens) -> boo
     resp.clicked()
 }
 
+/// A column of rows or small buttons, centred in the group's height as in Word (two rows sit in
+/// the middle, three fill it). The centring uses the column's height from the last frame; a frame
+/// whose height changed is redrawn before it is shown.
 fn stack(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
-    ui.vertical(|ui| {
+    let id = ui.next_auto_id().with("stack_height");
+    // Only a column standing in a group's full height is centred, not one nested in a row.
+    let room = ui.available_height();
+    let centre = ui.layout().is_horizontal() && room >= CONTENT_H - 0.5;
+    let last: Option<f32> = ui.data(|d| d.get_temp(id));
+    let pad = if centre { last.map_or(0.0, |h| ((CONTENT_H - h) / 2.0).max(0.0).floor()) } else { 0.0 };
+    let inner = ui.vertical(|ui| {
         ui.spacing_mut().item_spacing = vec2(1.0, 0.0);
+        ui.add_space(pad);
         add(ui);
     });
+    let h = inner.response.rect.height() - pad;
+    if centre && last.is_none_or(|l| (l - h).abs() > 0.5) {
+        ui.data_mut(|d| d.insert_temp(id, h));
+        ui.ctx().request_discard("ribbon column height");
+    }
 }
 
 /// Layout › Size: the named paper sizes, then More Paper Sizes… for a custom size in Page
@@ -814,7 +829,7 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                 small(ui, app, "clear", None, "Clear All Formatting", "format.clear", json!({}), false);
                 small(ui, app, "phonetic", None, "Phonetic Guide", "format.phonetic", json!({}), false);
             });
-            ui.add_space(3.0);
+            ui.add_space(crate::widgets::ROW_GAP);
             crate::widgets::row(ui, |ui| {
                 small(ui, app, "bold", None, "Bold", "format.bold", json!({}), flag("bold"));
                 small(ui, app, "italic", None, "Italic", "format.italic", json!({}), flag("italic"));
@@ -945,7 +960,7 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                 let marks = app.session.view.marks;
                 small(ui, app, "pilcrow", None, "Show/Hide ¶", "view.marks", json!({}), marks);
             });
-            ui.add_space(3.0);
+            ui.add_space(crate::widgets::ROW_GAP);
             crate::widgets::row(ui, |ui| {
                 use wordcraft_doc::Align as A;
                 small(ui, app, "alignLeft", None, "Align Left", "para.alignLeft", json!({}), align == A::Left);
@@ -1997,7 +2012,6 @@ fn outlining(app: &mut WordApp, ui: &mut Ui) {
                 small(ui, app, "outlineDemote", None, "Demote", "outline.demote", json!({}), false);
                 small(ui, app, "outlineBody", None, "Demote to Body Text", "outline.demoteToBody", json!({}), false);
             });
-            ui.add_space(3.0);
             crate::widgets::row(ui, |ui| {
                 small(ui, app, "outlineUp", None, "Move Up", "outline.moveUp", json!({}), false);
                 small(ui, app, "outlineDown", None, "Move Down", "outline.moveDown", json!({}), false);
@@ -2015,7 +2029,6 @@ fn outlining(app: &mut WordApp, ui: &mut Ui) {
                     let _ = app.run("outline.showLevel", json!({ "level": l }));
                 }
             });
-            ui.add_space(3.0);
             crate::widgets::row(ui, |ui| {
                 let mut f = !o.hide_formatting;
                 if ui.checkbox(&mut f, tl!("Show Text Formatting")).changed() {

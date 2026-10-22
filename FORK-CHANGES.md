@@ -7,6 +7,16 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-22
 
+### Ribbon icons sized and spaced like Word's
+- Small ribbon buttons are larger, as in Microsoft Word: a 20 px icon (was 17) in a 26 × 24 button (was 24 × 22). Split
+  buttons and small menu buttons follow. The ribbon is 6 px taller (content 72 px, was 66) so three rows still fit.
+- Columns of small buttons are now centred in each group's height instead of hugging the top: two-row groups (Font,
+  Paragraph) sit in the middle with an 8 px gap between rows, three-row columns (Clipboard, Editing, Links…) fill the
+  height. Large buttons moved down 3 px to stay centred. This applies to every tab, including the contextual ones.
+- The floating mini toolbar over a selection uses the same larger buttons (it is a little wider).
+- Code: `crates/ui-egui/src/widgets.rs` (`SMALL_W`, `SMALL_H`, `SMALL_ICON`, `ROW_GAP`, `CONTENT_H`) and `stack` in
+  `crates/ui-egui/src/ribbon.rs`.
+
 ### Thai list numbers and letters
 - Lists (and any other numbering that uses these formats, such as page numbers) in Word's three Thai number formats are
   now drawn in Thai instead of 1, 2, 3. Opening and saving already kept the formats; only the labels were wrong.
