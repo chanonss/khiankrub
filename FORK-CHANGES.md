@@ -5,6 +5,21 @@ Thai-speaking audience. This file lists what differs from the original, newest f
 progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each entry matches a commit on the
 `my-changes` branch.
 
+## 2026-10-22
+
+### Thai list numbers and letters
+- Lists (and any other numbering that uses these formats, such as page numbers) in Word's three Thai number formats are
+  now drawn in Thai instead of 1, 2, 3. Opening and saving already kept the formats; only the labels were wrong.
+  - **Thai numbers** (`thaiNumbers`): Thai digits, ๑ ๒ ๓ … ๑๐ ๑๑.
+  - **Thai letters** (`thaiLetters`): ก ข ค … ฮ, then กก ขข …, then กกก. Like Word, the obsolete ฃ and ฅ are skipped and
+    the number of repeats starts again after 30.
+  - **Thai counting** (`thaiCounting`): Thai number words, หนึ่ง สอง … สิบ สิบเอ็ด ยี่สิบ … หนึ่งร้อยเอ็ด, with เอ็ด for a
+    final 1 and ศูนย์ for 0.
+- Every label was checked against Microsoft Word's own labels for the same lists (480 items, plus start values up to
+  99999) and is pinned by the test `doc::section::tests::thai_formats_follow_word` (`crates/doc/src/section.rs`).
+- Not changed: `bahtText` still shows 1, 2, 3, as Word itself shows it in a list. The list dialogs do not offer the Thai
+  formats yet; they come from opened documents.
+
 ## 2026-10-21
 
 ### New name and icon: Khian Krub (เขียนครับ)

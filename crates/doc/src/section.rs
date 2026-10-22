@@ -255,7 +255,7 @@ impl NumFormat {
     pub fn from_ooxml(s: &str) -> NumFormat {
         NumFormat::ALL.into_iter().find(|f| f.ooxml() == s).unwrap_or(NumFormat::Decimal)
     }
-    /// Format `n` (1-based). Formats WordCraft doesn't draw yet (Hebrew, Arabic, Hindi, Thai,
+    /// Format `n` (1-based). Formats WordCraft doesn't draw yet (Hebrew, Arabic, Hindi,
     /// Vietnamese, text amounts) show decimal, as do values past a sequence's end
     /// (the 21st item of ①…⑳).
     pub fn format(self, n: u32) -> String {
@@ -268,6 +268,9 @@ impl NumFormat {
             NumFormat::LowerLetter => letters(n),
             NumFormat::RussianUpper => russian_letters(n).to_uppercase(),
             NumFormat::RussianLower => russian_letters(n),
+            NumFormat::ThaiLetters => thai_letters(n),
+            NumFormat::ThaiNumbers => thai_digits(n),
+            NumFormat::ThaiCounting => thai_counting(n),
             NumFormat::Ordinal => format!("{n}{}", ordinal_suffix(n)),
             NumFormat::CardinalText => cardinal_text(n),
             NumFormat::OrdinalText => ordinal_text(n),
@@ -314,9 +317,6 @@ impl NumFormat {
             | NumFormat::HindiConsonants
             | NumFormat::HindiNumbers
             | NumFormat::HindiCounting
-            | NumFormat::ThaiLetters
-            | NumFormat::ThaiNumbers
-            | NumFormat::ThaiCounting
             | NumFormat::BahtText
             | NumFormat::DollarText => n.to_string(),
         }
@@ -381,6 +381,62 @@ pub fn letters(n: u32) -> String {
     let k = (n - 1) / 26 + 1;
     let c = (b'a' + ((n - 1) % 26) as u8) as char;
     std::iter::repeat_n(c, k as usize).collect()
+}
+
+/// The 41 letters Word counts Thai lists with: ก..ฮ without the obsolete ฃ and ฅ.
+const THAI_LETTERS: [char; 41] = [
+    'ก', 'ข', 'ค', 'ง', 'จ', 'ฉ', 'ช', 'ซ', 'ฌ', 'ญ', 'ฎ', 'ฏ', 'ฐ', 'ฑ', 'ฒ', 'ณ', 'ด', 'ต', 'ถ', 'ท', 'ธ', 'น', 'บ', 'ป', 'ผ', 'ฝ', 'พ', 'ฟ', 'ภ',
+    'ม', 'ย', 'ร', 'ล', 'ว', 'ศ', 'ษ', 'ส', 'ห', 'ฬ', 'อ', 'ฮ',
+];
+
+/// Word-style Thai letters: ก..ฮ, กก..ฮฮ, กกก.. The repeat count wraps after 30, as Word's does
+/// (item 2001 is ล written 19 times, not 49).
+pub fn thai_letters(n: u32) -> String {
+    if n == 0 {
+        return String::new();
+    }
+    let len = THAI_LETTERS.len() as u32;
+    let k = ((n - 1) / len) % 30 + 1;
+    let c = THAI_LETTERS.get(((n - 1) % len) as usize).copied().unwrap_or('ก');
+    std::iter::repeat_n(c, k as usize).collect()
+}
+
+/// `n` in Thai digits (๐..๙).
+pub fn thai_digits(n: u32) -> String {
+    n.to_string().chars().map(|c| c.to_digit(10).and_then(|d| char::from_u32(0x0E50 + d)).unwrap_or(c)).collect()
+}
+
+const THAI_DIGIT_WORDS: [&str; 10] = ["ศูนย์", "หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า"];
+const THAI_PLACES: [&str; 6] = ["", "สิบ", "ร้อย", "พัน", "หมื่น", "แสน"];
+
+/// `n` in Thai words, as Word's thaiCounting: สิบ for 10, ยี่สิบ for 20, เอ็ด for a final 1 after
+/// any higher digit (101 หนึ่งร้อยเอ็ด), ล้าน for each million.
+pub fn thai_counting(n: u32) -> String {
+    if n == 0 {
+        return "ศูนย์".to_string();
+    }
+    let mut out = String::new();
+    let millions = n / 1_000_000;
+    if millions > 0 {
+        out.push_str(&thai_counting(millions));
+        out.push_str("ล้าน");
+    }
+    let rest = n % 1_000_000;
+    for (place, word) in THAI_PLACES.iter().enumerate().rev() {
+        let d = (rest / 10u32.pow(place as u32) % 10) as usize;
+        let digit = THAI_DIGIT_WORDS.get(d).copied().unwrap_or("");
+        match (place, d) {
+            (_, 0) => {}
+            (1, 1) => out.push_str("สิบ"),
+            (1, 2) => out.push_str("ยี่สิบ"),
+            (0, 1) if n >= 10 => out.push_str("เอ็ด"),
+            _ => {
+                out.push_str(digit);
+                out.push_str(word);
+            }
+        }
+    }
+    out
 }
 
 /// The 29 letters Word counts Russian lists with: а..я without ё, й, ъ and ь (ы stays).
@@ -897,6 +953,49 @@ mod tests {
             assert!(f == NumFormat::Bullet || f == NumFormat::None || !f.format(u32::MAX).is_empty(), "{f:?}");
         }
         assert_eq!(NumFormat::from_ooxml("klingon"), NumFormat::Decimal, "unknown formats are decimal");
+    }
+
+    #[test]
+    fn thai_formats_follow_word() {
+        // Word's own labels, read from thaiLetters / thaiNumbers / thaiCounting lists.
+        let letters: Vec<String> = (1..=43).map(|n| NumFormat::ThaiLetters.format(n)).collect();
+        assert_eq!(letters.join(" "), "ก ข ค ง จ ฉ ช ซ ฌ ญ ฎ ฏ ฐ ฑ ฒ ณ ด ต ถ ท ธ น บ ป ผ ฝ พ ฟ ภ ม ย ร ล ว ศ ษ ส ห ฬ อ ฮ กก ขข");
+        for (n, c, k) in [(83, 'ก', 3), (201, 'ส', 5), (999, 'ฒ', 25), (1100, 'ว', 27), (2001, 'ล', 19), (11111, 'ฮ', 1), (32767, 'ซ', 20)]
+        {
+            assert_eq!(NumFormat::ThaiLetters.format(n), c.to_string().repeat(k), "thaiLetters {n}");
+        }
+        assert_eq!(NumFormat::ThaiLetters.format(0), "");
+
+        for (n, s) in [(0, "๐"), (9, "๙"), (10, "๑๐"), (120, "๑๒๐"), (32767, "๓๒๗๖๗")] {
+            assert_eq!(NumFormat::ThaiNumbers.format(n), s, "thaiNumbers {n}");
+        }
+
+        for (n, s) in [
+            (0, "ศูนย์"),
+            (1, "หนึ่ง"),
+            (10, "สิบ"),
+            (11, "สิบเอ็ด"),
+            (20, "ยี่สิบ"),
+            (21, "ยี่สิบเอ็ด"),
+            (99, "เก้าสิบเก้า"),
+            (100, "หนึ่งร้อย"),
+            (101, "หนึ่งร้อยเอ็ด"),
+            (120, "หนึ่งร้อยยี่สิบ"),
+            (211, "สองร้อยสิบเอ็ด"),
+            (1001, "หนึ่งพันเอ็ด"),
+            (1010, "หนึ่งพันสิบ"),
+            (1100, "หนึ่งพันหนึ่งร้อย"),
+            (10101, "หนึ่งหมื่นหนึ่งร้อยเอ็ด"),
+            (11111, "หนึ่งหมื่นหนึ่งพันหนึ่งร้อยสิบเอ็ด"),
+            (20021, "สองหมื่นยี่สิบเอ็ด"),
+            (32767, "สามหมื่นสองพันเจ็ดร้อยหกสิบเจ็ด"),
+            (99999, "เก้าหมื่นเก้าพันเก้าร้อยเก้าสิบเก้า"),
+            (1_000_000, "หนึ่งล้าน"),
+            (21_000_001, "ยี่สิบเอ็ดล้านเอ็ด"),
+        ] {
+            assert_eq!(NumFormat::ThaiCounting.format(n), s, "thaiCounting {n}");
+        }
+        assert!(NumFormat::ThaiCounting.format(u32::MAX).ends_with("ล้านเก้าแสนหกหมื่นเจ็ดพันสองร้อยเก้าสิบห้า"));
     }
 
     #[test]
