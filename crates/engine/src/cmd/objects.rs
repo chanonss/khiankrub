@@ -117,7 +117,8 @@ pub fn specs() -> Vec<CommandSpec> {
                 }
                 if sharpen > 0.0 {
                     img = img.unsharpen(1.0 + sharpen / 50.0, 2);
-                } else if sharpen < 0.0 {
+                } else if sharpen < 0.0 && (-sharpen / 25.0).is_normal() {
+                    // `blur` asserts on a subnormal width.
                     img = img.blur(-sharpen / 25.0);
                 }
                 img
@@ -1626,6 +1627,17 @@ mod tests {
         s.run("select.collapse", &json!({"end": true})).unwrap();
         s.run("text.insert", &json!({"text": "x"})).unwrap();
         assert!(s.run("picture.crop", &json!({"left": 0.1})).is_err());
+    }
+
+    /// A `sharpen` too small to be a normal blur width must not reach the blur, which asserts on it.
+    #[test]
+    fn a_tiny_sharpen_value_does_not_panic() {
+        let mut s = Session::new(wordcraft_doc::Document::new());
+        let data = super::super::insert::base64_encode(&png(20, 10));
+        s.run("insert.picture", &json!({"data": data})).unwrap();
+        for sharpen in [-1e-40_f64, -1e-45, -1e-38, 1e-40, -1e-30, 0.0, -0.5] {
+            s.run("picture.corrections", &json!({"sharpen": sharpen})).unwrap_or_else(|e| panic!("sharpen {sharpen}: {e:?}"));
+        }
     }
 
     /// Transparency is absolute from the original pixels: 80% then 0% is opaque again
