@@ -249,7 +249,7 @@ fn odt_round_trip() {
 fn latex_round_trip() {
     check_round_trip("tex", true);
     let tex = String::from_utf8(export("tex", &sample()).unwrap().unwrap()).unwrap();
-    assert!(tex.starts_with("% Written by Khian Krub") && tex.contains("\\documentclass{article}"), "{tex}");
+    assert!(tex.starts_with("% Written by KhianKrub") && tex.contains("\\documentclass{article}"), "{tex}");
     assert!(tex.contains("\\section*{Main Heading}") && tex.contains("\\subsection*{Second Level}"), "{tex}");
     assert!(tex.contains("\\textbf{bold}") && tex.contains("\\textit{italic}"), "{tex}");
     assert!(tex.contains("\\href{https://example.com/x}{a link}"), "{tex}");

@@ -7,9 +7,9 @@
   <key>CFBundleDevelopmentRegion</key>
   <string>en</string>
   <key>CFBundleDisplayName</key>
-  <string>Khian Krub</string>
+  <string>KhianKrub</string>
   <key>CFBundleName</key>
-  <string>Khian Krub</string>
+  <string>KhianKrub</string>
   <key>CFBundleExecutable</key>
   <string>KhianKrub</string>
   <key>CFBundleIdentifier</key>
@@ -52,7 +52,7 @@
   <key>NSHumanReadableCopyright</key>
   <string>MIT OR Apache-2.0. Copyright © 2026 ArtCraft Team and the WordCraft contributors. Modifications copyright © 2026 Chanon Sarasuk.</string>
 
-  <!-- Documents Khian Krub opens (system type declarations). -->
+  <!-- Documents KhianKrub opens (system type declarations). -->
   <key>CFBundleDocumentTypes</key>
   <array>
     <dict>

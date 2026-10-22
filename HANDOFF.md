@@ -1,4 +1,4 @@
-# Handoff: continuing Khian Krub on another Mac
+# Handoff: continuing KhianKrub on another Mac
 
 Written 2026-10-21 for Chanon Sarasuk, updated 2026-10-22 on the second Mac. It lets a new Claude Code session (or you)
 pick up exactly where the last one stopped. Nothing here is secret: no passwords or tokens.
@@ -8,20 +8,23 @@ travel between Macs (see section 10).
 
 ## 1. Where things stand
 
-- **App:** Khian Krub (เขียนครับ), Chanon's fork of [storytold/wordcraft](https://github.com/storytold/wordcraft) for Thai users
+- **App:** KhianKrub (เขียนครับ), Chanon's fork of [storytold/wordcraft](https://github.com/storytold/wordcraft) for Thai users
   (Rust, egui). Fork: <https://github.com/chanonss/wordcraft>, branch **`my-changes`** (the default branch).
 - **Done, in order:** Thai Distribution and Thai word breaking, View only mode, English-only interface (22 other
   languages deleted), hover-jump fix, plain number fields, Thai space-dot centring, ArtCraft logos removed, rename to
-  Khian Krub with the gold ข icon on blue (traced from Sarabun Bold, OFL), and on 2026-10-22 **Thai list numbering**
-  (`thaiNumbers` ๑ ๒ ๓, `thaiLetters` ก ข ค, `thaiCounting` หนึ่ง สอง สาม, checked against Word's own labels). Every
+  KhianKrub with the gold ข icon on blue (traced from Sarabun Bold, OFL), and on 2026-10-22 **Thai list numbering**
+  (`thaiNumbers` ๑ ๒ ๓, `thaiLetters` ก ข ค, `thaiCounting` หนึ่ง สอง สาม, checked against Word's own labels), then
+  **ribbon icons sized and centred like Word's**, and the name written as one word, **KhianKrub**. Every
   change is listed, newest first, in [`FORK-CHANGES.md`](FORK-CHANGES.md).
 - **Published:** only release `v0.7.0-thai.2` (tag on commit `13f20be`). It still carries the old WordCraft name and icon.
-- **NOT on GitHub yet: 5 local commits** after `a1538b9` (the last pushed commit):
+- **NOT on GitHub yet: 7 local commits** after `a1538b9` (the last pushed commit):
   1. `69e6dfc` Remove the 22 other interface languages
   2. `fddd64a` Fix hover jumps, drag-to-change numbers, Thai space dots, and the alignment name
   3. `845a7de` Rename the app to Khian Krub, new icon, and a handoff note
   4. `cef7d83` Draw Thai list numbers, letters and counting words
-  5. the commit that updated this note
+  5. `5501619` Update the handoff note for continuing on another Mac
+  6. Ribbon: larger small icons and rows centred in each group, as in Word
+  7. Write the app name as one word, KhianKrub
 
   Check with `git log --oneline origin/my-changes..HEAD`. **A fresh clone will not have them until they are pushed.**
   Chanon decides when to push (rule 1). To move without pushing, copy the whole `repo` folder, or run
@@ -61,8 +64,8 @@ cargo install resvg --locked                             # only needed to regene
 | Full check before every commit | `cargo xtask ci` (fmt, clippy -D warnings, tests, assets, layers, wasm) |
 | Format | `cargo fmt --all` |
 | Build the release binary | `cargo build --release -p wordcraft` |
-| Make the Mac app | `packaging/macos/local-app.sh` → `~/Applications/Khian Krub.app` (ad-hoc signed, this Mac only) |
-| Render a document to PDF with Khian Krub | `cargo build --release -p wordcraft-cli` then `target/release/wordcraft-cli convert in.docx out.pdf` |
+| Make the Mac app | `packaging/macos/local-app.sh` → `~/Applications/KhianKrub.app` (ad-hoc signed, this Mac only) |
+| Render a document to PDF with KhianKrub | `cargo build --release -p wordcraft-cli` then `target/release/wordcraft-cli convert in.docx out.pdf` |
 | Regenerate all icon files | `packaging/icons.sh` (needs `resvg`; uses `assets/app-icon/wordcraft.svg`) |
 
 **Chain them so a failure stops everything.** Twice, a piped or chained command hid a failed check and an old build was
@@ -72,7 +75,7 @@ packaged. Use `set -euo pipefail`, no `| tail` on the checking command itself:
 cargo xtask ci && cargo build --release -p wordcraft && packaging/macos/local-app.sh
 ```
 
-The zip for a release is made with `ditto -c -k --keepParent --norsrc --noextattr "Khian Krub.app" <name>.zip`. Unzip a copy,
+The zip for a release is made with `ditto -c -k --keepParent --norsrc --noextattr "KhianKrub.app" <name>.zip`. Unzip a copy,
 run `codesign --verify --strict --deep`, and put the zip's SHA-256 in the release notes.
 
 ## 4. Working rules Chanon has set (keep following them)
@@ -100,9 +103,9 @@ run `codesign --verify --strict --deep`, and put the zip's SHA-256 in the releas
 
 ## 5. The icon and the name
 
-- **Name:** Khian Krub in English letters for files and bundle ids, เขียนครับ as the Thai display name (Finder on a Thai Mac,
+- **Name:** KhianKrub (one word, since 2026-10-22; it was "Khian Krub" before) in English letters for files and bundle ids, เขียนครับ as the Thai display name (Finder on a Thai Mac,
   via `th.lproj/InfoPlist.strings` written by `local-app.sh`). Bundle id `io.github.chanonss.khiankrub`, executable `KhianKrub`.
-  "ครับ" is the male polite ending; Chanon knows and accepted it. A web search found no clash for "Khian Krub" (software names
+  "ครับ" is the male polite ending; Chanon knows and accepted it. A web search found no clash for "Khian Krub" (searched with the space; software names
   only, not trademark registers).
 - **Icon:** the letter ข in gold `#F2B705` on a deep blue `#1E3A8A` rounded square (rx 112 in a 512 view box). The outline is
   traced from **Sarabun Bold** (Cadson Demak, SIL OFL 1.1, no reserved font name), chosen over TH Sarabun New (GPL) and
@@ -123,7 +126,7 @@ run `codesign --verify --strict --deep`, and put the zip's SHA-256 in the releas
 - `packaging/macos/package.sh` and the DMG background: the original's release tooling. `package.sh` only follows the new
   executable and icon names; the DMG still shows the old icon and name. Not used for Chanon's zip releases.
 - The Windows installer files (`packaging/windows/package.ps1`, `wordcraft.wxs`) and the `.msi`/`.zip` names still say
-  WordCraft. The `.exe`'s own file properties (product name, icon, copyright) already say Khian Krub (`apps/wordcraft/build.rs`).
+  WordCraft. The `.exe`'s own file properties (product name, icon, copyright) already say KhianKrub (`apps/wordcraft/build.rs`).
 - The README's "Crafting Apps" table (upstream's sibling apps) and the sample document's link to getartcraft.com.
 - The File menu's "Discord community" and the Help tab's community button still exist (only the title-bar button was removed).
 - Merging the original's later changes will conflict on `crates/ui-egui/src/i18n/` (deleted here).
@@ -165,17 +168,17 @@ Chanon asked how to make a Windows version. Three ways; nothing has been tried y
    and an `.msi` (needs WiX v5; see the script's header). Needs the local commits pushed first, or the `repo` folder copied.
 3. **GitHub Actions** (`.github/workflows/release.yml` builds Windows): needs a push and publishes releases, so ask first.
 
-A public Windows release would also need the installer files renamed to Khian Krub (section 6), with a FORK-CHANGES entry.
+A public Windows release would also need the installer files renamed to KhianKrub (section 6), with a FORK-CHANGES entry.
 The PC needs a Thai font for documents; Windows has Leelawadee UI and Tahoma, TH Sarabun New only if installed.
 
 ## 9. What is next (nothing is forced)
 
-- Try the new app (`~/Applications/Khian Krub.app`), open `thai-test.docx` in it, and give feedback on the icon and name.
-  Then say "push" to upload the 5 local commits.
+- Try the new app (`~/Applications/KhianKrub.app`), open `thai-test.docx` in it, and give feedback on the icon and name.
+  Then say "push" to upload the 7 local commits.
 - Optional: a Windows test build (section 8).
 - Optional: offer the Thai list formats in the list numbering dialog (`crates/ui-egui/src/dialogs_lists.rs`); today they
   only come from opened documents.
-- When Chanon wants a public build: new release (for example `v0.7.0-thai.3`) with the zip named for Khian Krub; ask before
+- When Chanon wants a public build: new release (for example `v0.7.0-thai.3`) with the zip named for KhianKrub; ask before
   replacing or deleting `v0.7.0-thai.2`, and before pointing the Facebook post to it.
 - The old `~/Applications/WordCraft.app` on the first Mac can be moved to the Bin.
 - A Thai interface is **not** wanted; wait for what Chanon raises next.

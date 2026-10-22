@@ -14,8 +14,8 @@ fn main() {
     }
     let mut res = winresource::WindowsResource::new();
     res.set_icon("../../assets/app-icon/wordcraft.ico")
-        .set("ProductName", "Khian Krub")
-        .set("FileDescription", "Khian Krub word processor (based on WordCraft)")
+        .set("ProductName", "KhianKrub")
+        .set("FileDescription", "KhianKrub word processor (based on WordCraft)")
         .set("CompanyName", "Chanon Sarasuk")
         .set(
             "LegalCopyright",

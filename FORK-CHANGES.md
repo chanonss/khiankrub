@@ -7,6 +7,13 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-22
 
+### The name is written as one word: KhianKrub
+- "Khian Krub" is now **KhianKrub** everywhere it shows: the window title, the About screen, menus, dialogs and messages,
+  the Dock and Finder (`CFBundleName`, `CFBundleDisplayName`), the app file (`~/Applications/KhianKrub.app`), the Windows
+  `.exe` properties, the files it writes (PDF creator and producer, DOCX `Application`, ODT/RTF/HTML generator, LaTeX
+  header), the MCP server title, `NOTICE`, `README.md`, `ATTRIBUTION.md` and `HANDOFF.md`. The Thai name เขียนครับ, the
+  bundle id and the executable name `KhianKrub` are unchanged. Older entries below keep the old spelling.
+
 ### Ribbon icons sized and spaced like Word's
 - Small ribbon buttons are larger, as in Microsoft Word: a 20 px icon (was 17) in a 26 × 24 button (was 24 × 22). Split
   buttons and small menu buttons follow. The ribbon is 6 px taller (content 72 px, was 66) so three rows still fit.

@@ -1,4 +1,4 @@
-> **About this fork.** **Khian Krub (เขียนครับ)** is a fork of [WordCraft](https://github.com/storytold/wordcraft) by the
+> **About this fork.** **KhianKrub (เขียนครับ)** is a fork of [WordCraft](https://github.com/storytold/wordcraft) by the
 > ArtCraft team, adapted for Thai users by Chanon Sarasuk, with its own name and icon: Thai Distribution alignment and Thai word breaking, a View only mode,
 > default cell margins in Table Properties, an English-only interface, and no Discord button in the title
 > bar. The full list is in [FORK-CHANGES.md](FORK-CHANGES.md). It is not affiliated with or endorsed by the ArtCraft
