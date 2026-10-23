@@ -3604,6 +3604,9 @@ fn icons_body(app: &mut WordApp, ui: &mut Ui, query: &mut String, category: &mut
     ui.add_space(4.0);
     ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing = vec2(4.0, 4.0);
+        // Category names never wrap: they wrapped into the space left, one letter per line
+        // ("Technology" stood on end). The dialog widens to show them on one line.
+        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
         if ui.steady_label(category.is_empty(), tl!("All")).clicked() {
             category.clear();
         }

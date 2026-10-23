@@ -7,6 +7,11 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### Insert › Icons: category names readable
+- The last categories of the Icons dialog (Symbols, Technology, Transport) were squeezed into the space left on the
+  row and drawn one letter per line. Category names no longer wrap; the dialog widens a little to show all twelve on
+  one line (`icons_body` in `crates/ui-egui/src/dialogs.rs`).
+
 ### File › Recover: readable in the light theme
 - The Recover page was drawn on black, with its text forced to white. In the light theme its buttons kept their white
   fill, so Restore, Discard…, Continue without restoring and Refresh showed as blank white boxes, and the column
