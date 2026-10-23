@@ -7,6 +7,17 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### Navigation pane: Thai headings and page thumbnails
+- **Thai text in the interface.** The interface fonts (Inter, Source Sans 3) have no Thai, so Thai headings in the
+  Navigation pane (and other document text shown in the interface: style names, file names) drew as `?`. An installed
+  Thai font is now added after them: Thonburi on macOS, Leelawadee UI on Windows, Noto Sans Thai on Linux, else any
+  installed font with Thai (`thai_ui_faces` in `crates/ui-egui/src/theme.rs`). Nothing is bundled.
+- **Page thumbnails.** Navigation › Pages shows a small picture of each page with its number below, the current page
+  outlined in blue, as in Word (was a plain list "Page 1, Page 2 …"). Click one to go to that page. Thumbnails are
+  drawn only when scrolled into view, at most two per frame, and again only when that page changes, so typing stays fast.
+- New interface command `ui.navTab` (`{"tab": "headings" | "pages" | "results"}`) opens the Navigation pane on a tab.
+- Tests: `panes::navigation_tests::thai_heading_text_has_glyphs`, `pages_tab_shows_a_thumbnail_per_page`.
+
 ### Repository renamed to chanonss/khiankrub
 - The GitHub repository is now <https://github.com/chanonss/khiankrub> (was `chanonss/wordcraft`). GitHub redirects the
   old address, so earlier links, release downloads and clones keep working. It is still shown as a fork of

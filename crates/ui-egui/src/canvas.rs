@@ -628,7 +628,7 @@ fn view_key(app: &WordApp, dim_body: bool) -> u64 {
 
 /// Fingerprint of a page's laid-out content. A layout never changes once made, so this is
 /// taken once per page and layout ([`PageKeys`]), not every frame.
-fn page_content_key(page: &Page) -> u64 {
+pub(crate) fn page_content_key(page: &Page) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();
     (page.w.to_bits(), page.h.to_bits()).hash(&mut h);
     for list in [&page.items, &page.header, &page.footer] {

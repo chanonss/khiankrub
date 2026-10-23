@@ -133,7 +133,8 @@ run `codesign --verify --strict --deep`, and put the zip's SHA-256 in the releas
 - UI tests read the AccessKit tree: a text box exposes a `TextInput` node and a `TextRun` child with the same value; pick the
   `TextInput`.
 - A stale widget id refocused while the canvas is undrawn crashes AccessKit; `refocus_after_chrome_click` guards it.
-- Thai fonts in the interface: About text is English only, because it has not been checked that the egui UI fonts draw Thai.
+- Thai in the interface: the embedded UI fonts have no Thai; `thai_ui_faces` (theme.rs) adds an installed Thai font
+  (Thonburi on macOS) as a fallback, so Thai headings and names draw. The menus stay English (rule 3).
 - A release zip must be made with `ditto ... --norsrc --noextattr`; `codesign --strict` rejects extended attributes.
 - **List and page number formats** are drawn by `NumFormat::format` in `crates/doc/src/section.rs`. Every Word format is kept
   on save; the ones not drawn yet (Hebrew, Arabic, Hindi, Vietnamese, `bahtText`, `dollarText`) show decimal. Word itself

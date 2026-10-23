@@ -1292,6 +1292,16 @@ impl WordApp {
                 }
                 json!({"tab": self.ui.tab})
             }
+            // Navigation pane tab: headings, pages or results. Opens the pane.
+            "ui.navTab" => {
+                let tab = s("tab").unwrap_or("headings");
+                if !matches!(tab, "headings" | "pages" | "results") {
+                    return Some(Err(format!("unknown Navigation tab {tab:?}: use headings, pages or results")));
+                }
+                self.ui.nav_tab = tab.into();
+                self.session.view.nav_pane = true;
+                json!({"tab": tab})
+            }
             "ui.backstage" => {
                 self.ui.backstage = p.get("value").and_then(Value::as_bool).unwrap_or(!self.ui.backstage);
                 if let Some(pg) = s("page") {

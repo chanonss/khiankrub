@@ -145,15 +145,7 @@ fn nav(app: &mut WordApp, ui: &mut Ui) {
     });
     ui.separator();
     egui::ScrollArea::vertical().show(ui, |ui| match app.ui.nav_tab.as_str() {
-        "pages" => {
-            let l = app.session.layout();
-            for (i, p) in l.pages.iter().enumerate() {
-                let label = crate::i18n::fmt(tl!("Page {page}"), &[("page", &p.number.to_string())]);
-                if ui.steady_label(app.session.page_hint == i, label).clicked() {
-                    let _ = app.run("edit.goto", json!({"page": i + 1}));
-                }
-            }
-        }
+        "pages" => page_thumbnails(app, ui),
         "results" => {
             let results = app.session.find.results.clone();
             ui.label(egui::RichText::new(format!("{} results", results.len())).small().weak());
@@ -211,6 +203,85 @@ fn nav(app: &mut WordApp, ui: &mut Ui) {
             }
         }
     });
+}
+
+/// Most page thumbnails rendered in one frame; the rest follow on the next frames, so a long
+/// document or an edit that changes many pages never stalls typing.
+const THUMBS_PER_FRAME: usize = 2;
+
+/// Rendered page thumbnails, by page index: the page's content key and the texture.
+type ThumbCache = std::collections::HashMap<usize, (u64, egui::TextureHandle)>;
+
+/// Navigation › Pages: a small picture of each page with its number below, the current page
+/// outlined, as in Word. Clicking one goes to that page. Thumbnails are rendered only once
+/// scrolled into view and again only when that page's content changes.
+fn page_thumbnails(app: &mut WordApp, ui: &mut Ui) {
+    use std::hash::{Hash, Hasher};
+    let t = Tokens::get(ui.ctx());
+    let l = app.session.layout();
+    let ppp = ui.ctx().pixels_per_point();
+    let width = (ui.available_width() - 40.0).clamp(60.0, 150.0);
+    let cache_id = egui::Id::new("nav_page_thumbs");
+    let mut cache: ThumbCache = ui.ctx().data_mut(|d| d.get_temp(cache_id)).unwrap_or_default();
+    cache.retain(|i, _| *i < l.pages.len());
+    let mut budget = THUMBS_PER_FRAME;
+    for (i, page) in l.pages.iter().enumerate() {
+        if page.w <= 0.0 || page.h <= 0.0 {
+            continue;
+        }
+        let size = vec2(width, width * page.h / page.w);
+        let current = app.session.page_hint == i;
+        let resp = ui
+            .vertical_centered(|ui| {
+                ui.add_space(6.0);
+                let (r, resp) = ui.allocate_exact_size(size, egui::Sense::click());
+                if ui.is_rect_visible(r) {
+                    let mut h = std::collections::hash_map::DefaultHasher::new();
+                    (crate::canvas::page_content_key(page), width.to_bits(), ppp.to_bits()).hash(&mut h);
+                    let key = h.finish();
+                    let fresh = cache.get(&i).is_some_and(|(k, _)| *k == key);
+                    if !fresh && budget > 0 {
+                        budget -= 1;
+                        let img =
+                            wordcraft_render::render_page(&app.session.doc, page, width / page.w * ppp, &crate::canvas::screen_render_options());
+                        let tex = ui.ctx().load_texture(
+                            format!("nav page {i}"),
+                            egui::ColorImage::from_rgba_premultiplied([img.width as usize, img.height as usize], &img.pixels),
+                            egui::TextureOptions::LINEAR,
+                        );
+                        cache.insert(i, (key, tex));
+                    } else if !fresh {
+                        ui.ctx().request_repaint();
+                    }
+                    ui.painter().rect_filled(r, 0.0, egui::Color32::WHITE);
+                    // A stale picture stays until its new one is ready, rather than a blank page.
+                    if let Some((_, tex)) = cache.get(&i) {
+                        let uv = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
+                        ui.painter().image(tex.id(), r, uv, egui::Color32::WHITE);
+                    }
+                    let (w, c) = if current {
+                        (3.0, t.accent)
+                    } else if resp.hovered() {
+                        (2.0, t.accent.linear_multiply(0.6))
+                    } else {
+                        (1.0, t.border_strong)
+                    };
+                    ui.painter().rect_stroke(r.expand(if current { 2.0 } else { 0.0 }), 2.0, Stroke::new(w, c), egui::StrokeKind::Outside);
+                }
+                let label = crate::i18n::fmt(tl!("Page {page}"), &[("page", &page.number.to_string())]);
+                ui.add_space(if current { 5.0 } else { 3.0 });
+                let font = if current { semibold(11.5) } else { regular(11.5) };
+                ui.label(egui::RichText::new(&label).font(font).color(if current { t.accent_text } else { t.text_dim }));
+                resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, current, &label));
+                resp
+            })
+            .inner;
+        if resp.clicked() {
+            let _ = app.run("edit.goto", json!({"page": i + 1}));
+        }
+    }
+    ui.add_space(6.0);
+    ui.ctx().data_mut(|d| d.insert_temp(cache_id, cache));
 }
 
 /// Constrain each heading to the available pane width so long document text cannot
@@ -807,5 +878,50 @@ mod navigation_tests {
         let (top, second) = (text_left(0), text_left(1));
         assert!(top < 30.0, "a top-level heading starts at the pane's left edge, not centred: {top}px in");
         assert!((second - top - 14.0).abs() < 0.5, "a level-2 heading is indented 14px under its parent: {top} / {second}");
+    }
+
+    /// Thai headings drew as `?`: the interface fonts had no Thai. With a Thai font installed, the
+    /// interface families now have glyphs for it.
+    #[test]
+    fn thai_heading_text_has_glyphs() {
+        if !wordcraft_fonts::FontDb::global().fallback_for('ก', u32::MAX).is_some() {
+            return; // No Thai font on this machine: nothing to fall back to.
+        }
+        let ctx = egui::Context::default();
+        crate::theme::install_fonts(&ctx);
+        ctx.run_ui(egui::RawInput::default(), |_| {}).drop_without_applying_deltas();
+        for font in [regular(12.5), semibold(12.5), crate::theme::medium(12.5)] {
+            assert!(ctx.fonts_mut(|f| f.has_glyphs(&font, "ชื่อเต็มของกรุงเทพมหานคร")), "{font:?} draws Thai");
+        }
+    }
+
+    /// Navigation › Pages shows a thumbnail of every page, labelled with its number, and clicking
+    /// one goes to that page.
+    #[test]
+    fn pages_tab_shows_a_thumbnail_per_page() {
+        let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Default::default());
+        a.run("text.insert", json!({"text": "First"})).unwrap();
+        a.run("insert.pageBreak", json!({})).unwrap();
+        a.run("text.insert", json!({"text": "Second"})).unwrap();
+        a.run("ui.navTab", json!({"tab": "pages"})).unwrap();
+        assert!(a.run("ui.navTab", json!({"tab": "thumbnails"})).is_err(), "an unknown tab is refused");
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1200.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        for _ in 0..8 {
+            h.step();
+        }
+        let cache: ThumbCache = h.ctx.data_mut(|d| d.get_temp(egui::Id::new("nav_page_thumbs"))).unwrap_or_default();
+        assert_eq!(cache.len(), 2, "both pages have a thumbnail");
+        egui_kittest::kittest::Queryable::get_by_role_and_label(&h, egui::accesskit::Role::Button, "Page 2").click();
+        for _ in 0..3 {
+            h.step();
+        }
+        assert_eq!(h.state().session.page_hint, 1, "clicking the second thumbnail goes to page 2");
     }
 }

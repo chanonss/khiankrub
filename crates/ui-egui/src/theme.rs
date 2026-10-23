@@ -513,8 +513,50 @@ pub fn font_definitions_language(prefer_hans: bool, prefer_korean: bool, system_
     }
     #[cfg(target_arch = "wasm32")]
     let _ = system_cjk;
+    // The embedded faces have no Thai: document text shown in the interface (Navigation pane
+    // headings, file names, style names) would draw as `?`. An installed Thai face after them.
+    #[cfg(not(target_arch = "wasm32"))]
+    for (fam, face) in [
+        (vec![FontFamily::Proportional, FontFamily::Name("medium".into())], &thai_ui_faces().0),
+        (vec![FontFamily::Name("semibold".into())], &thai_ui_faces().1),
+    ] {
+        let Some(f) = face else { continue };
+        let name = format!("thai {} {}", f.family, f.style);
+        let mut data = FontData::from_owned(f.data().to_vec());
+        data.index = f.index();
+        fonts.font_data.insert(name.clone(), Arc::new(data));
+        for fam in fam {
+            if let Some(v) = fonts.families.get_mut(&fam) {
+                v.push(name.clone());
+            }
+        }
+    }
     // Symbols and emoji fall back to egui's defaults (kept in the families).
     fonts
+}
+
+/// The installed Thai faces for the interface (regular, bold), chosen once: a system interface
+/// font first (Thonburi on macOS, Leelawadee UI on Windows, Noto Sans Thai on Linux), else any
+/// installed face that has Thai letters. `None` when nothing installed covers Thai.
+#[cfg(not(target_arch = "wasm32"))]
+fn thai_ui_faces() -> &'static (Option<Arc<wordcraft_fonts::FontFace>>, Option<Arc<wordcraft_fonts::FontFace>>) {
+    static FACES: std::sync::OnceLock<(Option<Arc<wordcraft_fonts::FontFace>>, Option<Arc<wordcraft_fonts::FontFace>>)> = std::sync::OnceLock::new();
+    FACES.get_or_init(|| {
+        let db = wordcraft_fonts::FontDb::global();
+        for family in ["Thonburi", "Leelawadee UI", "Noto Sans Thai UI", "Noto Sans Thai", "Tahoma"] {
+            if !db.has_family(family) {
+                continue;
+            }
+            let regular = db.face(family, "Regular");
+            if regular.covers('ก') {
+                let bold = db.face(family, "Bold");
+                let bold = if bold.covers('ก') { bold } else { regular.clone() };
+                return (Some(regular), Some(bold));
+            }
+        }
+        let any = db.fallback_for('ก', u32::MAX);
+        (any.clone(), any)
+    })
 }
 
 /// The installed CJK interface font for a Chinese (`hans`) or other interface, chosen once:
