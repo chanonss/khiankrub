@@ -1713,8 +1713,38 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                         ui.label(tl!(r_label));
                         para_number(ui, right, ParaNumber::Length, "right", mixed);
                         ui.end_row();
-                        ui.label(tl!("First line:"));
-                        para_number(ui, first, ParaNumber::Length, "indentFirst", mixed);
+                        // As in Word: Special (none, First line, Hanging) and By, its size. The
+                        // model keeps one signed first-line indent; hanging is a negative one.
+                        ui.label(tl!("Special:"));
+                        let blank = mixed.contains("indentFirst");
+                        let special = special_indent(*first);
+                        let shown = if blank { "" } else { tl!(special.label()) };
+                        egui::ComboBox::from_id_salt("para_special").selected_text(shown).show_ui(ui, |ui| {
+                            for s in [SpecialIndent::None, SpecialIndent::FirstLine, SpecialIndent::Hanging] {
+                                if ui.steady_label(!blank && s == special, tl!(s.label())).clicked() {
+                                    *first = s.with_size(first.abs());
+                                    if *first == 0.0 && s != SpecialIndent::None {
+                                        // Word's default size: 0.5" (1.27 cm).
+                                        *first = s.with_size(36.0 / crate::options::unit().pt_per_unit());
+                                    }
+                                    mixed.remove("indentFirst");
+                                }
+                            }
+                        });
+                        ui.label(tl!("By:"));
+                        if special == SpecialIndent::None && !blank {
+                            // Nothing to size: an empty, inactive box, as in Word.
+                            ui.add_enabled(false, crate::numfield::NumField::new(&mut 0.0).measure_blank(crate::options::unit()));
+                        } else {
+                            let mut by = first.abs();
+                            let before = by;
+                            para_number(ui, &mut by, ParaNumber::Length, "indentFirst", mixed);
+                            if by != before {
+                                // A blank (mixed) box becomes a first-line indent, as Word does.
+                                let kind = if blank { SpecialIndent::FirstLine } else { special };
+                                *first = kind.with_size(by.abs());
+                            }
+                        }
                         ui.end_row();
                     });
                     para_check(ui, &mut opts[0], tl!("Mirror indents"), "mirrorIndents", mixed);
@@ -3175,6 +3205,46 @@ fn para_number(ui: &mut Ui, value: &mut f32, kind: ParaNumber, key: &str, mixed:
     }
 }
 
+/// The Paragraph dialog's Special indent, as in Word: none, a first-line indent, or a hanging
+/// indent (the rest of the lines indented past the first). The model stores one signed
+/// first-line indent; a hanging indent is a negative one.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum SpecialIndent {
+    None,
+    FirstLine,
+    Hanging,
+}
+
+impl SpecialIndent {
+    fn label(self) -> &'static str {
+        match self {
+            SpecialIndent::None => "(none)",
+            SpecialIndent::FirstLine => "First line",
+            SpecialIndent::Hanging => "Hanging",
+        }
+    }
+
+    /// The signed first-line indent for this kind and a size (`By`).
+    fn with_size(self, by: f32) -> f32 {
+        match self {
+            SpecialIndent::None => 0.0,
+            SpecialIndent::FirstLine => by.abs(),
+            SpecialIndent::Hanging => -by.abs(),
+        }
+    }
+}
+
+/// The Special indent a signed first-line indent shows as.
+fn special_indent(first: f32) -> SpecialIndent {
+    if first > 0.0 {
+        SpecialIndent::FirstLine
+    } else if first < 0.0 {
+        SpecialIndent::Hanging
+    } else {
+        SpecialIndent::None
+    }
+}
+
 /// A Paragraph dialog check box for the field `key`. While the selected paragraphs differ in
 /// it, it shows as neither on nor off, and a click turns it on for all of them.
 fn para_check(ui: &mut Ui, on: &mut bool, text: &str, key: &str, mixed: &mut BTreeSet<String>) {
@@ -3941,12 +4011,54 @@ mod tests {
                 app,
             );
             h.run_steps(4);
-            let combo = h.get_by_role(egui::accesskit::Role::ComboBox);
+            // The first list is Alignment (Special follows it).
+            let combo = h.query_all_by_role(egui::accesskit::Role::ComboBox).next().unwrap();
             assert_eq!(NodeT::accesskit_node(&combo).value().as_deref(), Some(name), "{command}");
             h.get_by_role_and_label(egui::accesskit::Role::Button, "OK").click();
             h.run_steps(4);
             let align = h.state().session.doc.para_at(&wordcraft_doc::Pos::body(0, 0)).and_then(|p| p.props.align);
             assert_eq!(align, Some(want), "{command}: OK without a change keeps the alignment");
+        }
+    }
+
+    /// As in Word, the first-line indent is a Special list (none, First line, Hanging) and a By
+    /// size: a hanging indent shows as Hanging, not a negative first line, and choosing a kind
+    /// with OK sets the signed indent the model keeps (0.5", 36 pt, when there was none).
+    #[test]
+    fn paragraph_dialog_offers_hanging_and_first_line_indents() {
+        use egui_kittest::kittest::{NodeT, Queryable};
+        assert_eq!(special_indent(-12.0), SpecialIndent::Hanging);
+        assert_eq!(special_indent(12.0), SpecialIndent::FirstLine);
+        assert_eq!(special_indent(0.0), SpecialIndent::None);
+        assert_eq!(SpecialIndent::Hanging.with_size(1.5), -1.5);
+        assert_eq!(SpecialIndent::FirstLine.with_size(-1.5), 1.5);
+        assert_eq!(SpecialIndent::None.with_size(3.0), 0.0);
+        for (start, shown, pick, want) in
+            [(-36.0, "Hanging", "First line", 36.0), (0.0, "(none)", "Hanging", -36.0), (36.0, "First line", "(none)", 0.0)]
+        {
+            let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+            app.run("text.insert", json!({"text": "สวัสดีครับ"})).unwrap();
+            app.run("para.set", json!({"props": {"indentLeft": 36.0, "indentFirst": start}})).unwrap();
+            app.dialog = Dialog::open("paragraph", &mut app);
+            let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+                |ui, app: &mut WordApp| {
+                    let ctx = ui.ctx().clone();
+                    app.logic(&ctx);
+                    app.ui(ui);
+                },
+                app,
+            );
+            h.run_steps(4);
+            let special = h.query_all_by_role(egui::accesskit::Role::ComboBox).nth(1).unwrap();
+            assert_eq!(NodeT::accesskit_node(&special).value().as_deref(), Some(shown), "{start} pt shows as {shown}");
+            special.click();
+            h.run_steps(4);
+            h.query_all_by_label(pick).last().unwrap().click();
+            h.run_steps(4);
+            h.get_by_role_and_label(egui::accesskit::Role::Button, "OK").click();
+            h.run_steps(4);
+            let first = h.state().session.doc.para_at(&wordcraft_doc::Pos::body(0, 0)).and_then(|p| p.props.indent_first).unwrap_or(0.0);
+            assert!((first - want).abs() < 0.01, "{shown} → {pick}: first-line indent {first} pt, want {want}");
         }
     }
 
@@ -3969,7 +4081,7 @@ mod tests {
         // The ribbon's button already has this name; the open list adds a second one.
         let named = |h: &egui_kittest::Harness<WordApp>| h.query_all_by_label("Thai Distribution").count();
         let before = named(&h);
-        h.get_by_role(egui::accesskit::Role::ComboBox).click();
+        h.query_all_by_role(egui::accesskit::Role::ComboBox).next().unwrap().click();
         h.run_steps(4);
         assert_eq!(named(&h), before + 1, "the Alignment list offers Thai Distribution");
         h.query_all_by_label("Thai Distribution").last().unwrap().click();

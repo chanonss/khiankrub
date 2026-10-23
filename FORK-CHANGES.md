@@ -7,6 +7,14 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### Paragraph dialog: Special indent (First line, Hanging) as in Word
+- The Paragraph dialog's Indentation shows **Special: (none) / First line / Hanging** and **By**, as in Word, instead
+  of one "First line" box where a hanging indent had to be typed as a negative number. A hanging indent now shows as
+  Hanging with its size. Choosing First line or Hanging when there was none starts at 0.5" (1.27 cm), as Word does;
+  (none) removes it. The document still stores one first-line indent (negative = hanging), so files open and save
+  exactly as before (`SpecialIndent` in `crates/ui-egui/src/dialogs.rs`).
+- Test: `paragraph_dialog_offers_hanging_and_first_line_indents`.
+
 ### README: a KhianKrub front page
 - `README.md` (the page GitHub shows for the repository) is rewritten for KhianKrub: name and icon, an English and Thai
   description, new screenshots of KhianKrub (`docs/images/khiankrub-*.png`, credited in `ATTRIBUTION.md`), the Thai
