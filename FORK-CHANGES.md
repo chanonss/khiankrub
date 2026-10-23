@@ -7,6 +7,11 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### Version 0.7.1
+- The app's version is 0.7.1 (was 0.7.0, the original's). Releases from now on use plain version numbers (v0.7.1); the
+  earlier ones were named v0.7.0-thai.1 to v0.7.0-thai.4 ("the original's 0.7.0 plus Thai build N"), from before the
+  app had its own name.
+
 ### README: the newest additions
 - A "Newest additions" section with screenshots of the macOS menu bar, Page Number Position (the dialog and the result
   with its distances drawn in), page breaks, the hanging indent, and the menus with pictures (credited in
