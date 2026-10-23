@@ -7,6 +7,13 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### File menu: an icon for every entry
+- Each entry of the File menu's blue sidebar now has a white icon before its label, as in Word: Home, New, Open,
+  Info, Recover, Save, Save As, Print, Export, Close, Options, Back, Discord community and About.
+- New icons drawn in code (`crates/ui-egui/src/icons.rs`, original artwork): `recover` (a clock turning back), `saveAs`
+  (the disk with a pencil), `options` (a gear), `back` (an arrow in a circle) and `closeFile` (a page with a cross).
+  The others reuse existing icons; Discord community uses the plain speech bubble, not Discord's logo.
+
 ### Navigation pane: Thai headings and page thumbnails
 - **Thai text in the interface.** The interface fonts (Inter, Source Sans 3) have no Thai, so Thai headings in the
   Navigation pane (and other document text shown in the interface: style names, file names) drew as `?`. An installed

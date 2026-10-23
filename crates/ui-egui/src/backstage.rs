@@ -65,12 +65,14 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 } else if on && resp.hovered() {
                     ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(26));
                 }
+                let ink = if on { egui::Color32::WHITE } else { egui::Color32::from_white_alpha(110) };
+                nav_icon(ui, r, page_icon(id), ink);
                 ui.painter().text(
-                    pos2(r.min.x + 22.0, r.center().y),
+                    pos2(r.min.x + NAV_TEXT_X, r.center().y),
                     Align2::LEFT_CENTER,
                     tl!(label),
                     if active { semibold(14.0) } else { medium(14.0) },
-                    if on { egui::Color32::WHITE } else { egui::Color32::from_white_alpha(110) },
+                    ink,
                 );
                 if resp.clicked() {
                     match id {
@@ -111,7 +113,8 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             if resp.hovered() {
                 ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(26));
             }
-            ui.painter().text(pos2(r.min.x + 22.0, r.center().y), Align2::LEFT_CENTER, tl!("Back"), medium(14.0), egui::Color32::WHITE);
+            nav_icon(ui, r, "back", egui::Color32::WHITE);
+            ui.painter().text(pos2(r.min.x + NAV_TEXT_X, r.center().y), Align2::LEFT_CENTER, tl!("Back"), medium(14.0), egui::Color32::WHITE);
             if resp.clicked() {
                 app.ui.backstage = false;
                 app.canvas.want_focus = true;
@@ -123,7 +126,8 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     if resp.hovered() {
                         ui.painter().rect_filled(r, 0.0, egui::Color32::from_white_alpha(26));
                     }
-                    ui.painter().text(pos2(r.min.x + 22.0, r.center().y), Align2::LEFT_CENTER, tl!(label), regular(13.0), egui::Color32::WHITE);
+                    nav_icon(ui, r, if id == "discord" { "comment" } else { "info" }, egui::Color32::WHITE);
+                    ui.painter().text(pos2(r.min.x + NAV_TEXT_X, r.center().y), Align2::LEFT_CENTER, tl!(label), regular(13.0), egui::Color32::WHITE);
                     if resp.clicked() {
                         if id == "discord" {
                             let _ = app.run("ui.discord", json!({}));
@@ -213,6 +217,32 @@ fn recovery_page(app: &mut WordApp, ui: &mut Ui) {
 /// The Backstage pages that work while no document is open (#1129).
 fn works_without_document(page: &str) -> bool {
     matches!(page, "home" | "new" | "open" | "options")
+}
+
+/// Where a File menu entry's label starts: after its icon ([`nav_icon`]).
+const NAV_TEXT_X: f32 = 50.0;
+
+/// The icon before a File menu entry's label, in the label's colour (one colour on the blue).
+fn nav_icon(ui: &Ui, row: Rect, icon: &str, ink: egui::Color32) {
+    let r = Rect::from_center_size(pos2(row.min.x + 32.0, row.center().y), vec2(18.0, 18.0));
+    crate::icons::paint(ui.painter(), r, icon, ink, ink);
+}
+
+/// The icon of each File menu page.
+fn page_icon(id: &str) -> &'static str {
+    match id {
+        "home" => "homeFolder",
+        "new" => "blankPage",
+        "open" => "open",
+        "info" => "info",
+        "recover" => "recover",
+        "save" => "save",
+        "saveAs" => "saveAs",
+        "print" => "print",
+        "export" => "share",
+        "close" => "closeFile",
+        _ => "options",
+    }
 }
 
 fn heading(ui: &mut Ui, s: &str) {

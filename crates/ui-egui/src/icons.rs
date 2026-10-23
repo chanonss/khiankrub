@@ -1397,6 +1397,53 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
             pen.circle(10.0, 10.0, 7.0, c);
             pen.text(10.0, 10.0, 10.0, "?", a, true);
         }
+        // File menu (Backstage) pages; Info uses "info" above.
+        // Recover: a clock with an arrow turning back.
+        "recover" => {
+            pen.p.add(Shape::line(
+                (0..=20)
+                    .map(|i| {
+                        let t = std::f32::consts::PI * (0.75 + 1.6 * i as f32 / 20.0);
+                        pen.pt(10.5 + 7.0 * t.cos(), 10.0 + 7.0 * t.sin())
+                    })
+                    .collect(),
+                pen.stroke(c),
+            ));
+            pen.fill(&[(1.5, 6.5), (6.5, 4.5), (5.5, 9.5)], c);
+            pen.line_c(&[(10.5, 6.0), (10.5, 10.5), (13.5, 12.5)], a);
+        }
+        // Save As: the disk with a pencil over its corner.
+        "saveAs" => {
+            pen.closed(&[(2.5, 2.5), (12.0, 2.5), (14.5, 5.0), (14.5, 9.0)], c);
+            pen.line(&[(2.5, 2.5), (2.5, 15.5), (9.0, 15.5)]);
+            pen.frect(5.0, 2.5, 11.0, 6.0, c);
+            pen.line(&[(5.0, 15.5), (5.0, 10.0), (10.5, 10.0)]);
+            pen.closed(&[(11.0, 17.5), (11.5, 14.5), (16.0, 10.0), (18.5, 12.5), (14.0, 17.0)], a);
+        }
+        // Options: a gear.
+        "options" => {
+            let pts: Vec<(f32, f32)> = (0..32)
+                .map(|i| {
+                    // Eight teeth: two points on the outer radius, two on the inner, per tooth.
+                    let r = if (i % 4) < 2 { 8.0 } else { 6.0 };
+                    let t = std::f32::consts::TAU * (i as f32 + 0.5) / 32.0;
+                    (10.0 + r * t.cos(), 10.0 + r * t.sin())
+                })
+                .collect();
+            pen.closed(&pts, c);
+            pen.circle(10.0, 10.0, 2.5, a);
+        }
+        "back" => {
+            pen.circle(10.0, 10.0, 7.5, c);
+            pen.line_c(&[(14.0, 10.0), (6.5, 10.0)], a);
+            pen.line_c(&[(9.5, 7.0), (6.5, 10.0), (9.5, 13.0)], a);
+        }
+        // Close: the document with a cross.
+        "closeFile" => {
+            pen.page(3.5, 2.0, 14.5, 18.0);
+            pen.line_c(&[(11.0, 11.0), (17.0, 17.0)], a);
+            pen.line_c(&[(17.0, 11.0), (11.0, 17.0)], a);
+        }
         // Developer › Controls: a field's frame with what it holds.
         "ccRichText" => {
             pen.rect(2.5, 5.0, 17.5, 15.0, a);
