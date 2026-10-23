@@ -7,6 +7,13 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### Repository renamed to chanonss/khiankrub
+- The GitHub repository is now <https://github.com/chanonss/khiankrub> (was `chanonss/wordcraft`). GitHub redirects the
+  old address, so earlier links, release downloads and clones keep working. It is still shown as a fork of
+  storytold/wordcraft.
+- The links in the app follow: the About screen's source link, the LaTeX export header and the MCP server's
+  `websiteUrl` and instructions. `HANDOFF.md` too. Older entries below keep the old address.
+
 ### Release v0.7.0-thai.3
 - First release under the name KhianKrub: [v0.7.0-thai.3](https://github.com/chanonss/wordcraft/releases/tag/v0.7.0-thai.3),
   built from commit `e893820`, file `KhianKrub-0.7.0-thai.3-macos-apple-silicon.zip` (Apple silicon, ad-hoc signed).

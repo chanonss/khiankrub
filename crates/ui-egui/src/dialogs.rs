@@ -2420,7 +2420,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                         "A free, open-source word processor for Thai and English.\nBased on WordCraft by the ArtCraft team. Fork by Chanon Sarasuk."
                     ));
                     ui.add_space(6.0);
-                    ui.hyperlink_to(tl!("Source code: github.com/chanonss/wordcraft"), "https://github.com/chanonss/wordcraft");
+                    ui.hyperlink_to(tl!("Source code: github.com/chanonss/khiankrub"), "https://github.com/chanonss/khiankrub");
                     ui.hyperlink_to(tl!("Original project: github.com/storytold/wordcraft"), "https://github.com/storytold/wordcraft");
                     ui.add_space(6.0);
                     ui.label(

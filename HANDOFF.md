@@ -9,7 +9,9 @@ travel between Macs (see section 10).
 ## 1. Where things stand
 
 - **App:** KhianKrub (เขียนครับ), Chanon's fork of [storytold/wordcraft](https://github.com/storytold/wordcraft) for Thai users
-  (Rust, egui). Fork: <https://github.com/chanonss/wordcraft>, branch **`my-changes`** (the default branch).
+  (Rust, egui). Fork: <https://github.com/chanonss/khiankrub>, branch **`my-changes`** (the default branch).
+  The repo was renamed from `chanonss/wordcraft` on 2026-10-23; GitHub redirects the old address (web, releases,
+  git). **Never create a new repo named `wordcraft` under chanonss**: that would break the redirect.
 - **Done, in order:** Thai Distribution and Thai word breaking, View only mode, English-only interface (22 other
   languages deleted), hover-jump fix, plain number fields, Thai space-dot centring, ArtCraft logos removed, rename to
   KhianKrub with the gold ข icon on blue (traced from Sarabun Bold, OFL), and on 2026-10-22 **Thai list numbering**
@@ -33,7 +35,7 @@ travel between Macs (see section 10).
 xcode-select --install                                   # compiler tools, if missing
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # Rust (rustup)
 rustup target add wasm32-unknown-unknown                 # needed by `cargo xtask ci` (the wasm step)
-git clone https://github.com/chanonss/wordcraft.git && cd wordcraft && git checkout my-changes
+git clone https://github.com/chanonss/khiankrub.git && cd khiankrub && git checkout my-changes
 cargo install resvg --locked                             # only needed to regenerate the icon files
 ```
 

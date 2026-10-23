@@ -133,9 +133,9 @@ impl Server {
                 Ok(json!({
                     "protocolVersion": version,
                     "capabilities": {"tools": {}, "resources": {}},
-                    "serverInfo": {"name": "wordcraft", "title": "KhianKrub", "version": env!("CARGO_PKG_VERSION"), "websiteUrl": "https://github.com/chanonss/wordcraft"},
+                    "serverInfo": {"name": "wordcraft", "title": "KhianKrub", "version": env!("CARGO_PKG_VERSION"), "websiteUrl": "https://github.com/chanonss/khiankrub"},
                     "instructions": format!(
-                        "{INSTRUCTIONS} Backend: {}. Source: https://github.com/chanonss/wordcraft (based on https://github.com/storytold/wordcraft)",
+                        "{INSTRUCTIONS} Backend: {}. Source: https://github.com/chanonss/khiankrub (based on https://github.com/storytold/wordcraft)",
                         self.backend.describe()
                     ),
                 }))
