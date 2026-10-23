@@ -1148,6 +1148,14 @@ fn lines(
                 if let Some(start) = section_break_after(doc, story, path) {
                     let (x0, x1) = if line.rtl { (x + line.left, ex - 2.0) } else { (ex + 2.0, x + line.right) };
                     section_break_mark(start, x0, x1, base, size, alpha, out);
+                } else if let Some(prev) =
+                    li.checked_sub(1).filter(|p| *p >= l0).and_then(|p| pl.lines.get(p)).filter(|p| p.end == LineEnd::PageBreak && line.c0 == line.c1)
+                {
+                    // A paragraph ending in a page break: its mark follows the "Page Break" rule on
+                    // that line, as in Word, rather than standing alone on the line below.
+                    let pbase = y + (prev.baseline - first.top);
+                    let px = if line.rtl { x + prev.left - 1.0 - size * 0.6 } else { x + prev.right + 1.0 };
+                    out.push(Draw::Mark { x: px, baseline: pbase, size, ch: '¶', color });
                 } else {
                     out.push(Draw::Mark { x: mx, baseline: base, size, ch: '¶', color });
                 }

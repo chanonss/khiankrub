@@ -7,6 +7,21 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### Page break puts the cursor on the next page; tighter table grid; Page Number menu pictures
+- **Page break fixed.** Insert › Page Break (and Ctrl+Enter) only put the break character in: the cursor stayed beside it
+  on the old page, so what was typed next showed there, under the break. Now it works as Word's: the break ends its
+  paragraph and a new paragraph starts the next page with the cursor in it; text after the cursor moves on with it.
+  In a table cell or a text box the break goes in without a new paragraph (`insert.pageBreak`). Test:
+  `page_break_puts_the_caret_on_the_next_page`.
+- With formatting marks on, a paragraph ending in a page break draws its ¶ at the end of the "Page Break" line, as Word
+  does, instead of alone on a line below it (where it looked like the next line had not moved to the next page). Test:
+  `a_page_break_ending_its_paragraph_draws_its_mark_on_the_break_line`. Layout is unchanged: as measured in Word, such a
+  paragraph's mark stays on the page before and the next paragraph starts the new page.
+- **Insert › Table grid** squares sit close together as in Word (the grid had widened each column to egui's minimum
+  width). Insert Table…, Draw Table and Convert Text to Table… show icons and line up (Draw Table was indented).
+- **Insert › Page Number** shows a picture for each choice: number at the top, at the bottom, "1/2", within a line of
+  text, number formats, and the position from the edges.
+
 ### Page Number Position: the page number at set distances from the paper's edges
 - New **Insert › Page Number › Page Number Position…** dialog for layouts such as a thesis's "the page number 1 inch
   from the top edge and 1 inch from the right edge". It offers: from the **top or bottom edge**, a distance measured to

@@ -1460,6 +1460,27 @@ fn section_breaks_show_with_formatting_marks() {
     assert_eq!(labels(&Document::from_text("One\nTwo"), true), (vec![], 2));
 }
 
+/// A paragraph ending in a page break keeps its mark on the page before (measured in Word), drawn
+/// at the end of the "Page Break" rule as Word does, not alone on a line below it; the next
+/// paragraph starts the next page.
+#[test]
+fn a_page_break_ending_its_paragraph_draws_its_mark_on_the_break_line() {
+    let d = Document::from_text(&format!("One\n{}\nTwo", wordcraft_doc::para::PAGE_BREAK));
+    let l = lay(&d);
+    assert_eq!(l.pages.len(), 2, "Two starts page 2");
+    let items = display::page_display(&d, &l.pages[0], &display::DisplayOptions { marks: true, ..Default::default() });
+    let label = items
+        .iter()
+        .find_map(|i| if let display::Draw::MarkText { baseline, .. } = i { Some(*baseline) } else { None })
+        .expect("the Page Break label");
+    let marks: Vec<f32> =
+        items.iter().filter_map(|i| if let display::Draw::Mark { ch: '¶', baseline, .. } = i { Some(*baseline) } else { None }).collect();
+    assert_eq!(marks.len(), 2, "One's mark and the break paragraph's: {marks:?}");
+    let rule_y =
+        items.iter().find_map(|i| if let display::Draw::Line { y0, stroke: display::Stroke::Dotted, .. } = i { Some(*y0) } else { None }).unwrap();
+    assert!(marks[1] > rule_y && marks[1] - rule_y < 12.0, "the break's ¶ is on the rule's line ({rule_y}), not below it: {marks:?} (label {label})");
+}
+
 /// As in Word, a page break shows with formatting marks on as a dotted rule to the margin with
 /// "Page Break" in the middle (a single rule; section breaks have a double one).
 #[test]

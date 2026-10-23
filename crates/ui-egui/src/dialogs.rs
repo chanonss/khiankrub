@@ -1178,10 +1178,11 @@ pub fn table_grid_picker(ui: &mut Ui, app: &mut WordApp) {
     });
     let mut new_hover = (0, 0);
     let mut clicked = None;
-    egui::Grid::new("tgp").spacing(vec2(2.0, 2.0)).show(ui, |ui| {
+    // Squares close together, as in Word (a Grid widened each column to its minimum width).
+    egui::Grid::new("tgp").spacing(vec2(3.0, 3.0)).min_col_width(0.0).min_row_height(0.0).show(ui, |ui| {
         for r in 1..=8 {
             for c in 1..=10 {
-                let (rect, resp) = ui.allocate_exact_size(vec2(16.0, 16.0), Sense::click());
+                let (rect, resp) = ui.allocate_exact_size(vec2(17.0, 17.0), Sense::click());
                 let on = r <= hover.0 && c <= hover.1;
                 ui.painter().rect(
                     rect,

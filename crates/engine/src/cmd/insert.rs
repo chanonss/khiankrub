@@ -10,8 +10,16 @@ use crate::{CmdError, CmdResult, CommandSpec, Selection, Session, p};
 
 pub fn specs() -> Vec<CommandSpec> {
     vec![
+        // As Word's Page Break (Ctrl+Enter): the break, then a new paragraph, so the caret starts the
+        // next page and typing goes there. A paragraph ending in a break keeps its mark on the page
+        // before (measured in Word); text after the caret moves on with the new paragraph.
         CommandSpec::new("insert.pageBreak", "Page Break", "Insert › Pages", |s, _| {
             type_text(s, "\u{000C}")?;
+            if s.sel.focus.story == StoryRef::Body && s.sel.focus.path.0.len() == 1 {
+                let at = s.sel.focus.clone();
+                let next = split_para(s, &at)?;
+                s.sel = Selection::caret(next);
+            }
             sel_result(s)
         }),
         CommandSpec::new("insert.blankPage", "Blank Page", "Insert › Pages", |s, _| {
@@ -1111,6 +1119,28 @@ fn cover_page(s: &mut Session, v: &Value) -> CmdResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// As Word's Page Break: the caret starts the next page in a new paragraph, so what is typed next
+    /// goes there; text after the caret moves on with it. In a table cell the break goes in without a
+    /// new paragraph.
+    #[test]
+    fn page_break_puts_the_caret_on_the_next_page() {
+        let mut s = Session::new(wordcraft_doc::Document::new());
+        s.run("text.insert", &json!({"text": "One"})).unwrap();
+        s.run("insert.pageBreak", &json!({})).unwrap();
+        s.run("text.insert", &json!({"text": "Two"})).unwrap();
+        let page = |s: &mut Session| s.layout().caret_on(&s.sel.focus, s.page_hint).map(|c| c.page);
+        assert_eq!(page(&mut s), Some(1), "typing after the break is on page 2");
+        assert_eq!(s.doc.body.len(), 2, "the break ends its paragraph; Two is a new one");
+        assert_eq!(s.doc.para_at(&Pos::body(0, 0)).map(|p| p.text.clone()).as_deref(), Some("One\u{c}"));
+        // In the middle of a paragraph, the rest moves to the next page with the caret before it.
+        let mut s = Session::new(wordcraft_doc::Document::from_text("AB CD"));
+        s.run("caret.set", &json!({"pos": {"story": "body", "path": [0], "off": 3}})).unwrap();
+        s.run("insert.pageBreak", &json!({})).unwrap();
+        assert_eq!(s.doc.para_at(&Pos::body(1, 0)).map(|p| p.text.clone()).as_deref(), Some("CD"));
+        assert_eq!(page(&mut s), Some(1));
+        assert_eq!(s.layout().pages.len(), 2);
+    }
 
     /// Where the positioned page number lands on page `page`: its baseline from the page's top, and
     /// its left and right ends from the page's left edge.

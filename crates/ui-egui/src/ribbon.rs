@@ -681,7 +681,48 @@ fn layout_picture(p: &egui::Painter, r: Rect, name: &str, ink: egui::Color32, ac
                 line((3.0, 11.6), (21.0, 11.6), ink);
             }
         }
-        _ => {}
+        // Page Number: where the number goes, and its options.
+        "pn_top" | "pn_bottom" | "pn_xofy" | "pn_position" => {
+            page(5.0, 0.5, 19.0, 19.5);
+            rows(7.5, 16.5, 7.0, 3, 2.6, ink);
+            match name {
+                "pn_top" => digit(16.0, 3.5, "1", accent),
+                "pn_bottom" => digit(12.0, 16.5, "1", accent),
+                "pn_xofy" => digit(12.0, 16.5, "1/2", accent),
+                _ => {
+                    digit(15.0, 4.5, "1", accent);
+                    line((15.0, 0.5), (15.0, 2.2), accent);
+                    line((16.6, 4.5), (19.0, 4.5), accent);
+                }
+            }
+        }
+        "pn_current" => {
+            rows(2.0, 22.0, 5.0, 1, 0.0, ink);
+            line((2.0, 10.5), (9.0, 10.5), ink);
+            p.rect_stroke(Rect::from_min_max(pt(10.0, 7.0), pt(15.0, 14.0)), 1.0, Stroke::new(1.0, accent), egui::StrokeKind::Middle);
+            digit(12.5, 10.5, "1", accent);
+            line((16.0, 10.5), (22.0, 10.5), ink);
+            rows(2.0, 16.0, 16.0, 1, 0.0, ink);
+        }
+        "pn_format" => {
+            digit(5.0, 5.0, "1", ink);
+            digit(12.0, 5.0, "i", ink);
+            digit(19.0, 5.0, "๑", accent);
+            digit(5.0, 14.0, "2", ink);
+            digit(12.0, 14.0, "ii", ink);
+            digit(19.0, 14.0, "๒", accent);
+        }
+        // Text to table: lines of text turning into a grid.
+        "textToTable" => {
+            rows(2.0, 10.0, 5.0, 3, 4.0, ink);
+            line((11.5, 9.0), (14.0, 9.0), accent);
+            head((15.5, 9.0), 1.0, 0.0);
+            p.rect_stroke(Rect::from_min_max(pt(16.5, 3.0), pt(23.0, 15.0)), 0.5, Stroke::new(1.1, ink), egui::StrokeKind::Middle);
+            line((16.5, 9.0), (23.0, 9.0), ink);
+            line((19.75, 3.0), (19.75, 15.0), ink);
+        }
+        // Anything else is a ribbon icon (Insert Table…, Draw Table, the Page Number options).
+        _ => crate::icons::paint(p, Rect::from_center_size(r.center(), vec2(20.0 * s, 20.0 * s)), name, ink, accent),
     }
 }
 
@@ -1345,10 +1386,10 @@ fn insert(app: &mut WordApp, ui: &mut Ui) {
         menu_button(ui, app, "table", Some("Table"), "Add a Table", true, "insert.table", |ui, app| {
             crate::dialogs::table_grid_picker(ui, app);
             ui.separator();
-            mi(ui, app, "Insert Table…", "ui.dialog", json!({"name": "insertTable"}));
+            pic_item(ui, app, "Insert Table…", None, "table", "ui.dialog", json!({"name": "insertTable"}));
             let drawing = app.canvas.table_tool == Some(crate::table_pen::TableTool::Draw);
-            mi_check(ui, app, "Draw Table", drawing, "table.draw", json!({}));
-            mi(ui, app, "Convert Text to Table…", "table.fromText", json!({}));
+            pic_item(ui, app, "Draw Table", Some(drawing), "drawTable", "table.draw", json!({}));
+            pic_item(ui, app, "Convert Text to Table…", None, "textToTable", "table.fromText", json!({}));
             ui.menu_button(tl!("Quick Tables"), |ui| {
                 mi(ui, app, "Tabular List", "table.quick", json!({"kind": "tabular"}));
                 mi(ui, app, "Matrix", "table.quick", json!({"kind": "matrix"}));
@@ -1420,12 +1461,13 @@ fn insert(app: &mut WordApp, ui: &mut Ui) {
             mi(ui, app, "Remove Footer", "insert.removeFooter", json!({}));
         });
         menu_button(ui, app, "pageNumber", Some("Page\nNumber"), "Page Number", true, "insert.pageNumber", |ui, app| {
-            mi(ui, app, "Top of Page", "insert.pageNumber", json!({"position": "top", "align": "right"}));
-            mi(ui, app, "Bottom of Page", "insert.pageNumber", json!({"position": "bottom", "align": "center"}));
-            mi(ui, app, "Page X of Y", "insert.pageNumber", json!({"position": "bottom", "format": "x of y"}));
-            mi(ui, app, "Current Position", "insert.pageNumber", json!({"position": "current"}));
-            mi(ui, app, "Format Page Numbers…", "layout.pageNumberFormat", json!({}));
-            mi(ui, app, "Page Number Position…", "ui.dialog", json!({"name": "pageNumberPosition"}));
+            pic_item(ui, app, "Top of Page", None, "pn_top", "insert.pageNumber", json!({"position": "top", "align": "right"}));
+            pic_item(ui, app, "Bottom of Page", None, "pn_bottom", "insert.pageNumber", json!({"position": "bottom", "align": "center"}));
+            pic_item(ui, app, "Page X of Y", None, "pn_xofy", "insert.pageNumber", json!({"position": "bottom", "format": "x of y"}));
+            pic_item(ui, app, "Current Position", None, "pn_current", "insert.pageNumber", json!({"position": "current"}));
+            ui.separator();
+            pic_item(ui, app, "Format Page Numbers…", None, "pn_format", "layout.pageNumberFormat", json!({}));
+            pic_item(ui, app, "Page Number Position…", None, "pn_position", "ui.dialog", json!({"name": "pageNumberPosition"}));
         });
     });
     group(ui, "Text", None, app, |ui, app| {
