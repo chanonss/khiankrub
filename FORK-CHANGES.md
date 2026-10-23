@@ -7,6 +7,25 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### macOS menu bar
+- KhianKrub has a real macOS menu bar: the app menu (About, Settings… ⌘,, Services, Hide, Quit), **File** (New, Open,
+  Close, Save, Save As, Export as PDF, Page Setup, Print), **Edit** (Undo, Redo, Cut, Copy, Paste, Paste Special, Paste
+  and Match Formatting, Select All, Find, Replace, Go To), **Insert** (breaks, table, picture, text box, link,
+  bookmark, cross-reference, comment, footnote, header, footer, Page Number Position, date and time, symbol,
+  equation), **Format** (Font, Paragraph, Bullets and Numbering, Borders and Shading, Columns, Styles, bold, italic,
+  underline, font size, alignment including Thai Distribution, Clear Formatting), **View** (the views, Ruler,
+  Navigation Pane, Formatting Marks, zoom, Full Screen), **Window** (Minimize, Zoom, Bring All to Front, the open
+  windows) and **Help** (Commands, the project on GitHub, Report a Problem). The ribbon and the File panel are unchanged.
+- Each item runs the app's existing command. An item with a shortcut shows it and, when chosen, gives the app that key
+  press, so it does exactly what the key does wherever the focus is (⌘C in a dialog's text box copies that text). Quit
+  closes the window the usual way, so unsaved changes are asked about first.
+- Built with muda (MIT OR Apache-2.0), macOS only (`apps/wordcraft/src/mac_menu.rs`). Test:
+  `menu_shortcuts_parse_and_match_the_command_keys`.
+
+### Keyboard page break (⌘Enter) and Layout › Breaks › Page
+- These used a separate command (`text.pageBreak`) that still left the cursor beside the break on the old page. They
+  now share the fixed Insert › Page Break behaviour: the cursor starts the next page.
+
 ### Page break puts the cursor on the next page; tighter table grid; Page Number menu pictures
 - **Page break fixed.** Insert › Page Break (and Ctrl+Enter) only put the break character in: the cursor stayed beside it
   on the old page, so what was typed next showed there, under the break. Now it works as Word's: the break ends its

@@ -10,18 +10,7 @@ use crate::{CmdError, CmdResult, CommandSpec, Selection, Session, p};
 
 pub fn specs() -> Vec<CommandSpec> {
     vec![
-        // As Word's Page Break (Ctrl+Enter): the break, then a new paragraph, so the caret starts the
-        // next page and typing goes there. A paragraph ending in a break keeps its mark on the page
-        // before (measured in Word); text after the caret moves on with the new paragraph.
-        CommandSpec::new("insert.pageBreak", "Page Break", "Insert › Pages", |s, _| {
-            type_text(s, "\u{000C}")?;
-            if s.sel.focus.story == StoryRef::Body && s.sel.focus.path.0.len() == 1 {
-                let at = s.sel.focus.clone();
-                let next = split_para(s, &at)?;
-                s.sel = Selection::caret(next);
-            }
-            sel_result(s)
-        }),
+        CommandSpec::new("insert.pageBreak", "Page Break", "Insert › Pages", |s, _| page_break(s)),
         CommandSpec::new("insert.blankPage", "Blank Page", "Insert › Pages", |s, _| {
             type_text(s, "\u{000C}")?;
             let at = s.sel.focus.clone();
@@ -740,6 +729,20 @@ fn strip_headers(doc: &mut wordcraft_doc::Document, ids: &[u32]) -> bool {
         any |= doc.parts.remove(id).is_some();
     }
     any
+}
+
+/// A page break as Word's (Ctrl+Enter, Insert › Page Break, Layout › Breaks › Page): the break,
+/// then a new paragraph, so the caret starts the next page and typing goes there. A paragraph
+/// ending in a break keeps its mark on the page before (measured in Word); text after the caret
+/// moves on with the new paragraph. In a table cell or a text box only the break goes in.
+pub(crate) fn page_break(s: &mut Session) -> CmdResult {
+    type_text(s, "\u{000C}")?;
+    if s.sel.focus.story == StoryRef::Body && s.sel.focus.path.0.len() == 1 {
+        let at = s.sel.focus.clone();
+        let next = split_para(s, &at)?;
+        s.sel = Selection::caret(next);
+    }
+    sel_result(s)
 }
 
 /// Width of the frame [`page_number_position`] puts the page number in: room for any page number.

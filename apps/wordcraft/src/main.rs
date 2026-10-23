@@ -19,6 +19,8 @@ mod file_dialogs;
 #[cfg(any(target_os = "windows", test))]
 mod graphics;
 mod logging;
+#[cfg(target_os = "macos")]
+mod mac_menu;
 mod print;
 mod region;
 #[cfg(target_os = "macos")]
@@ -39,6 +41,9 @@ struct App(
     Option<control_server::KeyFile>,
     file_dialogs::Launcher,
     #[cfg(target_os = "macos")] fmv_macos_events::Inbox,
+    /// The native menu bar (File, Edit, Insert, Format, View, Window, Help).
+    #[cfg(target_os = "macos")]
+    Option<mac_menu::MacMenu>,
 );
 
 impl eframe::App for App {
@@ -85,7 +90,15 @@ impl eframe::App for App {
             }
         }
     }
-    fn raw_input_hook(&mut self, _ctx: &egui::Context, raw: &mut egui::RawInput) {
+    fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
+        // A menu bar choice since the last frame: its key press goes in with this frame's input,
+        // so the app handles it as the key; other choices run their command.
+        #[cfg(target_os = "macos")]
+        if let Some(menu) = self.5.as_mut() {
+            menu.take_keys(raw, &mut self.0, ctx);
+        }
+        #[cfg(not(target_os = "macos"))]
+        let _ = ctx;
         self.0.raw_input_hook(raw);
     }
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
@@ -475,6 +488,11 @@ fn main() -> eframe::Result {
                 dialogs,
                 #[cfg(target_os = "macos")]
                 apple_events.connect(&cc.egui_ctx),
+                #[cfg(target_os = "macos")]
+                {
+                    let ctx = cc.egui_ctx.clone();
+                    mac_menu::MacMenu::install(move || ctx.request_repaint())
+                },
             )))
         }),
     )

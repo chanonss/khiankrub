@@ -43,6 +43,10 @@ objc2 = "0.6"
 # Closing the window must quit through NSApplication rather than by dropping the NSWindow
 # inside the AppKit run loop (see `schedule_macos_terminate`).
 dispatch2 = "0.3"
+# The native macOS menu bar (File, Edit, Insert, Format, View, Window, Help) over the app's own
+# commands (`mac_menu`). A widely used safe wrapper over NSMenu (MIT OR Apache-2.0), built on the
+# same objc2 bindings as above.
+muda = { version = "0.17", default-features = false }
 
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
 winit = { version = "0.30", default-features = false, features = ["x11"] }
