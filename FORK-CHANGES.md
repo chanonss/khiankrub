@@ -7,6 +7,12 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### File › Recover: readable in the light theme
+- The Recover page was drawn on black, with its text forced to white. In the light theme its buttons kept their white
+  fill, so Restore, Discard…, Continue without restoring and Refresh showed as blank white boxes, and the column
+  headings were faint. The page now looks like the other File pages (blue sidebar, the theme's own background and text
+  colours) in both themes (`recovery_page` in `crates/ui-egui/src/backstage.rs`).
+
 ### File menu: an icon for every entry
 - Each entry of the File menu's blue sidebar now has a white icon before its label, as in Word: Home, New, Open,
   Info, Recover, Save, Save As, Print, Export, Close, Options, Back, Discord community and About.
