@@ -7,6 +7,12 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### Release v0.7.1
+- [v0.7.1](https://github.com/chanonss/khiankrub/releases/tag/v0.7.1), built from commit `06b64e40`, file
+  `KhianKrub-0.7.1-macos-apple-silicon.zip`, SHA-256 `c272bd19489aae404052d509c6ad8c7cca73ba12a2cfea0cfa46b02368331661`.
+  Brings the menu bar, Page Number Position, the page-break fixes, the hanging indent and the menu pictures. The earlier
+  releases stay published.
+
 ### Version 0.7.1
 - The app's version is 0.7.1 (was 0.7.0, the original's). Releases from now on use plain version numbers (v0.7.1); the
   earlier ones were named v0.7.0-thai.1 to v0.7.0-thai.4 ("the original's 0.7.0 plus Thai build N"), from before the
