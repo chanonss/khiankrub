@@ -78,6 +78,62 @@ Larger icons, and the buttons centred in each group with even spacing, on every 
 </tr>
 </table>
 
+## Newest additions
+
+### A real macOS menu bar
+
+File, Edit, Insert, Format, View, Window and Help at the top of the screen, with the usual Mac shortcuts. Each item
+runs the same command as its ribbon button or key.
+
+<p align="center">
+  <img src="docs/images/khiankrub-mac-menu-bar.png" alt="The macOS menu bar showing KhianKrub, File, Edit, Insert, Format, View, Window and Help, with the Format menu open: Font, Paragraph, Bullets and Numbering, Borders and Shading, Columns, Styles, Bold, Italic, Underline, font size, Clear Formatting and the alignments including Thai Distribution, each with its shortcut" width="60%">
+</p>
+
+### Page number at set distances from the paper's edges
+
+Insert › Page Number › **Page Number Position…** places the number, for example, 1 inch from the top edge (to its
+baseline) and 1 inch from the right edge, as theses often require. Top or bottom, left, centre or right, and no number
+on the first page if wanted. Word opens the file with the number in the same place.
+
+<table>
+<tr>
+<td width="50%" valign="top"><img src="docs/images/khiankrub-page-number-position.png" alt="The Page Number Position dialog: from the top edge, 1 inch to the baseline; right, 1 inch from the right edge; a check box for no number on the first page; and a small page preview with the number at the top right" width="100%"><p align="center"><sub>The dialog, with a preview of where the number goes.</sub></p></td>
+<td width="50%" valign="top"><img src="docs/images/khiankrub-page-number-result.png" alt="The top right corner of a page at 150 percent zoom: the page number 1 with red arrows showing 1 inch from the top edge to its baseline and 1 inch from its right end to the right edge" width="100%"><p align="center"><sub>The result, measured: 1 in from the top edge and 1 in from the right edge.</sub></p></td>
+</tr>
+</table>
+
+### Page breaks like Word's
+
+Insert › Page Break (or ⌘Enter) moves the cursor to the next page, so what you type next goes there. With formatting
+marks on, a page break shows as a dotted line with **Page Break** in the middle.
+
+<table>
+<tr>
+<td width="50%" valign="top"><img src="docs/images/khiankrub-page-break.png" alt="Two pages side by side: page 1 has the word One and a dotted Page Break line; page 2 starts with Two, typed after the break, with the cursor" width="100%"><p align="center"><sub>"One", the break, then "Two" typed on page 2.</sub></p></td>
+<td width="50%" valign="top"><img src="docs/images/khiankrub-break-label.png" alt="A Thai document with formatting marks on: a dotted line across the page with the words Page Break in the middle" width="100%"><p align="center"><sub>The "Page Break" mark, as in Word.</sub></p></td>
+</tr>
+</table>
+
+### Hanging indent, as in Word
+
+The Paragraph dialog has **Special: (none) / First line / Hanging** and **By**, instead of a negative first-line indent.
+
+<p align="center">
+  <img src="docs/images/khiankrub-hanging-indent.png" alt="The Paragraph dialog with Indentation Left 0.89 inches and Special set to Hanging, By 0.89 inches" width="50%">
+</p>
+
+### Pictures in the menus
+
+The Layout tab's Text Direction, Orientation, Columns, Breaks and Line Numbers menus, and Insert's Table and Page
+Number menus, show a small picture of each choice. The Insert Table grid is compact, as in Word.
+
+<p align="center">
+  <img src="docs/images/khiankrub-layout-menus.png" alt="Five Layout menus side by side, each choice with a small picture: Text Direction (Horizontal, Rotate 90 and 270 degrees), Orientation (Portrait, Landscape), Columns (One, Two, Three, Left, Right, More Columns), Breaks (Page, Column, Text Wrapping and the four section breaks) and Line Numbers (None, Continuous, Restart Each Page, Restart Each Section, options)" width="100%">
+</p>
+<p align="center">
+  <img src="docs/images/khiankrub-insert-menus.png" alt="Insert, Table menu with a compact 10 by 8 grid and icons for Insert Table, Draw Table and Convert Text to Table; and Insert, Page Number menu with pictures for Top of Page, Bottom of Page, Page X of Y, Current Position, Format Page Numbers and Page Number Position" width="80%">
+</p>
+
 ## Download and install
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download

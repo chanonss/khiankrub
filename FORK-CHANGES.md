@@ -7,6 +7,11 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### README: the newest additions
+- A "Newest additions" section with screenshots of the macOS menu bar, Page Number Position (the dialog and the result
+  with its distances drawn in), page breaks, the hanging indent, and the menus with pictures (credited in
+  `ATTRIBUTION.md`). The menu bar picture shows only the app's own menu bar and menu window.
+
 ### macOS menu bar
 - KhianKrub has a real macOS menu bar: the app menu (About, Settings… ⌘,, Services, Hide, Quit), **File** (New, Open,
   Close, Save, Save As, Export as PDF, Page Setup, Print), **Edit** (Undo, Redo, Cut, Copy, Paste, Paste Special, Paste
