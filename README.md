@@ -45,6 +45,39 @@ Word's, and adds what Thai writing needs. It is not affiliated with or endorsed 
 
 Everything that differs from the original, newest first, is in [FORK-CHANGES.md](FORK-CHANGES.md).
 
+## Before and after
+
+### The ribbon, sized and spaced like Word's
+
+Larger icons, and the buttons centred in each group with even spacing, on every tab.
+
+<p align="center">
+  <img src="docs/images/khiankrub-ribbon-before-after.png" alt="The Home ribbon before, with small icons sitting at the top of each group, and after, with larger icons centred in their groups" width="100%">
+</p>
+
+### Bugs fixed
+
+<table>
+<tr>
+<td width="35%" valign="top"><img src="docs/images/khiankrub-fix-navigation.png" alt="The Navigation pane before, listing Thai headings as question marks, and after, listing them in Thai" width="100%"><p align="center"><sub><b>Thai headings</b> in the Navigation pane showed as <code>?</code>; they now show in Thai.</sub></p></td>
+<td width="65%" valign="top"><img src="docs/images/khiankrub-fix-space-dots.png" alt="Thai text with formatting marks on: before, the dot for each space floats near the top of the letters; after, it sits in the middle" width="100%"><p align="center"><sub><b>Space marks on Thai text</b> (with ¶ on) floated near the top of the letters; they now sit in the middle.</sub><br><br></p>
+<img src="docs/images/khiankrub-fix-paragraph-dialog.png" alt="The Paragraph dialog's Alignment box: before it shows the raw text thaidistribute, after it shows Thai Distribution" width="70%"><p align="center"><sub><b>Paragraph dialog</b> showed the raw name <code>thaidistribute</code>; it now says Thai Distribution and keeps it.</sub></p></td>
+</tr>
+<tr>
+<td colspan="2"><img src="docs/images/khiankrub-fix-recover.png" alt="File, Recover: before, a black page with a blank white button; after, the blue File sidebar with icons and readable buttons" width="100%"><p align="center"><sub><b>File › Recover</b> was black with blank white buttons in the light theme; it now follows the theme like the other File pages.</sub></p></td>
+</tr>
+</table>
+
+## More of what was added
+
+<table>
+<tr>
+<td width="62%" valign="top"><img src="docs/images/khiankrub-thai-word-breaking.png" alt="The full name of Bangkok, a long Thai word without spaces, wrapped onto a second line at a word boundary, and a long Thai paragraph wrapping between words" width="100%"><p align="center"><sub><b>Thai word breaking.</b> Lines wrap between Thai words, even in long text with no spaces at all.</sub></p>
+<img src="docs/images/khiankrub-view-only.png" alt="The Editing menu open, offering Editing, Reviewing and View only" width="100%"><p align="center"><sub><b>View only</b> in the Editing menu: read a document without changing it by accident.</sub></p></td>
+<td width="38%" valign="top"><img src="docs/images/khiankrub-shapes-menu.png" alt="Insert, Shapes menu with a small drawing beside each shape and connector name" width="100%"><p align="center"><sub><b>Insert › Shapes</b> shows a picture of each shape and connector.</sub></p></td>
+</tr>
+</table>
+
 ## Download and install
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download

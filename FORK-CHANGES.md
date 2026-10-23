@@ -13,6 +13,10 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
   features, download and install steps linking to the latest release, and how to build it. The licence and credit
   section is kept in full. The original's Discord badges, ArtCraft apps table and WordCraft download instructions
   are gone; the original README is linked for its full documentation. The old screenshots in `docs/images/` stay.
+- Then more screenshots: the ribbon before and after, four bugs fixed shown before and after (Thai headings in the
+  Navigation pane, space marks on Thai text, the Paragraph dialog's alignment name, File › Recover), and Thai word
+  breaking, View only and the Shapes menu. The "before" pictures come from commit `a1538b9` (as forked, plus text
+  boundaries), built only to take them.
 
 ### Release v0.7.0-thai.4
 - [v0.7.0-thai.4](https://github.com/chanonss/khiankrub/releases/tag/v0.7.0-thai.4), built from commit `4d4013e`, file
