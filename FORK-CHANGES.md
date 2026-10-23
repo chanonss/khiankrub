@@ -7,6 +7,14 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### Layout tab menus: a picture for each choice
+- The Layout tab's Text Direction, Orientation, Columns, Breaks and Line Numbers menus show a small picture before each
+  choice, as in Word: the page's lines in each direction, a tall and a wide page, one to three columns and the
+  left/right layouts, each kind of page, column, text wrapping and section break, and lines with numbers continuous
+  or restarting. The current Text Direction, Orientation and Columns setting stays highlighted. Drawn in code in the
+  theme's colours (`pic_item` and `layout_picture` in `crates/ui-egui/src/ribbon.rs`). Test:
+  `layout_menu_pictures_all_draw`.
+
 ### Paragraph dialog: Special indent (First line, Hanging) as in Word
 - The Paragraph dialog's Indentation shows **Special: (none) / First line / Hanging** and **By**, as in Word, instead
   of one "First line" box where a hanging indent had to be typed as a negative number. A hanging indent now shows as

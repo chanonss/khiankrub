@@ -519,6 +519,172 @@ pub(crate) fn mi(ui: &mut Ui, app: &mut WordApp, label: &str, id: &str, params: 
     mi_text(ui, app, tl!(label), id, params);
 }
 
+/// A Layout menu item with a small picture before its name (Text Direction, Orientation, Columns,
+/// Breaks, Line Numbers), as in Word. `checked` (`Some`) highlights the current setting.
+fn pic_item(ui: &mut Ui, app: &mut WordApp, label: &str, checked: Option<bool>, pic: &str, id: &str, params: Value) {
+    let enabled = crate::widgets::enabled(app, id);
+    let atom = ui.id().with(("layout picture", pic));
+    let on = checked.unwrap_or(false);
+    let resp = ui
+        .add_enabled_ui(enabled, |ui| {
+            egui::Button::new((egui::Atom::custom(atom, vec2(24.0, 20.0)), tl!(label))).selected(on).min_size(vec2(220.0, 28.0)).atom_ui(ui)
+        })
+        .inner;
+    if let Some(r) = resp.rect(atom) {
+        let t = Tokens::get(ui.ctx());
+        let (ink, accent) = if enabled { (t.icon, t.accent) } else { (t.text_disabled, t.text_disabled) };
+        layout_picture(ui.painter(), r, pic, ink, accent);
+    }
+    resp.response.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, enabled, on, tl!(label)));
+    if resp.response.clicked() {
+        crate::widgets::run_from_ribbon(app, id, params);
+        ui.close();
+    }
+}
+
+/// The small pictures of [`pic_item`], drawn on a 24 × 20 grid: pages, text lines, columns,
+/// break marks and line numbers in `ink`, what the option changes in `accent`.
+fn layout_picture(p: &egui::Painter, r: Rect, name: &str, ink: egui::Color32, accent: egui::Color32) {
+    let s = (r.width() / 24.0).min(r.height() / 20.0);
+    let o = r.center() - vec2(12.0 * s, 10.0 * s);
+    let pt = |x: f32, y: f32| egui::pos2(o.x + x * s, o.y + y * s);
+    let line = |a: (f32, f32), b: (f32, f32), c: egui::Color32| {
+        p.line_segment([pt(a.0, a.1), pt(b.0, b.1)], Stroke::new(1.2 * s.max(0.8), c));
+    };
+    let page = |x0: f32, y0: f32, x1: f32, y1: f32| {
+        p.rect_stroke(Rect::from_min_max(pt(x0, y0), pt(x1, y1)), 1.0, Stroke::new(1.1, ink), egui::StrokeKind::Middle);
+    };
+    // Text lines across `x0..x1`, starting at `y`, every `gap`.
+    let rows = |x0: f32, x1: f32, y: f32, n: usize, gap: f32, c: egui::Color32| {
+        for i in 0..n {
+            line((x0, y + i as f32 * gap), (x1, y + i as f32 * gap), c);
+        }
+    };
+    let head = |tip: (f32, f32), dx: f32, dy: f32| {
+        let t = pt(tip.0, tip.1);
+        let back = vec2(-dx, -dy) * 3.0 * s;
+        let side = vec2(-dy, dx) * 2.2 * s;
+        p.add(egui::Shape::convex_polygon(vec![t, t + back + side, t + back - side], accent, Stroke::NONE));
+    };
+    let dashed = |y: f32, x0: f32, x1: f32, double: bool| {
+        for dy in if double { vec![-0.8, 0.8] } else { vec![0.0] } {
+            p.extend(egui::Shape::dashed_line(&[pt(x0, y + dy), pt(x1, y + dy)], Stroke::new(1.0, accent), 2.0 * s, 1.5 * s));
+        }
+    };
+    let digit = |x: f32, y: f32, t: &str, c: egui::Color32| {
+        p.text(pt(x, y), Align2::CENTER_CENTER, t, egui::FontId::proportional(6.5 * s), c);
+    };
+    match name {
+        // Text Direction: the page's lines and an arrow along the reading direction.
+        "dirHorizontal" => {
+            page(4.0, 1.0, 20.0, 19.0);
+            rows(6.5, 17.5, 5.0, 3, 3.0, ink);
+            line((7.0, 15.5), (16.0, 15.5), accent);
+            head((18.0, 15.5), 1.0, 0.0);
+        }
+        "dirDown" | "dirUp" => {
+            page(4.0, 1.0, 20.0, 19.0);
+            for x in [8.0, 11.0, 14.0] {
+                line((x, 4.0), (x, 16.0), ink);
+            }
+            if name == "dirDown" {
+                line((17.0, 4.0), (17.0, 14.0), accent);
+                head((17.0, 16.5), 0.0, 1.0);
+            } else {
+                line((17.0, 16.0), (17.0, 6.0), accent);
+                head((17.0, 3.5), 0.0, -1.0);
+            }
+        }
+        // Orientation: a tall or a wide page.
+        "portrait" => {
+            page(6.0, 0.5, 18.0, 19.5);
+            rows(8.0, 16.0, 4.0, 4, 3.0, ink);
+            line((8.0, 1.0), (16.0, 1.0), accent);
+        }
+        "landscape" => {
+            page(1.5, 4.0, 22.5, 16.0);
+            rows(4.0, 20.0, 7.0, 3, 3.0, ink);
+            line((2.0, 4.5), (22.0, 4.5), accent);
+        }
+        // Columns: the page's text in one, two or three columns, or a narrow one on a side.
+        _ if name.starts_with("cols") => {
+            page(3.0, 1.0, 21.0, 19.0);
+            let spans: &[(f32, f32)] = match name {
+                "cols_two" => &[(5.0, 11.0), (13.0, 19.0)],
+                "cols_three" => &[(5.0, 8.7), (10.2, 13.8), (15.3, 19.0)],
+                "cols_left" => &[(5.0, 8.5), (10.5, 19.0)],
+                "cols_right" => &[(5.0, 13.5), (15.5, 19.0)],
+                _ => &[(5.0, 19.0)],
+            };
+            for (i, (x0, x1)) in spans.iter().enumerate() {
+                let c = if spans.len() > 1 && i % 2 == 0 { accent } else { ink };
+                rows(*x0, *x1, 4.0, 5, 3.0, if name == "colsMore" { ink } else { c });
+            }
+            if name == "colsMore" {
+                for x in [9.0, 12.0, 15.0] {
+                    p.circle_filled(pt(x, 17.0), 1.0 * s, accent);
+                }
+            }
+        }
+        // Breaks: where the text stops and goes on.
+        "brk_page" => {
+            page(5.0, 0.5, 19.0, 19.5);
+            rows(7.0, 17.0, 3.5, 2, 3.0, ink);
+            dashed(10.0, 2.0, 22.0, false);
+            rows(7.0, 17.0, 13.5, 2, 3.0, ink);
+        }
+        "brk_column" => {
+            page(3.0, 1.0, 21.0, 19.0);
+            rows(5.0, 11.0, 4.0, 2, 3.0, ink);
+            rows(13.0, 19.0, 4.0, 5, 3.0, ink);
+            dashed(10.5, 5.0, 11.0, false);
+            line((8.0, 13.0), (8.0, 16.5), accent);
+            line((8.0, 16.5), (12.0, 16.5), accent);
+            line((12.0, 16.5), (12.0, 2.5), accent);
+            head((13.5, 2.5), 1.0, 0.0);
+        }
+        "brk_textWrapping" => {
+            rows(3.0, 21.0, 4.0, 1, 0.0, ink);
+            rows(3.0, 12.0, 9.0, 1, 0.0, ink);
+            rows(3.0, 21.0, 15.0, 1, 0.0, ink);
+            line((19.0, 6.5), (19.0, 11.5), accent);
+            line((19.0, 11.5), (14.5, 11.5), accent);
+            head((12.5, 11.5), -1.0, 0.0);
+        }
+        _ if name.starts_with("brk_") => {
+            page(5.0, 0.5, 19.0, 19.5);
+            rows(7.0, 17.0, 3.5, 2, 3.0, ink);
+            dashed(10.0, 2.0, 22.0, true);
+            rows(7.0, 17.0, 13.5, 2, 3.0, ink);
+            match name {
+                "brk_evenPage" => digit(21.5, 15.5, "2", accent),
+                "brk_oddPage" => digit(21.5, 15.5, "1", accent),
+                "brk_continuous" => {}
+                _ => head((21.5, 16.5), 0.0, 1.0),
+            }
+        }
+        // Line Numbers: the lines and their numbers in the margin.
+        _ if name.starts_with("ln") => {
+            page(3.0, 0.5, 21.0, 19.5);
+            rows(9.0, 19.0, 3.5, 5, 3.2, ink);
+            let numbers: &[&str] = match name {
+                "ln_continuous" | "lnOptions" => &["1", "2", "3", "4", "5"],
+                "ln_restartPage" | "ln_restartSection" => &["1", "2", "3", "1", "2"],
+                _ => &[],
+            };
+            for (i, n) in numbers.iter().enumerate() {
+                digit(6.0, 3.5 + i as f32 * 3.2, n, accent);
+            }
+            if name == "ln_restartSection" {
+                dashed(11.6, 8.0, 20.0, true);
+            } else if name == "ln_restartPage" {
+                line((3.0, 11.6), (21.0, 11.6), ink);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Insert › Shapes: a menu item with a small picture of the shape before its name.
 fn shape_item(ui: &mut Ui, app: &mut WordApp, label: &str, kind: &str, arrow: &str, id: &str, params: Value) {
     let enabled = crate::widgets::enabled(app, id);
@@ -1541,8 +1707,8 @@ fn margins_items(ui: &mut Ui, app: &mut WordApp) {
 
 fn orientation_items(ui: &mut Ui, app: &mut WordApp) {
     let land = wordcraft_engine::cmd::page::sect(&app.session).landscape;
-    mi_check(ui, app, "Portrait", !land, "layout.orientation", json!({"value": "portrait"}));
-    mi_check(ui, app, "Landscape", land, "layout.orientation", json!({"value": "landscape"}));
+    pic_item(ui, app, "Portrait", Some(!land), "portrait", "layout.orientation", json!({"value": "portrait"}));
+    pic_item(ui, app, "Landscape", Some(land), "landscape", "layout.orientation", json!({"value": "landscape"}));
 }
 
 fn columns_items(ui: &mut Ui, app: &mut WordApp) {
@@ -1554,10 +1720,10 @@ fn columns_items(ui: &mut Ui, app: &mut WordApp) {
         ("Left", "left", json!({"preset": "left"})),
         ("Right", "right", json!({"preset": "right"})),
     ] {
-        mi_check(ui, app, l, current == Some(k), "layout.columns", params);
+        pic_item(ui, app, l, Some(current == Some(k)), &format!("cols_{k}"), "layout.columns", params);
     }
     ui.separator();
-    mi(ui, app, "More Columns…", "ui.dialog", json!({"name": "columns"}));
+    pic_item(ui, app, "More Columns…", None, "colsMore", "ui.dialog", json!({"name": "columns"}));
 }
 
 fn layout(app: &mut WordApp, ui: &mut Ui) {
@@ -1569,7 +1735,12 @@ fn layout(app: &mut WordApp, ui: &mut Ui) {
             for (label, d) in
                 [("Horizontal", TextDirection::Horizontal), ("Rotate all text 90°", TextDirection::Down), ("Rotate all text 270°", TextDirection::Up)]
             {
-                mi_check(ui, app, label, dir == d, "layout.textDirection", json!({"value": d.ooxml()}));
+                let pic = match d {
+                    TextDirection::Down => "dirDown",
+                    TextDirection::Up => "dirUp",
+                    _ => "dirHorizontal",
+                };
+                pic_item(ui, app, label, Some(dir == d), pic, "layout.textDirection", json!({"value": d.ooxml()}));
             }
         });
         menu_button(ui, app, "margins", Some("Margins"), "Margins", true, "layout.margins", margins_items);
@@ -1579,23 +1750,22 @@ fn layout(app: &mut WordApp, ui: &mut Ui) {
         stack(ui, |ui| {
             menu_button(ui, app, "breaks", Some("Breaks"), "Breaks", false, "layout.break", |ui, app| {
                 ui.label(egui::RichText::new(tl!("Page Breaks")).strong());
-                mi(ui, app, "Page", "layout.break", json!({"kind": "page"}));
-                mi(ui, app, "Column", "layout.break", json!({"kind": "column"}));
-                mi(ui, app, "Text Wrapping", "layout.break", json!({"kind": "textWrapping"}));
+                for (l, k) in [("Page", "page"), ("Column", "column"), ("Text Wrapping", "textWrapping")] {
+                    pic_item(ui, app, l, None, &format!("brk_{k}"), "layout.break", json!({"kind": k}));
+                }
                 ui.label(egui::RichText::new(tl!("Section Breaks")).strong());
-                mi(ui, app, "Next Page", "layout.break", json!({"kind": "nextPage"}));
-                mi(ui, app, "Continuous", "layout.break", json!({"kind": "continuous"}));
-                mi(ui, app, "Even Page", "layout.break", json!({"kind": "evenPage"}));
-                mi(ui, app, "Odd Page", "layout.break", json!({"kind": "oddPage"}));
+                for (l, k) in [("Next Page", "nextPage"), ("Continuous", "continuous"), ("Even Page", "evenPage"), ("Odd Page", "oddPage")] {
+                    pic_item(ui, app, l, None, &format!("brk_{k}"), "layout.break", json!({"kind": k}));
+                }
             });
             menu_button(ui, app, "lineNumbers", Some("Line Numbers"), "Line Numbers", false, "layout.lineNumbers", |ui, app| {
                 for (l, v) in
                     [("None", "none"), ("Continuous", "continuous"), ("Restart Each Page", "restartPage"), ("Restart Each Section", "restartSection")]
                 {
-                    mi(ui, app, l, "layout.lineNumbers", json!({"value": v}));
+                    pic_item(ui, app, l, None, &format!("ln_{v}"), "layout.lineNumbers", json!({"value": v}));
                 }
                 ui.separator();
-                mi(ui, app, "Line Numbering Options…", "ui.dialog", json!({"name": "lineNumbers"}));
+                pic_item(ui, app, "Line Numbering Options…", None, "lnOptions", "ui.dialog", json!({"name": "lineNumbers"}));
             });
             let hy = app.session.doc.settings.auto_hyphenation;
             menu_button(ui, app, "hyphenation", Some("Hyphenation"), "Hyphenation", false, "layout.hyphenation", |ui, app| {
@@ -3017,6 +3187,48 @@ mod tests {
         a.run("insert.table", json!({"rows": 2, "cols": 2})).unwrap();
         for id in ["table.selectTable", "table.deleteTable", "table.autofit"] {
             assert!(menu_enabled(&a, id), "{id} is on inside a table");
+        }
+    }
+
+    /// Every Layout menu picture (Text Direction, Orientation, Columns, Breaks, Line Numbers) draws
+    /// something: a misspelt name would leave an empty space before the label.
+    #[test]
+    fn layout_menu_pictures_all_draw() {
+        let names = [
+            "dirHorizontal",
+            "dirDown",
+            "dirUp",
+            "portrait",
+            "landscape",
+            "cols_one",
+            "cols_two",
+            "cols_three",
+            "cols_left",
+            "cols_right",
+            "colsMore",
+            "brk_page",
+            "brk_column",
+            "brk_textWrapping",
+            "brk_nextPage",
+            "brk_continuous",
+            "brk_evenPage",
+            "brk_oddPage",
+            "ln_none",
+            "ln_continuous",
+            "ln_restartPage",
+            "ln_restartSection",
+            "lnOptions",
+        ];
+        let ctx = egui::Context::default();
+        crate::theme::install_fonts(&ctx);
+        ctx.run_ui(egui::RawInput::default(), |_| {}).drop_without_applying_deltas();
+        for name in names {
+            let out = ctx.run_ui(egui::RawInput::default(), |ui| {
+                let r = Rect::from_min_size(pos2(10.0, 10.0), vec2(24.0, 20.0));
+                layout_picture(ui.painter(), r, name, egui::Color32::BLACK, egui::Color32::BLUE);
+            });
+            assert!(out.shapes.len() >= 2, "{name} draws its picture");
+            out.drop_without_applying_deltas();
         }
     }
 
