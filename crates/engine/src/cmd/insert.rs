@@ -50,6 +50,8 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("insert.deleteBookmark", "Delete Bookmark", "Insert › Links", delete_bookmark).params(r#"{"name": string}"#),
         CommandSpec::new("insert.header", "Header", "Insert › Header & Footer", |s, v| header_footer(s, v, true)).params(r#"{"text"?: string, "preset"?: "blank|blankThree|title"}"#),
         CommandSpec::new("insert.footer", "Footer", "Insert › Header & Footer", |s, v| header_footer(s, v, false)).params(r#"{"text"?: string, "preset"?: "blank|blankThree|pageNumber"}"#),
+        CommandSpec::new("layout.pageNumberPosition", "Page Number Position", "Insert › Header & Footer › Page Number", page_number_position)
+            .params(r#"{"vertical"?: "top|bottom", "fromEdge"?: pt (from that paper edge to the number's baseline; default 72), "horizontal"?: "left|center|right", "fromSide"?: pt (from that paper edge to the number's near edge; default 72; centred ignores it), "firstPage"?: bool (false: no number on each section's first page; default true)} — the page number in a frame placed from the paper's edges, in the caret's section; replaces one placed before"#),
         CommandSpec::new("insert.pageNumber", "Page Number", "Insert › Header & Footer", page_number).params(r#"{"position"?: "top|bottom|current", "align"?: "left|center|right", "format"?: "x of y"}"#),
         // Pure: going into an existing header/footer changes nothing; one the page doesn't have yet
         // is made by the mutating `insert.createHeader`/`insert.createFooter` (undoable, refused in
@@ -732,6 +734,186 @@ fn strip_headers(doc: &mut wordcraft_doc::Document, ids: &[u32]) -> bool {
     any
 }
 
+/// Width of the frame [`page_number_position`] puts the page number in: room for any page number.
+const PAGE_NUMBER_FRAME_W: f32 = 72.0;
+
+/// Whether `p` is a page number placed by [`page_number_position`]: a framed paragraph anchored to
+/// the page whose only content is a PAGE field.
+fn is_placed_page_number(p: &Paragraph) -> bool {
+    p.props.frame.as_ref().is_some_and(|f| f.h_anchor == "page" && f.v_anchor == "page")
+        && p.text.chars().all(|c| c == wordcraft_doc::para::OBJ)
+        && p.objects.iter().any(|o| matches!(o, InlineObject::Field { instr, .. } if instr.trim().eq_ignore_ascii_case("PAGE")))
+}
+
+/// Page Number Position: the page number at set distances from the paper's edges, as theses
+/// often require ("1 inch from the top edge and 1 inch from the right edge"). The number goes in a
+/// text frame anchored to the page (`w:framePr`, as Word keeps a page number in a frame) in the
+/// header (top) or footer (bottom) of the caret's section. `fromEdge` is measured to the number's
+/// baseline, `fromSide` to its near edge (its right end from the right edge). A number placed
+/// before is replaced; the header or footer's other content stays. `firstPage: false` turns on
+/// Different First Page, so the section's first page has no number.
+fn page_number_position(s: &mut Session, v: &Value) -> CmdResult {
+    let top = match p::str(v, "vertical").unwrap_or("top") {
+        "top" => true,
+        "bottom" => false,
+        x => return Err(CmdError::Params(format!("unknown vertical `{x}`: use top or bottom"))),
+    };
+    let horizontal = p::str(v, "horizontal").unwrap_or("right");
+    if !matches!(horizontal, "left" | "center" | "right") {
+        return Err(CmdError::Params(format!("unknown horizontal `{horizontal}`: use left, center or right")));
+    }
+    let block = s.sel.focus.path.0.first().copied().unwrap_or(0) as usize;
+    let sect = s.doc.section_mut(block).clone();
+    let (pw, ph) = (sect.page_w.max(1.0), sect.page_h.max(1.0));
+    let from_edge = p::f32(v, "fromEdge").unwrap_or(72.0).clamp(0.0, ph);
+    let from_side = p::f32(v, "fromSide").unwrap_or(72.0).clamp(0.0, pw);
+    let first_page = p::bool(v, "firstPage").unwrap_or(true);
+    // Take away a number placed before, from the header and the footer.
+    for id in [sect.headers.default, sect.footers.default].into_iter().flatten() {
+        let Some(blocks) = s.doc.story(StoryRef::Part(id)) else { continue };
+        let kept: Vec<_> = blocks.iter().filter(|b| !b.as_para().is_some_and(is_placed_page_number)).cloned().collect();
+        if kept.len() != blocks.len() {
+            let kept = if kept.is_empty() { vec![para_block(Paragraph::new())] } else { kept };
+            s.doc.set_story(StoryRef::Part(id), kept)?;
+        }
+    }
+    let id = hf_part(s, top);
+    let (x, x_align, align) = match horizontal {
+        "left" => (from_side, None, Align::Left),
+        "center" => (0.0, Some("center".to_string()), Align::Center),
+        _ => ((pw - from_side - PAGE_NUMBER_FRAME_W).max(0.0), None, Align::Right),
+    };
+    let baseline = if top { from_edge } else { ph - from_edge };
+    let style = if top { "Header" } else { "Footer" };
+    let numbered = |y: f32| -> Result<Paragraph, CmdError> {
+        let mut para = Paragraph::new().styled(style);
+        para.props.align = Some(align);
+        para.props.indent_left = Some(0.0);
+        para.props.indent_right = Some(0.0);
+        para.props.indent_first = Some(0.0);
+        para.props.space_before = Some(0.0);
+        para.props.space_after = Some(0.0);
+        para.props.frame = Some(wordcraft_doc::props::TextFrame {
+            w: Some(PAGE_NUMBER_FRAME_W),
+            x,
+            y,
+            x_align: x_align.clone(),
+            h_anchor: "page".into(),
+            v_anchor: "page".into(),
+            wrap: "around".into(),
+            ..Default::default()
+        });
+        let field = InlineObject::Field { instr: "PAGE".into(), result: "1".into(), locked: false, dirty: false, code: false, form: String::new() };
+        para.insert_object(0, field, &CharProps::default())?;
+        Ok(para)
+    };
+    let mut story: Vec<_> = s.doc.story(StoryRef::Part(id)).cloned().unwrap_or_default();
+    // An empty header or footer is just the frame (a blank line beside it would push the text down).
+    story.retain(|b| !b.as_para().is_some_and(|p| p.text.is_empty() && p.props.frame.is_none()));
+    let at = story.len();
+    // The frame's top sits one ascent above the baseline: first a guess, then measured on a page that
+    // shows it (Different First Page is set after, so a first page also counts).
+    s.doc.section_mut(block).title_page = false;
+    let mut y = (baseline - 10.0).max(0.0);
+    story.push(para_block(numbered(y)?));
+    s.doc.set_story(StoryRef::Part(id), story.clone())?;
+    // A footer's place depends on its height, which the frame's place can change: correct until it
+    // lands (a few rounds at most).
+    for _ in 0..4 {
+        let Some(found) = placed_baseline(s, id, at, true) else { break };
+        if (found - baseline).abs() < 0.05 {
+            break;
+        }
+        y = (y + baseline - found).max(0.0);
+        if let Some(slot) = story.get_mut(at) {
+            *slot = para_block(numbered(y)?);
+        }
+        s.doc.set_story(StoryRef::Part(id), story.clone())?;
+    }
+    s.doc.section_mut(block).title_page = !first_page || (sect.title_page && sect_first_has_own(&sect, top));
+    Ok(json!({"story": id, "frameTop": y}))
+}
+
+/// The caret's section's positioned page number as `layout.pageNumberPosition` parameters
+/// (`vertical`, `fromEdge`, `horizontal`, `fromSide`, `firstPage`), measured from the layout; `None`
+/// when it has none. The Page Number Position dialog opens with these.
+pub fn page_number_placement(s: &mut Session) -> Option<Value> {
+    let block = s.sel.focus.path.0.first().copied().unwrap_or(0) as usize;
+    let sect = s.doc.section_mut(block).clone();
+    for (top, id) in [(true, sect.headers.default), (false, sect.footers.default)] {
+        let Some(id) = id else { continue };
+        let Some((at, para)) = s
+            .doc
+            .story(StoryRef::Part(id))?
+            .iter()
+            .enumerate()
+            .find_map(|(i, b)| b.as_para().filter(|p| is_placed_page_number(p)).map(|p| (i, p.clone())))
+        else {
+            continue;
+        };
+        let frame = para.props.frame.clone().unwrap_or_default();
+        let (horizontal, from_side) = if frame.x_align.as_deref() == Some("center") {
+            ("center", 72.0)
+        } else if para.props.align == Some(Align::Left) {
+            ("left", frame.x)
+        } else {
+            ("right", sect.page_w - frame.x - frame.w.unwrap_or(PAGE_NUMBER_FRAME_W))
+        };
+        let baseline = match placed_baseline(s, id, at, false) {
+            Some(b) => b,
+            // No page shows it (one page, and Different First Page hides it there): measure with the
+            // first page showing it, then put everything back as it was, unsaved-changes flag too.
+            None => {
+                let dirty = s.dirty;
+                s.doc.section_mut(block).title_page = false;
+                let found = placed_baseline(s, id, at, true);
+                s.doc.section_mut(block).title_page = sect.title_page;
+                s.touch();
+                s.dirty = dirty;
+                found?
+            }
+        };
+        let from_edge = if top { baseline } else { sect.page_h - baseline };
+        return Some(json!({
+            "vertical": if top { "top" } else { "bottom" },
+            "fromEdge": from_edge,
+            "horizontal": horizontal,
+            "fromSide": from_side,
+            "firstPage": !sect.title_page,
+        }));
+    }
+    None
+}
+
+/// Whether the section's first page has its own header (top) or footer: Different First Page
+/// stays on for it whatever the page number does.
+fn sect_first_has_own(sect: &wordcraft_doc::section::SectionProps, top: bool) -> bool {
+    if top { sect.headers.first.is_some() } else { sect.footers.first.is_some() }
+}
+
+/// The baseline, from the top of the page, of block `at` of header or footer part `id` as laid
+/// out on the first page that shows it.
+fn placed_baseline(s: &mut Session, id: u32, at: usize, changed: bool) -> Option<f32> {
+    // The story just changed inside the command: lay out again rather than reuse the cached layout.
+    if changed {
+        s.touch();
+    }
+    let layout = s.layout();
+    let path = Path::top(at);
+    for page in &layout.pages {
+        for placed in page.header.iter().chain(&page.footer) {
+            if let wordcraft_layout::Placed::Lines { story: StoryRef::Part(pid), path: pp, para, l0, y, .. } = placed
+                && *pid == id
+                && *pp == path
+            {
+                let first = para.lines.get(*l0)?;
+                return Some(y + (first.baseline - first.top));
+            }
+        }
+    }
+    None
+}
+
 fn page_number(s: &mut Session, v: &Value) -> CmdResult {
     let position = p::str(v, "position").unwrap_or("bottom");
     let align = match p::str(v, "align").unwrap_or("center") {
@@ -929,6 +1111,81 @@ fn cover_page(s: &mut Session, v: &Value) -> CmdResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Where the positioned page number lands on page `page`: its baseline from the page's top, and
+    /// its left and right ends from the page's left edge.
+    fn placed_number(s: &mut Session, page: usize) -> Option<(f32, f32, f32)> {
+        let layout = s.layout();
+        let pg = layout.pages.get(page)?;
+        for placed in pg.header.iter().chain(&pg.footer) {
+            if let wordcraft_layout::Placed::Lines { story: StoryRef::Part(id), path, para, l0, x, y, .. } = placed
+                && s.doc
+                    .story(StoryRef::Part(*id))
+                    .and_then(|b| b.get(path.0.first().copied().unwrap_or(0) as usize))
+                    .and_then(|b| b.as_para())
+                    .is_some_and(is_placed_page_number)
+            {
+                let line = para.lines.get(*l0)?;
+                let start = line.vis.iter().map(|v| v.x).fold(line.xs.first().copied().unwrap_or(line.left), f32::min);
+                return Some((y + (line.baseline - line.top), x + start, x + line.visual_end_x()));
+            }
+        }
+        None
+    }
+
+    /// Page Number Position: the number's baseline and its near edge land at the distances asked
+    /// for from the paper's edges, top or bottom, left, centred or right; running it again moves the
+    /// number rather than adding one; `firstPage: false` leaves the section's first page without one.
+    #[test]
+    fn page_number_position_measures_from_the_paper_edges() {
+        let mut s = Session::new(wordcraft_doc::Document::new());
+        s.run("text.insert", &json!({"text": "One"})).unwrap();
+        s.run("insert.pageBreak", &json!({})).unwrap();
+        s.run("text.insert", &json!({"text": "Two"})).unwrap();
+        let (pw, ph) = {
+            let sect = &s.doc.last_section;
+            (sect.page_w, sect.page_h)
+        };
+        // 1" down from the top edge, 1" in from the right edge (a thesis's usual place).
+        s.run("layout.pageNumberPosition", &json!({"vertical": "top", "fromEdge": 72, "horizontal": "right", "fromSide": 72})).unwrap();
+        let (base, _, right) = placed_number(&mut s, 0).expect("the number shows on page 1");
+        assert!((base - 72.0).abs() < 0.3, "baseline 1\" from the top edge: {base}");
+        assert!((right - (pw - 72.0)).abs() < 0.3, "right end 1\" from the right edge: {right} of {pw}");
+        // Moved to the bottom left: one number, in the footer.
+        s.run("layout.pageNumberPosition", &json!({"vertical": "bottom", "fromEdge": 54, "horizontal": "left", "fromSide": 90})).unwrap();
+        let (base, left, _) = placed_number(&mut s, 1).expect("the number shows on page 2");
+        assert!((base - (ph - 54.0)).abs() < 0.3, "baseline 0.75\" from the bottom edge: {base}");
+        assert!((left - 90.0).abs() < 0.3, "left end 1.25\" from the left edge: {left}");
+        let placed = |s: &Session| {
+            [s.doc.last_section.headers.default, s.doc.last_section.footers.default]
+                .into_iter()
+                .flatten()
+                .filter_map(|id| s.doc.story(StoryRef::Part(id)))
+                .flat_map(|b| b.iter())
+                .filter(|b| b.as_para().is_some_and(is_placed_page_number))
+                .count()
+        };
+        assert_eq!(placed(&s), 1, "the number moved; it wasn't added twice");
+        // Centred: the middle of the number is the middle of the page.
+        s.run("layout.pageNumberPosition", &json!({"vertical": "bottom", "fromEdge": 36, "horizontal": "center"})).unwrap();
+        let (_, left, right) = placed_number(&mut s, 0).expect("centred number");
+        assert!(((left + right) / 2.0 - pw / 2.0).abs() < 0.5, "centred: {left}..{right} on {pw}");
+        // No number on the first page: Different First Page, page 2 keeps it.
+        s.run("layout.pageNumberPosition", &json!({"vertical": "top", "fromEdge": 72, "horizontal": "right", "fromSide": 72, "firstPage": false}))
+            .unwrap();
+        assert!(s.doc.last_section.title_page);
+        assert!(placed_number(&mut s, 0).is_none(), "page 1 has no number");
+        assert!(placed_number(&mut s, 1).is_some(), "page 2 has one");
+        // Saved as .docx and opened again (as Word would), the number keeps its frame and place.
+        let saved = wordcraft_docx::write(&s.doc).unwrap();
+        let mut back = Session::new(wordcraft_docx::read(&saved).unwrap());
+        let (base, _, right) = placed_number(&mut back, 1).expect("the number survives a save");
+        assert!((base - 72.0).abs() < 0.3 && (right - (pw - 72.0)).abs() < 0.3, "after a save: {base}, {right}");
+        assert!(back.doc.last_section.title_page, "Different First Page survives a save");
+        // Bad values are refused.
+        assert!(s.run("layout.pageNumberPosition", &json!({"vertical": "middle"})).is_err());
+        assert!(s.run("layout.pageNumberPosition", &json!({"horizontal": "inside"})).is_err());
+    }
 
     /// #960: editing the header of a page that has none creates the one that page shows (first
     /// page, even page or default); typing goes into it, and closing an unwritten one takes it

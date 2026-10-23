@@ -7,6 +7,21 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### Page Number Position: the page number at set distances from the paper's edges
+- New **Insert › Page Number › Page Number Position…** dialog for layouts such as a thesis's "the page number 1 inch
+  from the top edge and 1 inch from the right edge". It offers: from the **top or bottom edge**, a distance measured to
+  the number's **baseline**; **left, centre or right**, a distance measured to the number's near edge (its right end
+  from the right edge, its start from the left edge); and **Don't show on the first page of the section** (Different
+  First Page). A small page preview shows where the number goes. Opening it again shows the current placement.
+- The number goes in a text frame anchored to the page (`w:framePr`) in the section's header (top) or footer (bottom),
+  so Word opens the file with the number in the same place; the header or footer's other content stays, and a number
+  placed before is moved rather than added again. The frame's top is found by laying the page out and correcting it
+  until the baseline lands within 0.05 pt of the distance asked for.
+- Command `layout.pageNumberPosition` (`vertical`, `fromEdge`, `horizontal`, `fromSide`, `firstPage`) for scripts and
+  agents (`crates/engine/src/cmd/insert.rs`); dialog in `crates/ui-egui/src/dialogs_layout.rs`. Tests:
+  `page_number_position_measures_from_the_paper_edges` (top-right, bottom-left, centred, first page, saved and opened
+  again) and `page_number_position_dialog_reads_and_sets_the_placement`.
+
 ### Page and column breaks named, as in Word
 - With formatting marks on (¶), a page break shows as a dotted line to the margin with **Page Break** in the middle,
   and a column break with **Column Break**, as in Word and like the section breaks (which keep their double line).

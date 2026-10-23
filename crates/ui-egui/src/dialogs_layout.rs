@@ -30,6 +30,7 @@ pub enum LayoutDialog {
     Labels(LabelsForm),
     Formula(FormulaForm),
     Sort(SortForm),
+    PageNumberPosition(PageNumberForm),
 }
 
 impl LayoutDialog {
@@ -43,6 +44,7 @@ impl LayoutDialog {
             LayoutDialog::Labels(_) => "labels",
             LayoutDialog::Formula(_) => "tableFormula",
             LayoutDialog::Sort(_) => "tableSort",
+            LayoutDialog::PageNumberPosition(_) => "pageNumberPosition",
         }
     }
 
@@ -57,6 +59,7 @@ impl LayoutDialog {
             LayoutDialog::Labels(_) => "Labels",
             LayoutDialog::Formula(_) => "Formula",
             LayoutDialog::Sort(_) => "Sort",
+            LayoutDialog::PageNumberPosition(_) => "Page Number Position",
         }
     }
 }
@@ -72,6 +75,7 @@ pub fn open(name: &str, app: &mut WordApp) -> Option<LayoutDialog> {
         "labels" => LayoutDialog::Labels(LabelsForm::read(app)),
         "tableFormula" => LayoutDialog::Formula(FormulaForm::read(app)?),
         "tableSort" => LayoutDialog::Sort(SortForm::read(app)?),
+        "pageNumberPosition" => LayoutDialog::PageNumberPosition(PageNumberForm::read(app)),
         _ => return None,
     })
 }
@@ -87,6 +91,7 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, d: &mut LayoutDialog) -> bool {
         LayoutDialog::Labels(f) => labels_ui(app, ui, f),
         LayoutDialog::Formula(f) => formula_ui(app, ui, f),
         LayoutDialog::Sort(f) => sort_ui(app, ui, f),
+        LayoutDialog::PageNumberPosition(f) => page_number_ui(app, ui, f),
     }
 }
 
@@ -126,6 +131,158 @@ fn run(app: &mut WordApp, id: &str, params: Value) -> bool {
 
 fn unit() -> wordcraft_geom::Unit {
     crate::options::unit()
+}
+
+// ---------------------------------------------------------------------------------------------
+// Page Number Position
+
+/// The Page Number Position dialog's fields (Insert › Page Number › Page Number Position…): the
+/// page number placed from the paper's edges. Distances are in the interface unit: `from_edge` to
+/// the number's baseline, `from_side` to its near edge.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PageNumberForm {
+    pub top: bool,
+    pub from_edge: f32,
+    /// `left`, `center` or `right`.
+    pub horizontal: String,
+    pub from_side: f32,
+    /// No number on the section's first page (Different First Page).
+    pub hide_first: bool,
+}
+
+impl PageNumberForm {
+    /// The section's positioned number, or 1" from the top and right edges (a thesis's usual place).
+    pub fn read(app: &mut WordApp) -> PageNumberForm {
+        let u = unit().pt_per_unit();
+        let now = wordcraft_engine::cmd::insert::page_number_placement(&mut app.session);
+        let get = |k: &str| now.as_ref().and_then(|v| v.get(k).cloned());
+        PageNumberForm {
+            top: get("vertical").and_then(|v| v.as_str().map(|s| s == "top")).unwrap_or(true),
+            from_edge: get("fromEdge").and_then(|v| v.as_f64()).unwrap_or(72.0) as f32 / u,
+            horizontal: get("horizontal").and_then(|v| v.as_str().map(String::from)).unwrap_or_else(|| "right".into()),
+            from_side: get("fromSide").and_then(|v| v.as_f64()).unwrap_or(72.0) as f32 / u,
+            hide_first: get("firstPage").and_then(|v| v.as_bool()).is_some_and(|b| !b),
+        }
+    }
+
+    /// `layout.pageNumberPosition` parameters.
+    pub fn params(&self) -> Value {
+        let u = unit().pt_per_unit();
+        json!({
+            "vertical": if self.top { "top" } else { "bottom" },
+            "fromEdge": (self.from_edge * u).max(0.0),
+            "horizontal": self.horizontal,
+            "fromSide": (self.from_side * u).max(0.0),
+            "firstPage": !self.hide_first,
+        })
+    }
+}
+
+fn page_number_ui(app: &mut WordApp, ui: &mut Ui, f: &mut PageNumberForm) -> bool {
+    let sect = wordcraft_engine::cmd::page::sect(&app.session);
+    let (pw, ph) = (sect.page_w.max(1.0), sect.page_h.max(1.0));
+    fn length(v: &mut f32, max_pt: f32) -> crate::numfield::NumField<'_> {
+        crate::numfield::NumField::new(v).speed(0.01).range(0.0..=max_pt / unit().pt_per_unit()).measure(unit()).max_decimals(2)
+    }
+    ui.label(egui::RichText::new(tl!("Place the page number at a set distance from the edges of the paper.")).weak());
+    ui.horizontal_top(|ui| {
+        ui.vertical(|ui| {
+            heading(ui, "Vertical");
+            egui::Grid::new("pnv").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
+                ui.label(tl!("From:"));
+                ui.horizontal(|ui| {
+                    ui.radio_value(&mut f.top, true, tl!("Top edge"));
+                    ui.radio_value(&mut f.top, false, tl!("Bottom edge"));
+                });
+                ui.end_row();
+                ui.label(tl!("Distance:"));
+                ui.add(length(&mut f.from_edge, ph));
+                ui.end_row();
+            });
+            ui.label(egui::RichText::new(tl!("Measured to the baseline of the number.")).small().weak());
+            heading(ui, "Horizontal");
+            egui::Grid::new("pnh").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
+                ui.label(tl!("Position:"));
+                ui.horizontal(|ui| {
+                    for (v, l) in [("left", "Left"), ("center", "Center"), ("right", "Right")] {
+                        if ui.radio(f.horizontal == v, tl!(l)).clicked() {
+                            f.horizontal = v.into();
+                        }
+                    }
+                });
+                ui.end_row();
+                ui.label(tl!("Distance:"));
+                ui.add_enabled(f.horizontal != "center", length(&mut f.from_side, pw));
+                ui.end_row();
+            });
+            let side = match f.horizontal.as_str() {
+                "left" => "Measured from the left edge to the start of the number.",
+                "center" => "Centred across the page.",
+                _ => "Measured from the right edge to the end of the number.",
+            };
+            ui.label(egui::RichText::new(tl!(side)).small().weak());
+            ui.add_space(6.0);
+            ui.checkbox(&mut f.hide_first, tl!("Don't show on the first page of the section"));
+        });
+        ui.add_space(12.0);
+        page_number_preview(ui, f, pw, ph);
+    });
+    let (ok, cancel) = buttons(ui, "OK", true);
+    if ok {
+        return run(app, "layout.pageNumberPosition", f.params());
+    }
+    cancel
+}
+
+/// A small page with the number where the dialog's settings put it, and its distances drawn.
+fn page_number_preview(ui: &mut Ui, f: &PageNumberForm, pw: f32, ph: f32) {
+    let t = crate::theme::Tokens::get(ui.ctx());
+    let h = 170.0;
+    let w = (h * pw / ph).clamp(60.0, 200.0);
+    let (r, _) = ui.allocate_exact_size(vec2(w, h), egui::Sense::hover());
+    let page = r.shrink(2.0);
+    ui.painter().rect(page, 2.0, egui::Color32::WHITE, egui::Stroke::new(1.0, t.border_strong), egui::StrokeKind::Middle);
+    let k = page.width() / pw;
+    let u = unit().pt_per_unit();
+    let edge = (f.from_edge * u * k).clamp(0.0, page.height());
+    let side = (f.from_side * u * k).clamp(0.0, page.width());
+    let base_y = if f.top { page.top() + edge } else { page.bottom() - edge };
+    let text = "12";
+    let font = egui::FontId::proportional(8.5);
+    let galley = ui.painter().layout_no_wrap(text.into(), font, egui::Color32::BLACK);
+    let tw = galley.size().x;
+    let x0 = match f.horizontal.as_str() {
+        "left" => page.left() + side,
+        "center" => page.center().x - tw / 2.0,
+        _ => page.right() - side - tw,
+    };
+    // Lines of text in the body, to read it as a page.
+    for i in 0..9 {
+        let y = page.top() + page.height() * (0.3 + i as f32 * 0.055);
+        ui.painter().line_segment(
+            [egui::pos2(page.left() + page.width() * 0.18, y), egui::pos2(page.right() - page.width() * 0.18, y)],
+            egui::Stroke::new(1.0, egui::Color32::from_gray(205)),
+        );
+    }
+    let accent = t.accent;
+    let dim = egui::Stroke::new(1.0, accent.gamma_multiply(0.7));
+    // The vertical distance: from the edge to the baseline.
+    let ex = x0 + tw / 2.0;
+    let edge_y = if f.top { page.top() } else { page.bottom() };
+    ui.painter().line_segment([egui::pos2(ex, edge_y), egui::pos2(ex, base_y)], dim);
+    // The horizontal distance: from the side edge to the number's near end.
+    match f.horizontal.as_str() {
+        "left" => {
+            ui.painter().line_segment([egui::pos2(page.left(), base_y - 4.0), egui::pos2(x0, base_y - 4.0)], dim);
+        }
+        "right" => {
+            ui.painter().line_segment([egui::pos2(x0 + tw, base_y - 4.0), egui::pos2(page.right(), base_y - 4.0)], dim);
+        }
+        _ => {}
+    }
+    ui.painter().galley(egui::pos2(x0, base_y - galley.size().y * 0.8), galley, egui::Color32::BLACK);
+    ui.painter().line_segment([egui::pos2(x0 - 2.0, base_y), egui::pos2(x0 + tw + 2.0, base_y)], egui::Stroke::new(1.0, accent));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -828,6 +985,28 @@ mod tests {
     fn form(a: &mut WordApp) -> LayoutDialog {
         let Some(Dialog::Layout(d)) = a.dialog.take() else { panic!("no dialog: {:?}", a.dialog) };
         *d
+    }
+
+    /// Page Number Position… opens at 1" from the top and right edges, its OK places the number,
+    /// and opening it again shows where the number is, first-page choice included.
+    #[test]
+    fn page_number_position_dialog_reads_and_sets_the_placement() {
+        let mut a = app();
+        a.run("ui.dialog", json!({"name": "pageNumberPosition"})).unwrap();
+        let LayoutDialog::PageNumberPosition(mut f) = form(&mut a) else { panic!("page number position") };
+        let inch = 72.0 / unit().pt_per_unit();
+        assert!(f.top && f.horizontal == "right" && (f.from_edge - inch).abs() < 0.01 && (f.from_side - inch).abs() < 0.01 && !f.hide_first);
+        f.top = false;
+        f.from_edge = inch * 0.75;
+        f.horizontal = "left".into();
+        f.from_side = inch * 1.5;
+        f.hide_first = true;
+        a.run("layout.pageNumberPosition", f.params()).unwrap();
+        a.run("ui.dialog", json!({"name": "pageNumberPosition"})).unwrap();
+        let LayoutDialog::PageNumberPosition(back) = form(&mut a) else { panic!("page number position") };
+        assert!(!back.top && back.horizontal == "left" && back.hide_first, "{back:?}");
+        assert!((back.from_edge - inch * 0.75).abs() < 0.01 && (back.from_side - inch * 1.5).abs() < 0.01, "{back:?}");
+        assert!(!a.session.doc.parts.is_empty());
     }
 
     /// #407: Line Numbering Options… opens with the section's numbering and OK sets every
