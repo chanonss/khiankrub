@@ -7,6 +7,12 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### Release v0.7.0-thai.4
+- [v0.7.0-thai.4](https://github.com/chanonss/khiankrub/releases/tag/v0.7.0-thai.4), built from commit `4d4013e`, file
+  `KhianKrub-0.7.0-thai.4-macos-apple-silicon.zip`, SHA-256
+  `3684ed741a5fcac93bf387515f7bdb33c6d8aeb253632b51cb27f015e6d56209`. Brings the Navigation pane, File menu, Recover,
+  Icons and Shapes changes below. v0.7.0-thai.3 and v0.7.0-thai.2 stay published.
+
 ### Insert › Shapes: a picture of each shape
 - The Shapes menu shows a small drawing of each shape before its name, as in Word: rectangle, rounded rectangle, oval,
   triangle, diamond, line, block arrow, star, heart, a dashed frame for New Drawing Canvas, and each connector

@@ -18,9 +18,10 @@ travel between Macs (see section 10).
   (`thaiNumbers` ๑ ๒ ๓, `thaiLetters` ก ข ค, `thaiCounting` หนึ่ง สอง สาม, checked against Word's own labels), then
   **ribbon icons sized and centred like Word's**, and the name written as one word, **KhianKrub**. Every
   change is listed, newest first, in [`FORK-CHANGES.md`](FORK-CHANGES.md).
-- **Published:** release `v0.7.0-thai.3` (2026-10-23, tag on `e893820`, the first as KhianKrub) and the older
+- **Published:** release `v0.7.0-thai.4` (2026-10-23, tag on `4d4013e`, the latest), `v0.7.0-thai.3` (tag on `e893820`,
+  the first as KhianKrub) and the older
   `v0.7.0-thai.2` (tag on `13f20be`, old WordCraft name and icon), kept on purpose.
-- **Everything is on GitHub** (pushed 2026-10-23, up to `e893820`). Later local commits, if any, show with
+- **Everything is on GitHub** (pushed 2026-10-23, up to `4d4013e`). Later local commits, if any, show with
   `git log --oneline origin/my-changes..HEAD`. Chanon decides when to push (rule 1).
 - **Untracked scratch files in `repo`, not to be committed:** `issue-draft.md`, `thai-test.txt`.
 - **Outside the repo, in the project folder** (`~/Documents/Codex/WordCraft/` on the second Mac):
@@ -171,7 +172,7 @@ The PC needs a Thai font for documents; Windows has Leelawadee UI and Tahoma, TH
 - Optional: a Windows test build (section 8).
 - Optional: offer the Thai list formats in the list numbering dialog (`crates/ui-egui/src/dialogs_lists.rs`); today they
   only come from opened documents.
-- Next public build: a new release (for example `v0.7.0-thai.4`) named like `KhianKrub-0.7.0-thai.3-macos-apple-silicon.zip`;
+- Next public build: a new release (for example `v0.7.0-thai.5`) named like `KhianKrub-0.7.0-thai.3-macos-apple-silicon.zip`;
   ask before replacing or deleting an older release. The Thai Facebook post for thai.3 and its before/after picture are
   in `~/Documents/Codex/WordCraft/facebook/`; the release notes in `.../release/`.
 - The old `~/Applications/WordCraft.app` on the first Mac can be moved to the Bin.
