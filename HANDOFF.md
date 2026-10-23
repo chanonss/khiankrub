@@ -16,19 +16,10 @@ travel between Macs (see section 10).
   (`thaiNumbers` ๑ ๒ ๓, `thaiLetters` ก ข ค, `thaiCounting` หนึ่ง สอง สาม, checked against Word's own labels), then
   **ribbon icons sized and centred like Word's**, and the name written as one word, **KhianKrub**. Every
   change is listed, newest first, in [`FORK-CHANGES.md`](FORK-CHANGES.md).
-- **Published:** only release `v0.7.0-thai.2` (tag on commit `13f20be`). It still carries the old WordCraft name and icon.
-- **NOT on GitHub yet: 7 local commits** after `a1538b9` (the last pushed commit):
-  1. `69e6dfc` Remove the 22 other interface languages
-  2. `fddd64a` Fix hover jumps, drag-to-change numbers, Thai space dots, and the alignment name
-  3. `845a7de` Rename the app to Khian Krub, new icon, and a handoff note
-  4. `cef7d83` Draw Thai list numbers, letters and counting words
-  5. `5501619` Update the handoff note for continuing on another Mac
-  6. Ribbon: larger small icons and rows centred in each group, as in Word
-  7. Write the app name as one word, KhianKrub
-
-  Check with `git log --oneline origin/my-changes..HEAD`. **A fresh clone will not have them until they are pushed.**
-  Chanon decides when to push (rule 1). To move without pushing, copy the whole `repo` folder, or run
-  `git bundle create ../khiankrub.bundle origin/my-changes..HEAD` here and `git pull ../khiankrub.bundle my-changes` there.
+- **Published:** release `v0.7.0-thai.3` (2026-10-23, tag on `e893820`, the first as KhianKrub) and the older
+  `v0.7.0-thai.2` (tag on `13f20be`, old WordCraft name and icon), kept on purpose.
+- **Everything is on GitHub** (pushed 2026-10-23, up to `e893820`). Later local commits, if any, show with
+  `git log --oneline origin/my-changes..HEAD`. Chanon decides when to push (rule 1).
 - **Untracked scratch files in `repo`, not to be committed:** `issue-draft.md`, `thai-test.txt`.
 - **Outside the repo, in the project folder** (`~/Documents/Codex/WordCraft/` on the second Mac):
   - `thai-test.docx`: a Word test document covering Thai word breaking, the five alignments including Thai
@@ -174,12 +165,12 @@ The PC needs a Thai font for documents; Windows has Leelawadee UI and Tahoma, TH
 ## 9. What is next (nothing is forced)
 
 - Try the new app (`~/Applications/KhianKrub.app`), open `thai-test.docx` in it, and give feedback on the icon and name.
-  Then say "push" to upload the 7 local commits.
 - Optional: a Windows test build (section 8).
 - Optional: offer the Thai list formats in the list numbering dialog (`crates/ui-egui/src/dialogs_lists.rs`); today they
   only come from opened documents.
-- When Chanon wants a public build: new release (for example `v0.7.0-thai.3`) with the zip named for KhianKrub; ask before
-  replacing or deleting `v0.7.0-thai.2`, and before pointing the Facebook post to it.
+- Next public build: a new release (for example `v0.7.0-thai.4`) named like `KhianKrub-0.7.0-thai.3-macos-apple-silicon.zip`;
+  ask before replacing or deleting an older release. The Thai Facebook post for thai.3 and its before/after picture are
+  in `~/Documents/Codex/WordCraft/facebook/`; the release notes in `.../release/`.
 - The old `~/Applications/WordCraft.app` on the first Mac can be moved to the Bin.
 - A Thai interface is **not** wanted; wait for what Chanon raises next.
 

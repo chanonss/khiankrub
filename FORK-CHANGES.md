@@ -5,6 +5,13 @@ Thai-speaking audience. This file lists what differs from the original, newest f
 progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each entry matches a commit on the
 `my-changes` branch.
 
+## 2026-10-23
+
+### Release v0.7.0-thai.3
+- First release under the name KhianKrub: [v0.7.0-thai.3](https://github.com/chanonss/wordcraft/releases/tag/v0.7.0-thai.3),
+  built from commit `e893820`, file `KhianKrub-0.7.0-thai.3-macos-apple-silicon.zip` (Apple silicon, ad-hoc signed).
+  SHA-256 `89f783b68582030f719ca9179498a40fbfa79f1390e12c8cdd244882c4a33d96`. v0.7.0-thai.2 stays published.
+
 ## 2026-10-22
 
 ### The name is written as one word: KhianKrub
