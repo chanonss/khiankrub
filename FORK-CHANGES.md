@@ -7,6 +7,12 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### Insert › Shapes: a picture of each shape
+- The Shapes menu shows a small drawing of each shape before its name, as in Word: rectangle, rounded rectangle, oval,
+  triangle, diamond, line, block arrow, star, heart, a dashed frame for New Drawing Canvas, and each connector
+  (straight, elbow, curved, with or without an arrowhead). Drawn in code in the theme's colours (`shape_item` and
+  `shape_preview` in `crates/ui-egui/src/ribbon.rs`). Test: `shapes_menu_items_insert_their_shape`.
+
 ### Insert › Icons: category names readable
 - The last categories of the Icons dialog (Symbols, Technology, Transport) were squeezed into the space left on the
   row and drawn one letter per line. Category names no longer wrap; the dialog widens a little to show all twelve on

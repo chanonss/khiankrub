@@ -519,6 +519,138 @@ pub(crate) fn mi(ui: &mut Ui, app: &mut WordApp, label: &str, id: &str, params: 
     mi_text(ui, app, tl!(label), id, params);
 }
 
+/// Insert › Shapes: a menu item with a small picture of the shape before its name.
+fn shape_item(ui: &mut Ui, app: &mut WordApp, label: &str, kind: &str, arrow: &str, id: &str, params: Value) {
+    let enabled = crate::widgets::enabled(app, id);
+    let pic = ui.id().with(("shape preview", kind, arrow));
+    let resp = ui
+        .add_enabled_ui(enabled, |ui| {
+            egui::Button::new((egui::Atom::custom(pic, vec2(24.0, 18.0)), tl!(label))).min_size(vec2(220.0, 26.0)).atom_ui(ui)
+        })
+        .inner;
+    if let Some(r) = resp.rect(pic) {
+        let t = Tokens::get(ui.ctx());
+        let ink = if enabled { t.icon } else { t.text_disabled };
+        shape_preview(ui.painter(), r, kind, arrow, ink, t.accent.gamma_multiply(if enabled { 0.25 } else { 0.0 }));
+    }
+    if resp.response.clicked() {
+        crate::widgets::run_from_ribbon(app, id, params);
+        ui.close();
+    }
+}
+
+/// A shape drawn small in `r`: outline in `ink`, filled with `fill` (connectors are lines; `arrow`
+/// "end" puts a head on their end).
+fn shape_preview(p: &egui::Painter, r: Rect, kind: &str, arrow: &str, ink: egui::Color32, fill: egui::Color32) {
+    use std::f32::consts::{PI, TAU};
+    let stroke = Stroke::new(1.3, ink);
+    let r = r.shrink(1.5);
+    let (c, w, h) = (r.center(), r.width(), r.height());
+    // A polygon filled as a fan from `centre` (the star, the arrow and the heart are not convex,
+    // but every edge is visible from their centre), then outlined.
+    let poly = |pts: Vec<egui::Pos2>, centre: egui::Pos2| {
+        let mut mesh = egui::Mesh::default();
+        mesh.colored_vertex(centre, fill);
+        for q in &pts {
+            mesh.colored_vertex(*q, fill);
+        }
+        let n = pts.len() as u32;
+        for i in 0..n {
+            mesh.add_triangle(0, 1 + i, 1 + (i + 1) % n);
+        }
+        p.add(egui::Shape::mesh(mesh));
+        p.add(egui::Shape::closed_line(pts, stroke));
+    };
+    let head = |tip: egui::Pos2, from: egui::Pos2| {
+        let d = (tip - from).normalized() * 5.0;
+        let side = vec2(-d.y, d.x) * 0.6;
+        p.add(egui::Shape::convex_polygon(vec![tip, tip - d + side, tip - d - side], ink, Stroke::NONE));
+    };
+    match kind {
+        "rectangle" => {
+            p.rect(r, 0.0, fill, stroke, egui::StrokeKind::Middle);
+        }
+        "roundedRectangle" => {
+            p.rect(r, 4.0, fill, stroke, egui::StrokeKind::Middle);
+        }
+        "ellipse" => {
+            p.add(egui::Shape::ellipse_filled(c, r.size() / 2.0, fill));
+            p.add(egui::Shape::ellipse_stroke(c, r.size() / 2.0, stroke));
+        }
+        "triangle" => poly(vec![r.center_top(), r.right_bottom(), r.left_bottom()], c),
+        "diamond" => poly(vec![r.center_top(), r.right_center(), r.center_bottom(), r.left_center()], c),
+        "line" => {
+            p.line_segment([r.left_bottom(), r.right_top()], stroke);
+        }
+        // A drawing canvas: a dashed frame with a small shape inside.
+        "canvas" => {
+            let corners = [r.left_top(), r.right_top(), r.right_bottom(), r.left_bottom(), r.left_top()];
+            p.extend(egui::Shape::dashed_line(&corners, Stroke::new(1.0, ink), 2.5, 2.0));
+            p.circle(c, h * 0.22, fill, stroke);
+        }
+        "arrow" => {
+            let pts = [(0.0, -0.2), (0.6, -0.2), (0.6, -0.5), (1.0, 0.0), (0.6, 0.5), (0.6, 0.2), (0.0, 0.2)];
+            poly(pts.iter().map(|(x, y)| egui::pos2(r.min.x + x * w, c.y + y * h)).collect(), egui::pos2(r.min.x + 0.6 * w, c.y));
+        }
+        "star" => {
+            let rad = h / 2.0 + 1.0;
+            let pts = (0..10)
+                .map(|i| {
+                    let a = -PI / 2.0 + i as f32 * TAU / 10.0;
+                    let k = if i % 2 == 0 { rad } else { rad * 0.42 };
+                    c + vec2(a.cos(), a.sin()) * k
+                })
+                .collect();
+            poly(pts, c);
+        }
+        "heart" => {
+            let pts = (0..40)
+                .map(|i| {
+                    let a = i as f32 * TAU / 40.0;
+                    let x = 16.0 * a.sin().powi(3);
+                    let y = 13.0 * a.cos() - 5.0 * (2.0 * a).cos() - 2.0 * (3.0 * a).cos() - (4.0 * a).cos();
+                    c + vec2(x / 17.0 * h * 0.55, -y / 17.0 * h * 0.55 + 0.5)
+                })
+                .collect();
+            poly(pts, c);
+        }
+        _ => {
+            // Connectors run from the bottom left to the top right, with a dot on the start.
+            let (a, b) = (r.left_bottom(), r.right_top());
+            let last_from = match kind {
+                "elbowConnector" => {
+                    let mid = c.x;
+                    p.add(egui::Shape::line(vec![a, egui::pos2(mid, a.y), egui::pos2(mid, b.y), b], stroke));
+                    egui::pos2(mid, b.y)
+                }
+                "curvedConnector" => {
+                    let pts: Vec<egui::Pos2> = (0..=16)
+                        .map(|i| {
+                            let t = i as f32 / 16.0;
+                            let (c1, c2) = (egui::pos2(c.x, a.y), egui::pos2(c.x, b.y));
+                            let u = 1.0 - t;
+                            let v =
+                                a.to_vec2() * u * u * u + c1.to_vec2() * 3.0 * u * u * t + c2.to_vec2() * 3.0 * u * t * t + b.to_vec2() * t * t * t;
+                            v.to_pos2()
+                        })
+                        .collect();
+                    let before = pts[pts.len() - 3];
+                    p.add(egui::Shape::line(pts, stroke));
+                    before
+                }
+                _ => {
+                    p.line_segment([a, b], stroke);
+                    a
+                }
+            };
+            p.circle_filled(a, 1.8, ink);
+            if arrow == "end" {
+                head(b, last_from);
+            }
+        }
+    }
+}
+
 /// A menu item whose text is already in the interface language.
 fn mi_text(ui: &mut Ui, app: &mut WordApp, text: &str, id: &str, params: Value) {
     let sc = crate::widgets::shortcut_text(app, id);
@@ -1072,10 +1204,10 @@ fn insert(app: &mut WordApp, ui: &mut Ui) {
                 ("Star", "star"),
                 ("Heart", "heart"),
             ] {
-                mi(ui, app, l, "insert.shape", json!({"kind": k}));
+                shape_item(ui, app, l, k, "none", "insert.shape", json!({"kind": k}));
             }
             ui.separator();
-            mi(ui, app, "New Drawing Canvas", "insert.canvas", json!({}));
+            shape_item(ui, app, "New Drawing Canvas", "canvas", "none", "insert.canvas", json!({}));
             // Connectors: glue their ends to shapes by dragging them (shape.connect).
             for (l, k, arrow) in [
                 ("Straight Connector", "straightConnector", "none"),
@@ -1085,7 +1217,7 @@ fn insert(app: &mut WordApp, ui: &mut Ui) {
                 ("Curved Connector", "curvedConnector", "none"),
                 ("Curved Arrow Connector", "curvedConnector", "end"),
             ] {
-                mi(ui, app, l, "insert.shape", json!({"kind": k, "arrow": arrow}));
+                shape_item(ui, app, l, k, arrow, "insert.shape", json!({"kind": k, "arrow": arrow}));
             }
         });
         stack(ui, |ui| {
@@ -2886,6 +3018,28 @@ mod tests {
         for id in ["table.selectTable", "table.deleteTable", "table.autofit"] {
             assert!(menu_enabled(&a, id), "{id} is on inside a table");
         }
+    }
+
+    /// Insert › Shapes shows each shape's picture beside its name; choosing one inserts it.
+    #[test]
+    fn shapes_menu_items_insert_their_shape() {
+        use egui_kittest::kittest::Queryable;
+        let mut a = crate::WordApp::new(Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+        a.run("ui.tab", json!({"tab": "Insert"})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1200.0, 800.0)).build_ui_state(
+            |ui, app: &mut crate::WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        h.get_by_label("Shapes").click();
+        h.run_steps(3);
+        h.get_by_label("Oval").click();
+        h.run_steps(3);
+        assert!(has_shape_selected(&h.state().session), "choosing Oval inserted a shape and selected it");
     }
 
     /// #1206: Margins, Orientation, Size and Columns mark the caret section's setting, as Word
