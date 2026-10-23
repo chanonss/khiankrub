@@ -1460,6 +1460,25 @@ fn section_breaks_show_with_formatting_marks() {
     assert_eq!(labels(&Document::from_text("One\nTwo"), true), (vec![], 2));
 }
 
+/// As in Word, a page break shows with formatting marks on as a dotted rule to the margin with
+/// "Page Break" in the middle (a single rule; section breaks have a double one).
+#[test]
+fn page_breaks_show_their_name_with_formatting_marks() {
+    let d = Document::from_text(&format!("One{}\nTwo", wordcraft_doc::para::PAGE_BREAK));
+    let l = lay(&d);
+    let items = display::page_display(&d, &l.pages[0], &display::DisplayOptions { marks: true, ..Default::default() });
+    let texts: Vec<&str> =
+        items.iter().filter_map(|i| if let display::Draw::MarkText { text, .. } = i { Some(text.as_str()) } else { None }).collect();
+    assert_eq!(texts, [display::PAGE_BREAK_LABEL]);
+    let rules: Vec<f32> =
+        items.iter().filter_map(|i| if let display::Draw::Line { y0, stroke: display::Stroke::Dotted, .. } = i { Some(*y0) } else { None }).collect();
+    assert_eq!(rules.len(), 2, "one dotted rule each side of the name: {rules:?}");
+    assert!((rules[0] - rules[1]).abs() < 0.01, "a single rule, at one height");
+    // Without formatting marks nothing shows.
+    let plain = display::page_display(&d, &l.pages[0], &display::DisplayOptions::default());
+    assert!(!plain.iter().any(|i| matches!(i, display::Draw::MarkText { .. })));
+}
+
 #[test]
 fn space_between_paragraphs_is_the_larger_of_after_and_before() {
     // (space after the first, space before the second, contextual spacing on both) -> gap

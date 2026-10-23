@@ -7,6 +7,12 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### Page and column breaks named, as in Word
+- With formatting marks on (¶), a page break shows as a dotted line to the margin with **Page Break** in the middle,
+  and a column break with **Column Break**, as in Word and like the section breaks (which keep their double line).
+  Before, a page break showed only a small ⤓ arrow and a plain dotted line. On screen only: never printed or exported
+  (`break_mark` in `crates/layout/src/display.rs`). Test: `page_breaks_show_their_name_with_formatting_marks`.
+
 ### Layout tab menus: a picture for each choice
 - The Layout tab's Text Direction, Orientation, Columns, Breaks and Line Numbers menus show a small picture before each
   choice, as in Word: the page's lines in each direction, a tall and a wide page, one to three columns and the

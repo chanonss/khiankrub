@@ -1114,20 +1114,11 @@ fn lines(
                         out.push(Draw::Mark { x: cx + ((nx - cx) / 2.0 - size * 0.3).max(0.0), baseline: base, size, ch: arrow, color: None })
                     }
                     ClKind::LineBreak if marks.paragraphs => out.push(Draw::Mark { x: cx + 1.0, baseline: base, size, ch: '↵', color: None }),
+                    // As in Word: a dotted rule to the margin with the break's name in the middle.
                     ClKind::PageBreak | ClKind::ColumnBreak if marks.paragraphs => {
-                        let label = if c.kind == ClKind::PageBreak { '⤓' } else { '⇥' };
-                        out.push(Draw::Line {
-                            x0: cx + 2.0,
-                            y0: base - size * 0.3,
-                            x1: x + line.right,
-                            y1: base - size * 0.3,
-                            width: 0.5,
-                            color: Rgb(0x60, 0x60, 0x60),
-                            stroke: Stroke::Dotted,
-                            alpha,
-                            text_bg: None,
-                        });
-                        out.push(Draw::Mark { x: cx + 1.0, baseline: base, size, ch: label, color: None });
+                        let text = if c.kind == ClKind::PageBreak { PAGE_BREAK_LABEL } else { COLUMN_BREAK_LABEL };
+                        let (x0, x1) = if line.rtl { (x + line.left, cx - 2.0) } else { (cx + 2.0, x + line.right) };
+                        break_mark(text, false, x0, x1, base, size, alpha, out);
                     }
                     _ => {}
                 }
@@ -1200,10 +1191,21 @@ pub fn mark_text_width(text: &str, size: f32) -> f32 {
     text.chars().map(|c| face.advance(face.glyph_for(c)) as f32 * k).sum()
 }
 
+/// The name a page break's mark shows with formatting marks on, as in Word.
+pub const PAGE_BREAK_LABEL: &str = "Page Break";
+/// The name a column break's mark shows with formatting marks on, as in Word.
+pub const COLUMN_BREAK_LABEL: &str = "Column Break";
+
 /// A section break mark between `x0` and `x1`: a dotted double rule with the break's name centred
 /// in it (just the name when there is no room for the rule).
 fn section_break_mark(start: SectionStart, x0: f32, x1: f32, base: f32, size: f32, alpha: f32, out: &mut Vec<Draw>) {
-    let text = section_break_label(start);
+    break_mark(section_break_label(start), true, x0, x1, base, size, alpha, out);
+}
+
+/// A break mark between `x0` and `x1`: a dotted rule (`double` for a section break) with `text`
+/// centred in it, or just the text when there is no room for the rule.
+#[allow(clippy::too_many_arguments)]
+fn break_mark(text: &str, double: bool, x0: f32, x1: f32, base: f32, size: f32, alpha: f32, out: &mut Vec<Draw>) {
     let lsize = (size * 0.8).clamp(6.0, 11.0);
     let w = mark_text_width(text, lsize);
     let gap = lsize * 0.4;
@@ -1214,8 +1216,9 @@ fn section_break_mark(start: SectionStart, x0: f32, x1: f32, base: f32, size: f3
         return;
     }
     let tx = (x0 + x1 - w) / 2.0;
+    let rules: &[f32] = if double { &[-1.2, 1.2] } else { &[0.0] };
     for (a, b) in [(x0, tx - gap), (tx + w + gap, x1)] {
-        for y in [mid - 1.2, mid + 1.2] {
+        for y in rules.iter().map(|d| mid + d) {
             out.push(Draw::Line { x0: a, y0: y, x1: b, y1: y, width: 0.5, color, stroke: Stroke::Dotted, alpha, text_bg: None });
         }
     }
