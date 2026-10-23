@@ -7,6 +7,13 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-23
 
+### README: a KhianKrub front page
+- `README.md` (the page GitHub shows for the repository) is rewritten for KhianKrub: name and icon, an English and Thai
+  description, new screenshots of KhianKrub (`docs/images/khiankrub-*.png`, credited in `ATTRIBUTION.md`), the Thai
+  features, download and install steps linking to the latest release, and how to build it. The licence and credit
+  section is kept in full. The original's Discord badges, ArtCraft apps table and WordCraft download instructions
+  are gone; the original README is linked for its full documentation. The old screenshots in `docs/images/` stay.
+
 ### Release v0.7.0-thai.4
 - [v0.7.0-thai.4](https://github.com/chanonss/khiankrub/releases/tag/v0.7.0-thai.4), built from commit `4d4013e`, file
   `KhianKrub-0.7.0-thai.4-macos-apple-silicon.zip`, SHA-256

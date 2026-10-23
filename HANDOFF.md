@@ -121,7 +121,7 @@ run `codesign --verify --strict --deep`, and put the zip's SHA-256 in the releas
   executable and icon names; the DMG still shows the old icon and name. Not used for Chanon's zip releases.
 - The Windows installer files (`packaging/windows/package.ps1`, `wordcraft.wxs`) and the `.msi`/`.zip` names still say
   WordCraft. The `.exe`'s own file properties (product name, icon, copyright) already say KhianKrub (`apps/wordcraft/build.rs`).
-- The README's "Crafting Apps" table (upstream's sibling apps) and the sample document's link to getartcraft.com.
+- The sample document's link to getartcraft.com. (The README was rewritten for KhianKrub on 2026-10-23.)
 - The File menu's "Discord community" and the Help tab's community button still exist (only the title-bar button was removed).
 - Merging the original's later changes will conflict on `crates/ui-egui/src/i18n/` (deleted here).
 
