@@ -160,7 +160,8 @@ impl Table {
                 match idx {
                     Some((i, true)) => {
                         if let Some(c) = row.cells.get_mut(i) {
-                            c.props.span += 1;
+                            // From the clamped span: a `.json` file can carry any `u32` (#3637).
+                            c.props.span = (c.span() + 1).min(MAX_COLS) as u32;
                         }
                     }
                     Some((i, false)) => {
@@ -190,7 +191,7 @@ impl Table {
             for (i, c) in row.cells.iter_mut().enumerate() {
                 if g < x + c.span() {
                     if c.span() > 1 {
-                        c.props.span -= 1;
+                        c.props.span = (c.span() - 1) as u32;
                     } else {
                         rm = Some(i);
                     }
@@ -214,7 +215,7 @@ impl Table {
         let removed: Vec<Cell> = row.cells.drain(c0 + 1..=c1).collect();
         if let Some(first) = row.cells.get_mut(c0) {
             for c in removed {
-                first.props.span += c.props.span.max(1);
+                first.props.span = (first.span() + c.span()).min(MAX_COLS) as u32;
                 let nonempty: Vec<_> = c.blocks.into_iter().filter(|b| b.as_para().is_none_or(|p| !p.is_empty())).collect();
                 first.blocks.extend(nonempty);
             }
@@ -399,6 +400,32 @@ mod tests {
         assert_eq!(t.rows.len(), 2);
         t.delete_row(99);
         t.delete_col(99);
+    }
+
+    /// #3637: a `.json` file can give a cell any span; inserting a column through it, merging it
+    /// or deleting a column under it doesn't overflow, and the span it gets is in 1..=MAX_COLS.
+    #[test]
+    fn a_huge_span_from_a_file_does_not_overflow() {
+        let huge = || {
+            let mut t = Table::new(1, 2, 200.0);
+            t.rows[0].cells[0].props.span = u32::MAX;
+            t
+        };
+        // Column 1 is inside the spanning cell, so the cell widens.
+        let mut t = huge();
+        t.insert_col(1);
+        assert_eq!(t.rows[0].cells[0].props.span, MAX_COLS as u32);
+        let mut t = huge();
+        t.merge_right(0, 0, 1);
+        assert_eq!(t.rows[0].cells.len(), 1);
+        assert_eq!(t.rows[0].cells[0].props.span, MAX_COLS as u32);
+        let mut t = huge();
+        t.rows[0].cells[1].props.span = u32::MAX;
+        t.merge_right(0, 0, 1);
+        assert_eq!(t.rows[0].cells[0].props.span, MAX_COLS as u32);
+        let mut t = huge();
+        t.delete_col(0);
+        assert_eq!(t.rows[0].cells[0].props.span, MAX_COLS as u32 - 1);
     }
 
     #[test]
