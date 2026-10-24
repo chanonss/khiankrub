@@ -1,6 +1,7 @@
 //! Modify Style (Home › Styles, Manage Styles, the Styles pane, Table of Contents › Modify…): a
 //! window with a list of pages on the left — General, Font, Indents & Spacing, Alignment, Text Flow,
-//! Borders & Shading, Numbering — and a
+//! Tabs, Borders & Shading, Numbering, and for text Font Effects and Position — each with its icon —
+//! and a
 //! preview of the style as the boxes leave it. OK sends everything as one `styles.modify`.
 //!
 //! The Font page sets Latin and Thai (complex script) text side by side: Word keeps a separate
@@ -10,7 +11,7 @@
 use egui::{Ui, vec2};
 use serde::Serialize;
 use serde_json::{Value, json};
-use wordcraft_doc::props::{LineSpacing, Underline, VertAlign};
+use wordcraft_doc::props::{LineSpacing, TabAlign, TabLeader, TabStop, Underline, VertAlign};
 use wordcraft_doc::{Align, CharProps, ParaProps, StyleKind, TextColor};
 
 use crate::WordApp;
@@ -19,15 +20,43 @@ use crate::options::MeasureExt;
 use crate::theme::semibold;
 use crate::widgets::SteadyUi;
 
-/// The pages, in order: (id, name). A character style has only the first two.
-const PAGES: [(&str, &str); 7] = [
-    ("general", "General"),
-    ("font", "Font"),
-    ("indents", "Indents & Spacing"),
-    ("alignment", "Alignment"),
-    ("flow", "Text Flow"),
-    ("borders", "Borders & Shading"),
-    ("numbering", "Numbering"),
+/// The pages, in order: (id, name, icon). A character style has only the first four.
+const PAGES: [(&str, &str, &str); 10] = [
+    ("general", "General", "styles"),
+    ("font", "Font", "fonts"),
+    ("effects", "Font Effects", "effects"),
+    ("position", "Position", "superscript"),
+    ("indents", "Indents & Spacing", "paraSpacing"),
+    ("alignment", "Alignment", "justify"),
+    ("flow", "Text Flow", "pageBreak"),
+    ("tabs", "Tabs", "ruler"),
+    ("borders", "Borders & Shading", "borders"),
+    ("numbering", "Numbering", "multilevel"),
+];
+const CHARACTER_PAGES: usize = 4;
+
+/// Underline styles offered: (OOXML name, label).
+const UNDERLINES: [(&str, &str); 9] = [
+    ("none", "(none)"),
+    ("single", "Single"),
+    ("words", "Words only"),
+    ("double", "Double"),
+    ("thick", "Thick"),
+    ("dotted", "Dotted"),
+    ("dash", "Dashed"),
+    ("dotDash", "Dot dash"),
+    ("wave", "Wave"),
+];
+
+/// Tab stop alignments and leaders offered: (model value, label).
+const TAB_ALIGNS: [(TabAlign, &str); 5] =
+    [(TabAlign::Left, "Left"), (TabAlign::Center, "Center"), (TabAlign::Right, "Right"), (TabAlign::Decimal, "Decimal"), (TabAlign::Bar, "Bar")];
+const TAB_LEADERS: [(TabLeader, &str); 5] = [
+    (TabLeader::None, "None"),
+    (TabLeader::Dot, "....."),
+    (TabLeader::Hyphen, "-----"),
+    (TabLeader::Underscore, "_____"),
+    (TabLeader::MiddleDot, "·····"),
 ];
 
 /// Border line styles offered: (OOXML name, label).
@@ -68,14 +97,32 @@ pub struct StyleForm {
     pub bold_cs: bool,
     pub italic_cs: bool,
     pub color: String,
-    pub underline: bool,
+    // Font Effects.
+    /// `Underline`'s OOXML name (`none`, `single`, `double`…).
+    pub underline: String,
+    /// `RRGGBB`, or `auto` (the text's colour).
+    pub underline_color: String,
     pub strike: bool,
+    pub double_strike: bool,
     pub superscript: bool,
     pub subscript: bool,
     pub small_caps: bool,
     pub caps: bool,
+    pub hidden: bool,
+    pub outline: bool,
+    pub shadow: bool,
+    pub emboss: bool,
+    pub engrave: bool,
+    // Position.
     /// Character spacing, points.
     pub spacing: f32,
+    /// Raised (+) or lowered (−), points.
+    pub raise: f32,
+    /// Width scale, percent.
+    pub scale: f32,
+    pub kern: bool,
+    /// Kern from this font size up, points.
+    pub kern_at: f32,
     // Indents & Spacing.
     pub left: f32,
     pub right: f32,
@@ -95,6 +142,15 @@ pub struct StyleForm {
     pub keep_next: bool,
     pub keep_lines: bool,
     pub page_break: bool,
+    pub no_hyphens: bool,
+    pub no_line_numbers: bool,
+    // Tabs: position (interface unit), alignment, leader.
+    pub tabs: Vec<(f32, TabAlign, TabLeader)>,
+    /// The stop being edited.
+    pub tab: usize,
+    /// Stops the style inherits (positions in points), so deleting one writes a clear.
+    #[serde(skip)]
+    pub inherited_tabs: Vec<f32>,
     // Borders & Shading: the sides with a line, and that line.
     pub border_top: bool,
     pub border_bottom: bool,
@@ -105,6 +161,8 @@ pub struct StyleForm {
     /// Points.
     pub border_width: f32,
     pub border_color: String,
+    /// Distance from the text, points.
+    pub border_space: f32,
     /// `RRGGBB`, or empty for none.
     pub shading: String,
     // Numbering: `""` none, `num:<id>` a list of the document's, `kind:<legal…>` a new one.
@@ -188,6 +246,9 @@ impl StyleForm {
             let name = doc.numbering.abstracts.iter().find(|a| a.id == n.abstract_id).and_then(|a| a.name.clone());
             lists.push((format!("num:{}", n.id), name.map_or(sample.clone(), |nm| format!("{nm}   {sample}"))));
         }
+        // The tab stops the style's base gives it (the document default's for a style without one).
+        let base_para = ParaProps { style: st.based_on.clone(), ..Default::default() };
+        let inherited_tabs = if st.based_on.is_some() { sheet.resolve_para(&base_para).tabs.iter().map(|t| t.pos).collect() } else { Vec::new() };
         let mut styles: Vec<(String, String)> =
             sheet.styles.iter().filter(|s| s.kind == kind && !s.hidden && s.id != id).map(|s| (s.id.clone(), s.name.clone())).collect();
         styles.sort_by(|a, b| a.1.cmp(&b.1));
@@ -210,8 +271,19 @@ impl StyleForm {
                 TextColor::Rgb(c) => c.hex(),
                 TextColor::Auto => "auto".into(),
             },
-            underline: rc.underline != Underline::None,
+            underline: rc.underline.ooxml().to_string(),
+            underline_color: rc.underline_color.map_or("auto".to_string(), |c| c.hex()),
             strike: rc.strike,
+            double_strike: rc.double_strike,
+            hidden: rc.hidden,
+            outline: rc.outline,
+            shadow: rc.shadow,
+            emboss: rc.emboss,
+            engrave: rc.engrave,
+            raise: rc.position,
+            scale: rc.scale,
+            kern: rc.kern > 0.0,
+            kern_at: if rc.kern > 0.0 { rc.kern } else { 14.0 },
             superscript: rc.vert_align == VertAlign::Superscript,
             subscript: rc.vert_align == VertAlign::Subscript,
             small_caps: rc.small_caps,
@@ -231,6 +303,11 @@ impl StyleForm {
             keep_next: rp.keep_next,
             keep_lines: rp.keep_lines,
             page_break: rp.page_break_before,
+            no_hyphens: rp.suppress_hyphens,
+            no_line_numbers: rp.suppress_line_numbers,
+            tabs: rp.tabs.iter().filter(|t| t.align != TabAlign::Clear).map(|t| (t.pos / k, t.align, t.leader)).collect(),
+            tab: 0,
+            inherited_tabs,
             border_top: shown(bs.top),
             border_bottom: shown(bs.bottom),
             border_left: shown(bs.left),
@@ -239,6 +316,7 @@ impl StyleForm {
             border_style: first_border.map_or("single".to_string(), |b| b.style.ooxml().to_string()),
             border_width: first_border.map_or(0.5, |b| b.width),
             border_color: first_border.and_then(|b| b.color).map_or("auto".to_string(), |c| c.hex()),
+            border_space: first_border.map_or(1.0, |b| b.space),
             shading: rp.shading.map(|c| c.hex()).unwrap_or_default(),
             list: rp.numbering.filter(|n| n.num != 0).map(|n| format!("num:{}", n.num)).unwrap_or_default(),
             list_level: rp.numbering.filter(|n| n.num != 0).map_or(1, |n| n.level.min(8) + 1),
@@ -281,8 +359,18 @@ impl StyleForm {
             } else {
                 wordcraft_doc::Rgb::parse(&self.color).map(TextColor::Rgb)
             },
-            underline: self.changed(|f| f.underline).then_some(if self.underline { Underline::Single } else { Underline::None }),
+            underline: self.changed(|f| f.underline.clone()).then_some(Underline::from_ooxml(&self.underline)),
+            underline_color: if self.changed(|f| f.underline_color.clone()) { wordcraft_doc::Rgb::parse(&self.underline_color) } else { None },
             strike: self.changed(|f| f.strike).then_some(self.strike),
+            double_strike: self.changed(|f| f.double_strike).then_some(self.double_strike),
+            hidden: self.changed(|f| f.hidden).then_some(self.hidden),
+            outline: self.changed(|f| f.outline).then_some(self.outline),
+            shadow: self.changed(|f| f.shadow).then_some(self.shadow),
+            emboss: self.changed(|f| f.emboss).then_some(self.emboss),
+            engrave: self.changed(|f| f.engrave).then_some(self.engrave),
+            position: self.changed(|f| f.raise.to_bits()).then_some(self.raise.clamp(-1584.0, 1584.0)),
+            scale: self.changed(|f| f.scale.to_bits()).then_some(self.scale.clamp(1.0, 600.0)),
+            kern: self.changed(|f| (f.kern, f.kern_at.to_bits())).then_some(if self.kern { self.kern_at.clamp(1.0, 1638.0) } else { 0.0 }),
             vert_align: vert.then_some(if self.superscript {
                 VertAlign::Superscript
             } else if self.subscript {
@@ -323,10 +411,26 @@ impl StyleForm {
             keep_next: self.changed(|f| f.keep_next).then_some(self.keep_next),
             keep_lines: self.changed(|f| f.keep_lines).then_some(self.keep_lines),
             page_break_before: self.changed(|f| f.page_break).then_some(self.page_break),
+            suppress_hyphens: self.changed(|f| f.no_hyphens).then_some(self.no_hyphens),
+            suppress_line_numbers: self.changed(|f| f.no_line_numbers).then_some(self.no_line_numbers),
+            tabs: self.changed(|f| f.tabs.iter().map(|t| (t.0.to_bits(), t.1, t.2)).collect::<Vec<_>>()).then(|| self.tab_stops(k)),
             borders: self.borders_changed().then(|| self.borders()),
             shading: wordcraft_doc::Rgb::parse(&self.shading).filter(|_| self.changed(|f| f.shading.clone())),
             ..Default::default()
         })
+    }
+
+    /// The style's own stops: the form's, and a clear for each inherited one deleted.
+    fn tab_stops(&self, k: f32) -> Vec<TabStop> {
+        let mut v: Vec<TabStop> =
+            self.tabs.iter().map(|(pos, align, leader)| TabStop { pos: (pos * k).clamp(0.0, 1584.0), align: *align, leader: *leader }).collect();
+        for pos in &self.inherited_tabs {
+            if !v.iter().any(|t| (t.pos - pos).abs() < 0.5) {
+                v.push(TabStop { pos: *pos, align: TabAlign::Clear, leader: TabLeader::None });
+            }
+        }
+        v.sort_by(|a, b| a.pos.total_cmp(&b.pos));
+        v
     }
 
     fn borders_changed(&self) -> bool {
@@ -336,6 +440,7 @@ impl StyleForm {
                 f.border_style.clone(),
                 f.border_width.to_bits(),
                 f.border_color.clone(),
+                f.border_space.to_bits(),
             )
         })
     }
@@ -345,7 +450,8 @@ impl StyleForm {
     fn borders(&self) -> wordcraft_doc::props::Borders {
         use wordcraft_doc::props::{Border, BorderStyle};
         let color = if self.border_color.trim().eq_ignore_ascii_case("auto") { None } else { wordcraft_doc::Rgb::parse(&self.border_color) };
-        let line = |on: bool, space: f32| {
+        let space = self.border_space.clamp(0.0, 31.0);
+        let line = |on: bool, _: f32| {
             Some(if on {
                 Border { style: BorderStyle::from_ooxml(&self.border_style), width: self.border_width.clamp(0.25, 6.0), color, space }
             } else {
@@ -397,16 +503,21 @@ impl StyleForm {
 pub fn body(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) -> bool {
     // A fixed area, so the window keeps its size from page to page (a separator here grew to the
     // whole screen's height).
-    const PAGE_H: f32 = 330.0;
+    const PAGE_H: f32 = 400.0;
     ui.allocate_ui_with_layout(vec2(760.0, PAGE_H), egui::Layout::left_to_right(egui::Align::Min), |ui| {
         ui.set_height(PAGE_H);
         // The pages.
         ui.vertical(|ui| {
             ui.set_width(150.0);
-            for (id, name) in PAGES.iter().take(if f.character { 2 } else { PAGES.len() }) {
-                if ui.steady_label(f.page == *id, tl!(name)).clicked() {
-                    f.page = id.to_string();
-                }
+            for (id, name, icon) in PAGES.iter().take(if f.character { CHARACTER_PAGES } else { PAGES.len() }) {
+                ui.horizontal(|ui| {
+                    let (r, _) = ui.allocate_exact_size(vec2(20.0, 20.0), egui::Sense::hover());
+                    let t = crate::theme::Tokens::get(ui.ctx());
+                    crate::icons::paint(ui.painter(), r, icon, t.icon, t.accent);
+                    if ui.steady_label(f.page == *id, tl!(name)).clicked() {
+                        f.page = id.to_string();
+                    }
+                });
             }
         });
         let x = ui.cursor().min.x + 4.0;
@@ -417,6 +528,9 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) -> bool {
             ui.set_width(590.0);
             match f.page.as_str() {
                 "font" => font_page(app, ui, f),
+                "effects" => effects_page(app, ui, f),
+                "position" => position_page(ui, f),
+                "tabs" if !f.character => tabs_page(ui, f),
                 "indents" if !f.character => indents_page(ui, f),
                 "alignment" if !f.character => alignment_page(ui, f),
                 "flow" if !f.character => flow_page(ui, f),
@@ -530,11 +644,39 @@ fn font_page(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) {
         f.bold_cs = f.bold;
         f.italic_cs = f.italic;
     }
+    egui::Grid::new("ms_color").num_columns(2).spacing(vec2(8.0, 8.0)).show(ui, |ui| {
+        ui.label(tl!("Font color:"));
+        let theme = app.session.doc.settings.theme_colors.clone();
+        crate::dialogs::color_field(ui, &theme, &mut f.color, "Automatic", "auto");
+        ui.end_row();
+    });
+}
+
+fn effects_page(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) {
+    heading(ui, "Underline");
+    egui::Grid::new("ms_underline").num_columns(2).spacing(vec2(10.0, 8.0)).show(ui, |ui| {
+        ui.label(tl!("Style:"));
+        let shown = UNDERLINES.iter().find(|(k, _)| *k == f.underline).map_or(f.underline.clone(), |(_, l)| tl!(l).to_string());
+        egui::ComboBox::from_id_salt("ms_ul").selected_text(shown).show_ui(ui, |ui| {
+            for (k, l) in UNDERLINES {
+                ui.steady_value(&mut f.underline, k.to_string(), tl!(l));
+            }
+        });
+        ui.end_row();
+        ui.label(tl!("Underline color:"));
+        let theme = app.session.doc.settings.theme_colors.clone();
+        crate::dialogs::color_field(ui, &theme, &mut f.underline_color, "Automatic", "auto");
+        ui.end_row();
+    });
     heading(ui, "Effects");
-    egui::Grid::new("ms_effects").num_columns(3).spacing(vec2(16.0, 6.0)).show(ui, |ui| {
-        ui.checkbox(&mut f.underline, tl!("Underline"));
-        ui.checkbox(&mut f.strike, tl!("Strikethrough"));
-        ui.checkbox(&mut f.small_caps, tl!("Small caps"));
+    egui::Grid::new("ms_fx").num_columns(3).spacing(vec2(16.0, 6.0)).show(ui, |ui| {
+        if ui.checkbox(&mut f.strike, tl!("Strikethrough")).changed() && f.strike {
+            f.double_strike = false;
+        }
+        if ui.checkbox(&mut f.double_strike, tl!("Double strikethrough")).changed() && f.double_strike {
+            f.strike = false;
+        }
+        ui.checkbox(&mut f.hidden, tl!("Hidden"));
         ui.end_row();
         if ui.checkbox(&mut f.superscript, tl!("Superscript")).changed() && f.superscript {
             f.subscript = false;
@@ -542,18 +684,110 @@ fn font_page(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) {
         if ui.checkbox(&mut f.subscript, tl!("Subscript")).changed() && f.subscript {
             f.superscript = false;
         }
-        ui.checkbox(&mut f.caps, tl!("All caps"));
+        ui.end_row();
+        if ui.checkbox(&mut f.small_caps, tl!("Small caps")).changed() && f.small_caps {
+            f.caps = false;
+        }
+        if ui.checkbox(&mut f.caps, tl!("All caps")).changed() && f.caps {
+            f.small_caps = false;
+        }
+        ui.end_row();
+        ui.checkbox(&mut f.outline, tl!("Outline"));
+        ui.checkbox(&mut f.shadow, tl!("Shadow"));
+        ui.end_row();
+        // Emboss and engrave exclude each other, as in Word.
+        if ui.checkbox(&mut f.emboss, tl!("Emboss")).changed() && f.emboss {
+            f.engrave = false;
+        }
+        if ui.checkbox(&mut f.engrave, tl!("Engrave")).changed() && f.engrave {
+            f.emboss = false;
+        }
         ui.end_row();
     });
-    egui::Grid::new("ms_color").num_columns(2).spacing(vec2(8.0, 8.0)).show(ui, |ui| {
-        ui.label(tl!("Font color:"));
-        let theme = app.session.doc.settings.theme_colors.clone();
-        crate::dialogs::color_field(ui, &theme, &mut f.color, "Automatic", "auto");
+}
+
+fn position_page(ui: &mut Ui, f: &mut StyleForm) {
+    heading(ui, "Position");
+    egui::Grid::new("ms_pos").num_columns(2).spacing(vec2(10.0, 8.0)).show(ui, |ui| {
+        ui.label(tl!("Raise (+) or lower (−) by (pt):"));
+        ui.add(crate::numfield::NumField::new(&mut f.raise).range(-1584.0..=1584.0).speed(0.5).max_decimals(1));
         ui.end_row();
+        ui.label(tl!("Scale width (%):"));
+        ui.add(crate::numfield::NumField::new(&mut f.scale).range(1.0..=600.0).speed(1.0).max_decimals(0));
+        ui.end_row();
+    });
+    heading(ui, "Spacing");
+    egui::Grid::new("ms_charsp").num_columns(2).spacing(vec2(10.0, 8.0)).show(ui, |ui| {
         ui.label(tl!("Character spacing (pt):"));
         ui.add(crate::numfield::NumField::new(&mut f.spacing).speed(0.1).range(-20.0..=20.0));
         ui.end_row();
+        ui.checkbox(&mut f.kern, tl!("Kerning for fonts (pt) and up:"));
+        ui.add_enabled(f.kern, crate::numfield::NumField::new(&mut f.kern_at).range(1.0..=1638.0).speed(0.5));
+        ui.end_row();
     });
+}
+
+fn tabs_page(ui: &mut Ui, f: &mut StyleForm) {
+    let unit = crate::options::unit();
+    heading(ui, "Tab stops");
+    ui.horizontal_top(|ui| {
+        // The stops, by position; one is edited on the right.
+        ui.vertical(|ui| {
+            ui.set_width(150.0);
+            egui::ScrollArea::vertical().id_salt("ms_tabs").max_height(220.0).show(ui, |ui| {
+                if f.tabs.is_empty() {
+                    ui.label(egui::RichText::new(tl!("(no tab stops)")).weak());
+                }
+                for (i, (pos, _, _)) in f.tabs.iter().enumerate() {
+                    if ui.steady_label(f.tab == i, crate::options::length(pos * unit.pt_per_unit())).clicked() {
+                        f.tab = i;
+                    }
+                }
+            });
+            ui.horizontal(|ui| {
+                if ui.button(tl!("New")).clicked() {
+                    // After the last stop, 0.5" (1.27 cm) on, as Word's default stops are.
+                    let next = f.tabs.iter().map(|t| t.0).fold(0.0f32, f32::max) + 36.0 / unit.pt_per_unit();
+                    f.tabs.push((next, TabAlign::Left, TabLeader::None));
+                    f.tab = f.tabs.len() - 1;
+                }
+                if ui.add_enabled(f.tab < f.tabs.len(), egui::Button::new(tl!("Delete"))).clicked() {
+                    f.tabs.remove(f.tab);
+                    f.tab = f.tab.min(f.tabs.len().saturating_sub(1));
+                }
+                if ui.add_enabled(!f.tabs.is_empty(), egui::Button::new(tl!("Delete All"))).clicked() {
+                    f.tabs.clear();
+                    f.tab = 0;
+                }
+            });
+        });
+        ui.add_space(16.0);
+        let Some((pos, align, leader)) = f.tabs.get_mut(f.tab) else { return };
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                ui.label(tl!("Position:"));
+                ui.add(crate::numfield::NumField::new(pos).speed(0.01).range(0.0..=22.0).measure(unit).max_decimals(2));
+            });
+            heading(ui, "Alignment");
+            ui.horizontal_wrapped(|ui| {
+                for (v, l) in TAB_ALIGNS {
+                    ui.radio_value(align, v, tl!(l));
+                }
+            });
+            heading(ui, "Leader");
+            ui.horizontal_wrapped(|ui| {
+                for (v, l) in TAB_LEADERS {
+                    ui.radio_value(leader, v, tl!(l));
+                }
+            });
+        });
+    });
+    // Keep the list in position order once a position is typed.
+    let editing = f.tabs.get(f.tab).copied();
+    f.tabs.sort_by(|a, b| a.0.total_cmp(&b.0));
+    if let Some(e) = editing {
+        f.tab = f.tabs.iter().position(|t| *t == e).unwrap_or(0);
+    }
 }
 
 fn indents_page(ui: &mut Ui, f: &mut StyleForm) {
@@ -637,6 +871,9 @@ fn flow_page(ui: &mut Ui, f: &mut StyleForm) {
     ui.checkbox(&mut f.keep_next, tl!("Keep with next"));
     ui.checkbox(&mut f.keep_lines, tl!("Keep lines together"));
     ui.checkbox(&mut f.page_break, tl!("Page break before"));
+    heading(ui, "Formatting exceptions");
+    ui.checkbox(&mut f.no_line_numbers, tl!("Suppress line numbers"));
+    ui.checkbox(&mut f.no_hyphens, tl!("Don't hyphenate"));
 }
 
 fn borders_page(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) {
@@ -669,6 +906,9 @@ fn borders_page(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) {
         ui.end_row();
         ui.label(tl!("Width (pt):"));
         ui.add(crate::numfield::NumField::new(&mut f.border_width).range(0.25..=6.0).speed(0.25).max_decimals(2));
+        ui.end_row();
+        ui.label(tl!("Distance from text (pt):"));
+        ui.add(crate::numfield::NumField::new(&mut f.border_space).range(0.0..=31.0).speed(0.5).max_decimals(1));
         ui.end_row();
         ui.label(tl!("Color:"));
         let theme = app.session.doc.settings.theme_colors.clone();
@@ -803,6 +1043,47 @@ mod tests {
         a.run("styles.modify", g.params()).unwrap();
         let rp = a.session.doc.styles.resolve_para(&wordcraft_doc::ParaProps { style: Some("Heading1".into()), ..Default::default() });
         assert_eq!(rp.shading, None);
+    }
+
+    /// The pages added after LibreOffice's: a double wavy-free underline style and colour, double
+    /// strikethrough and emboss; text raised 3 pt at 90% width with kerning from 12 pt; tab stops
+    /// (a right one with dots, and an inherited one deleted as a clear); Don't hyphenate; a border
+    /// 4 pt from the text.
+    #[test]
+    fn effects_position_tabs_and_more_reach_the_style() {
+        use wordcraft_doc::props::{TabAlign, TabLeader, TabStop};
+        let mut a = app();
+        let k = crate::options::unit().pt_per_unit();
+        // Normal has a stop at 1"; Heading 1 (based on it) inherits it.
+        if let Some(n) = a.session.doc.styles.get_mut("Normal") {
+            n.para.tabs = Some(vec![TabStop { pos: 72.0, align: TabAlign::Left, leader: TabLeader::None }]);
+        }
+        let mut f = StyleForm::read(&a, "Heading1").unwrap();
+        assert_eq!(f.tabs.len(), 1, "the inherited stop shows");
+        f.underline = "double".into();
+        f.underline_color = "C00000".into();
+        f.double_strike = true;
+        f.emboss = true;
+        f.raise = 3.0;
+        f.scale = 90.0;
+        f.kern = true;
+        f.kern_at = 12.0;
+        f.tabs = vec![(216.0 / k, TabAlign::Right, TabLeader::Dot)];
+        f.no_hyphens = true;
+        f.border_bottom = true;
+        f.border_space = 4.0;
+        a.run("styles.modify", f.params()).unwrap();
+        let c = a.session.doc.styles.resolve_char(Some("Heading1"), &Default::default());
+        assert_eq!((c.underline, c.underline_color), (wordcraft_doc::props::Underline::Double, wordcraft_doc::Rgb::parse("C00000")));
+        assert!(c.double_strike && c.emboss && !c.engrave);
+        assert_eq!((c.position, c.scale, c.kern), (3.0, 90.0, 12.0));
+        let p = a.session.doc.styles.resolve_para(&wordcraft_doc::ParaProps { style: Some("Heading1".into()), ..Default::default() });
+        let stops: Vec<_> = p.tabs.iter().filter(|t| t.align != TabAlign::Clear).map(|t| (t.pos, t.align, t.leader)).collect();
+        assert_eq!(stops, vec![(216.0, TabAlign::Right, TabLeader::Dot)], "the inherited 1\" stop is gone");
+        assert!(p.suppress_hyphens);
+        assert_eq!(p.borders.unwrap().bottom.unwrap().space, 4.0);
+        // A character style has the first four pages only.
+        assert!(StyleForm::read(&a, "Strong").unwrap().character);
     }
 
     /// Indents & Spacing, Alignment and General: a hanging indent, line spacing exactly 20 pt,

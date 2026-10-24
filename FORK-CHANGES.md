@@ -7,6 +7,23 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Modify Style: icons and more settings
+- Each page in Modify Style's list has its icon (drawn in code, from the ribbon's set).
+- New pages, after LibreOffice's style dialog (the idea only), limited to what a Word document keeps:
+  - **Font Effects:** underline style (single, words only, double, thick, dotted, dashed, dot dash, wave) and
+    colour; strikethrough, double strikethrough, hidden, superscript, subscript, small caps, all caps, outline,
+    shadow, emboss, engrave (the effects that exclude each other untick each other). The Font page keeps the fonts,
+    sizes, colour.
+  - **Position:** raise or lower (pt), scale width (%), character spacing, kerning from a font size up.
+  - **Tabs:** the style's tab stops with position, alignment (left, center, right, decimal, bar) and leader; New,
+    Delete, Delete All. Deleting a stop the style inherits writes a clear for it.
+- **Text Flow** adds Suppress line numbers and Don't hyphenate; **Borders & Shading** adds Distance from text.
+- A character style has General, Font, Font Effects and Position.
+- Colibre (LibreOffice's icon set) was considered and not used: its README says it follows "the monoline style set
+  by Redmond", i.e. Microsoft Office's look, which this project's asset rule forbids; and the linked copy has no
+  licence file (in LibreOffice it falls under MPL 2.0).
+- Test: `effects_position_tabs_and_more_reach_the_style`.
+
 ### Modify Style with pages (round 2)
 - Three more pages in Modify Style:
   - **Text Flow:** Widow/Orphan control, Keep with next, Keep lines together, Page break before.
