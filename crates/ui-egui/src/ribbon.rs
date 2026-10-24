@@ -519,6 +519,45 @@ pub(crate) fn mi(ui: &mut Ui, app: &mut WordApp, label: &str, id: &str, params: 
     mi_text(ui, app, tl!(label), id, params);
 }
 
+/// Home › Borders and Table Design › Borders, as in Word: the sides, the presets, the inside
+/// and diagonal rules, Horizontal Line, then Draw Table, View Gridlines and the dialog. In a table
+/// they set the table's borders (diagonals: the selected cells'); elsewhere the paragraph's, and
+/// the table-only choices are off.
+fn border_items(ui: &mut Ui, app: &mut WordApp) {
+    let in_table = crate::widgets::enabled(app, "table.borders");
+    let side = |k: &str| -> (&'static str, Value) {
+        if in_table {
+            ("table.borders", json!({"kind": k}))
+        } else {
+            // A paragraph's inside border is the one between its lines (`insideH`).
+            ("para.borders", json!({"kind": if k == "insideH" { "inside" } else { k }}))
+        }
+    };
+    let groups: [&[(&str, &str)]; 3] = [
+        &[("Bottom Border", "bottom"), ("Top Border", "top"), ("Left Border", "left"), ("Right Border", "right")],
+        &[("No Border", "none"), ("All Borders", "all"), ("Outside Borders", "outside"), ("Inside Borders", "inside")],
+        &[
+            ("Inside Horizontal Border", "insideH"),
+            ("Inside Vertical Border", "insideV"),
+            ("Diagonal Down Border", "diagDown"),
+            ("Diagonal Up Border", "diagUp"),
+        ],
+    ];
+    for group in groups {
+        for (l, k) in group {
+            let (id, params) = if matches!(*k, "insideV" | "diagDown" | "diagUp") { ("table.borders", json!({"kind": k})) } else { side(k) };
+            pic_item(ui, app, l, None, &format!("tb_{k}"), id, params);
+        }
+        ui.separator();
+    }
+    pic_item(ui, app, "Horizontal Line", None, "hline", "insert.horizontalLine", json!({}));
+    ui.separator();
+    let gridlines = app.session.view.table_gridlines;
+    pic_item(ui, app, "Draw Table", None, "drawTable", "table.draw", json!({}));
+    pic_item(ui, app, "View Gridlines", Some(gridlines), "gridlines", "table.viewGridlines", json!({}));
+    pic_item(ui, app, "Borders and Shading…", None, "borders", "para.borders", json!({}));
+}
+
 /// A menu item with a small picture before its name (Layout's Margins, Text Direction, Orientation,
 /// Columns, Breaks and Line Numbers; Table Design's Borders; Table Layout's Select, Delete and
 /// AutoFit), as in Word. `checked` (`Some`) highlights the current setting.
@@ -753,16 +792,11 @@ fn layout_picture(p: &egui::Painter, r: Rect, name: &str, ink: egui::Color32, ac
                 }
             }
         }
-        // Table Design › Borders: a 2 × 2 table; the borders the choice sets are solid, the rest dotted.
+        // Borders: a 2 × 2 table; the borders the choice sets are solid, the rest dotted.
         _ if name.starts_with("tb_") => {
-            let (outer, inner, top, bottom) = match name {
-                "tb_all" => (true, true, false, false),
-                "tb_outside" => (true, false, false, false),
-                "tb_inside" => (false, true, false, false),
-                "tb_top" => (false, false, true, false),
-                "tb_bottom" => (false, false, false, true),
-                _ => (false, false, false, false),
-            };
+            let k = name.strip_prefix("tb_").unwrap_or("");
+            let outer = matches!(k, "all" | "outside");
+            let inner = matches!(k, "all" | "inside");
             let edge = |a: (f32, f32), b: (f32, f32), on: bool| {
                 if on {
                     p.line_segment([pt(a.0, a.1), pt(b.0, b.1)], Stroke::new(1.7 * s.max(0.8), accent));
@@ -770,12 +804,32 @@ fn layout_picture(p: &egui::Painter, r: Rect, name: &str, ink: egui::Color32, ac
                     p.extend(egui::Shape::dashed_line(&[pt(a.0, a.1), pt(b.0, b.1)], Stroke::new(0.8, ink.gamma_multiply(0.6)), 1.0 * s, 1.2 * s));
                 }
             };
-            edge((4.0, 2.0), (20.0, 2.0), outer || top);
-            edge((4.0, 18.0), (20.0, 18.0), outer || bottom);
-            edge((4.0, 2.0), (4.0, 18.0), outer);
-            edge((20.0, 2.0), (20.0, 18.0), outer);
-            edge((4.0, 10.0), (20.0, 10.0), inner);
-            edge((12.0, 2.0), (12.0, 18.0), inner);
+            edge((4.0, 2.0), (20.0, 2.0), outer || k == "top");
+            edge((4.0, 18.0), (20.0, 18.0), outer || k == "bottom");
+            edge((4.0, 2.0), (4.0, 18.0), outer || k == "left");
+            edge((20.0, 2.0), (20.0, 18.0), outer || k == "right");
+            edge((4.0, 10.0), (20.0, 10.0), inner || k == "insideH");
+            edge((12.0, 2.0), (12.0, 18.0), inner || k == "insideV");
+            if k == "diagDown" {
+                edge((4.0, 2.0), (20.0, 18.0), true);
+            } else if k == "diagUp" {
+                edge((4.0, 18.0), (20.0, 2.0), true);
+            }
+        }
+        // Horizontal Line: text above and below a full-width rule.
+        "hline" => {
+            rows(4.0, 20.0, 3.5, 2, 3.0, ink);
+            p.line_segment([pt(2.0, 10.5), pt(22.0, 10.5)], Stroke::new(2.0 * s.max(0.8), accent));
+            rows(4.0, 20.0, 14.5, 2, 3.0, ink);
+        }
+        // View Gridlines: a table's cells outlined with dotted lines.
+        "gridlines" => {
+            for y in [2.0, 10.0, 18.0] {
+                p.extend(egui::Shape::dashed_line(&[pt(4.0, y), pt(20.0, y)], Stroke::new(1.0, accent), 1.2 * s, 1.0 * s));
+            }
+            for x in [4.0, 12.0, 20.0] {
+                p.extend(egui::Shape::dashed_line(&[pt(x, 2.0), pt(x, 18.0)], Stroke::new(1.0, accent), 1.2 * s, 1.0 * s));
+            }
         }
         // Table Layout › Select and Delete: a 3 × 3 table with the cell, column, row or table
         // shaded; Delete crosses it out.
@@ -1446,23 +1500,7 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                     let theme = app.session.doc.settings.theme_colors.clone();
                     crate::colors::menu(ui, app, &theme, Target::cmd("para.shading").remember(Remember::Shading));
                 });
-                split(ui, app, "borders", "Borders", "para.borders", json!({"kind": "bottom"}), false, None, |ui, app| {
-                    for (l, k) in [
-                        ("Bottom Border", "bottom"),
-                        ("Top Border", "top"),
-                        ("Left Border", "left"),
-                        ("Right Border", "right"),
-                        ("No Border", "none"),
-                        ("All Borders", "all"),
-                        ("Outside Borders", "outside"),
-                        ("Inside Borders", "inside"),
-                    ] {
-                        mi(ui, app, l, "para.borders", json!({"kind": k}));
-                    }
-                    ui.separator();
-                    mi(ui, app, "Horizontal Line", "insert.horizontalLine", json!({}));
-                    mi(ui, app, "Borders and Shading…", "para.borders", json!({}));
-                });
+                split(ui, app, "borders", "Borders", "para.borders", json!({"kind": "bottom"}), false, None, border_items);
             });
         });
     });
@@ -3030,18 +3068,7 @@ fn table_design(app: &mut WordApp, ui: &mut Ui) {
         });
     });
     group(ui, "Borders", None, app, |ui, app| {
-        menu_button(ui, app, "borders", Some("Borders"), "Borders", true, "table.borders", |ui, app| {
-            for (l, k) in [
-                ("All Borders", "all"),
-                ("Outside Borders", "outside"),
-                ("Inside Borders", "inside"),
-                ("No Border", "none"),
-                ("Top Border", "top"),
-                ("Bottom Border", "bottom"),
-            ] {
-                pic_item(ui, app, l, None, &format!("tb_{k}"), "table.borders", json!({"kind": k}));
-            }
-        });
+        menu_button(ui, app, "borders", Some("Borders"), "Borders", true, "table.borders", border_items);
         big(ui, app, "borderPainter", "Border\nPainter", "table.borderPainter", json!({}), false);
     });
 }
@@ -3396,6 +3423,14 @@ mod tests {
             "tb_none",
             "tb_top",
             "tb_bottom",
+            "tb_left",
+            "tb_right",
+            "tb_insideH",
+            "tb_insideV",
+            "tb_diagDown",
+            "tb_diagUp",
+            "hline",
+            "gridlines",
             "sel_cell",
             "sel_column",
             "sel_row",

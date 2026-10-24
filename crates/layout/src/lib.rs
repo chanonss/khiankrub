@@ -1325,7 +1325,8 @@ fn fit_box(items: Vec<Placed>, height: f32) -> Vec<Placed> {
                 out.push(Placed::Fill { rect: Rect::new(rect.x, rect.y, rect.w, rect.h.min(limit - rect.y)), color });
             }
             Placed::Rule { x0, y0, x1, y1, border } if y0.min(y1) < limit => {
-                out.push(Placed::Rule { x0, y0: y0.min(limit), x1, y1: y1.min(limit), border });
+                let ((x0, y0), (x1, y1)) = (rule_at(x0, y0, x1, y1, false, y0.min(limit)), rule_at(x0, y0, x1, y1, true, y1.min(limit)));
+                out.push(Placed::Rule { x0, y0, x1, y1, border });
             }
             Placed::Image { rect, .. }
             | Placed::Shape { rect, .. }
@@ -1624,8 +1625,10 @@ impl NoteBox {
                     tail.push(Placed::Fill { rect: Rect::new(rect.x, cut, rect.w, rect.y + rect.h - cut), color });
                 }
                 Placed::Rule { x0, y0, x1, y1, border } => {
-                    head.push(Placed::Rule { x0, y0: y0.min(cut), x1, y1: y1.min(cut), border });
-                    tail.push(Placed::Rule { x0, y0: y0.max(cut), x1, y1: y1.max(cut), border });
+                    let (h0, h1) = (rule_at(x0, y0, x1, y1, false, y0.min(cut)), rule_at(x0, y0, x1, y1, true, y1.min(cut)));
+                    let (t0, t1) = (rule_at(x0, y0, x1, y1, false, y0.max(cut)), rule_at(x0, y0, x1, y1, true, y1.max(cut)));
+                    head.push(Placed::Rule { x0: h0.0, y0: h0.1, x1: h1.0, y1: h1.1, border });
+                    tail.push(Placed::Rule { x0: t0.0, y0: t0.1, x1: t1.0, y1: t1.1, border });
                 }
                 // Not split (cuts avoid them): stays above.
                 other => head.push(other),
@@ -4125,6 +4128,17 @@ pub fn now_ms() -> f64 {
     }
 }
 
+/// One end (`second`: the (`x1`, `y1`) end) of the rule from (`x0`, `y0`) to (`x1`, `y1`) moved to
+/// height `y`. A level or upright rule keeps the end's own x; a slanted one (a cell's diagonal
+/// border) moves along itself, so cut at a page break it keeps its slope.
+fn rule_at(x0: f32, y0: f32, x1: f32, y1: f32, second: bool, y: f32) -> (f32, f32) {
+    let dy = y1 - y0;
+    if dy.abs() < 1e-6 || (x1 - x0).abs() < 1e-6 {
+        return (if second { x1 } else { x0 }, y);
+    }
+    let t = ((y - y0) / dy).clamp(0.0, 1.0);
+    (x0 + (x1 - x0) * t, y)
+}
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

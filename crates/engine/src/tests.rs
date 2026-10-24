@@ -1784,6 +1784,41 @@ fn table_border_presets_mask_the_sides_they_clear() {
     }
 }
 
+/// Table borders › Diagonal Down / Up: the selected cells get a diagonal (a second time takes it
+/// off), drawn corner to corner and kept through .docx as `w:tl2br` / `w:tr2bl`; Inside Horizontal
+/// and Inside Vertical set only those rules; No Border clears the diagonals too.
+#[test]
+fn table_diagonal_and_inside_borders() {
+    let mut s = s();
+    run(&mut s, "insert.table", json!({"rows": 2, "cols": 2}));
+    let diagonals = |s: &mut Session| {
+        s.layout().pages[0]
+            .items
+            .iter()
+            .filter(|it| matches!(it, crate::layout::Placed::Rule { x0, y0, x1, y1, .. } if (x0 - x1).abs() > 1.0 && (y0 - y1).abs() > 1.0))
+            .count()
+    };
+    assert_eq!(diagonals(&mut s), 0);
+    run(&mut s, "table.borders", json!({"kind": "diagDown"}));
+    run(&mut s, "table.borders", json!({"kind": "diagUp"}));
+    let first = |s: &Session| s.doc.body.iter().find_map(|x| x.as_table()).unwrap().rows[0].cells[0].props.clone();
+    assert!(first(&s).diag_down.is_some() && first(&s).diag_up.is_some());
+    assert_eq!(diagonals(&mut s), 2, "both diagonals cross the caret's cell");
+    let bytes = wordcraft_docx::write(&s.doc).unwrap();
+    let back = wordcraft_docx::read(&bytes).unwrap();
+    let cell = back.body.iter().find_map(|x| x.as_table()).unwrap().rows[0].cells[0].props.clone();
+    assert!(cell.diag_down.is_some() && cell.diag_up.is_some(), "kept through .docx");
+    run(&mut s, "table.borders", json!({"kind": "diagDown"}));
+    assert!(first(&s).diag_down.is_none(), "a second Diagonal Down takes it off");
+    run(&mut s, "table.borders", json!({"kind": "none"}));
+    assert!(first(&s).diag_up.is_none(), "No Border clears the diagonals");
+    run(&mut s, "table.borders", json!({"kind": "insideV"}));
+    run(&mut s, "table.borders", json!({"kind": "insideH"}));
+    let b = s.doc.body.iter().find_map(|x| x.as_table()).unwrap().props.borders.unwrap();
+    assert!(b.inside_v.is_some_and(|x| x.is_visible()) && b.between.is_some_and(|x| x.is_visible()));
+    assert!(b.top.is_some_and(|x| !x.is_visible()), "the frame stays off");
+}
+
 #[test]
 fn page_setup_and_breaks() {
     let mut s = s();

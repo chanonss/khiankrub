@@ -449,6 +449,8 @@ pub fn layout_table(ctx: &mut Ctx, story: StoryRef, t: &Table, path: &[u32], ava
         valign: VAlign,
         fill: Option<Rgb>,
         borders: Borders,
+        /// The cell's own diagonal borders (down: top-left to bottom-right; up: the other way).
+        diag: (Option<Border>, Option<Border>),
         vmerge: VMerge,
         margins: [f32; 4],
         g: usize,
@@ -599,6 +601,7 @@ pub fn layout_table(ctx: &mut Ctx, story: StoryRef, t: &Table, path: &[u32], ava
                 valign: cell.props.valign.or_else(|| look.and_then(|l| l.v_align)).unwrap_or_default(),
                 fill,
                 borders,
+                diag: (cell.props.diag_down, cell.props.diag_up),
                 vmerge: cell.props.vmerge,
                 margins,
                 g,
@@ -742,6 +745,15 @@ pub fn layout_table(ctx: &mut Ctx, story: StoryRef, t: &Table, path: &[u32], ava
             }
             if let Some(e) = b.right.filter(Border::is_visible) {
                 items.push(Placed::Rule { x0: x1, y0, x1, y1, border: e });
+            }
+            // Diagonals cross the whole cell, a merged one's every row.
+            if c.vmerge != VMerge::Continue {
+                if let Some(e) = c.diag.0.filter(Border::is_visible) {
+                    items.push(Placed::Rule { x0, y0, x1, y1: span_h, border: e });
+                }
+                if let Some(e) = c.diag.1.filter(Border::is_visible) {
+                    items.push(Placed::Rule { x0: x1, y0, x1: x0, y1: span_h, border: e });
+                }
             }
             items.push(Placed::Cell {
                 rect: Rect::new(c.x, 0.0, c.w, if c.vmerge == VMerge::Continue { rh } else { span_h }),

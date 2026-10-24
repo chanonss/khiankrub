@@ -77,7 +77,7 @@ pub fn specs() -> Vec<CommandSpec> {
         })
         .params(r#"{"color": "RRGGBB" | null}"#)),
         t(CommandSpec::new("table.borders", "Borders", "Table Design › Borders", borders)
-            .params(r#"{"kind": "all|outside|inside|none|top|bottom|left|right", "width"?: pt, "color"?: "RRGGBB"}"#)),
+            .params(r#"{"kind": "all|outside|inside|none|top|bottom|left|right|insideH|insideV|diagDown|diagUp", "width"?: pt, "color"?: "RRGGBB"}"#)),
         t(CommandSpec::new("table.cellAlign", "Alignment", "Table Layout › Alignment", |s, v| {
             let (h, va) = match p::str(v, "value").unwrap_or("topLeft") {
                 "topLeft" => (Align::Left, VAlign::Top),
@@ -716,6 +716,20 @@ fn borders(s: &mut Session, v: &Value) -> CmdResult {
     let color = p::str(v, "color").and_then(Rgb::parse);
     let b = Border { style: BorderStyle::Single, width: w, color, space: 0.0 };
     let none = Border { style: BorderStyle::None, width: 0.0, color: None, space: 0.0 };
+    // The diagonals belong to the selected cells, and switch off when every one of them has it.
+    if let Some(down) = match kind {
+        "diagDown" => Some(true),
+        "diagUp" => Some(false),
+        _ => None,
+    } {
+        let (tp, _, _) = cell(s)?;
+        let cells = selected_cells(s);
+        let t = s.doc.table(s.sel.focus.story, &tp).ok_or_else(|| CmdError::Disabled("the cursor isn't in a table".into()))?;
+        let has = |cl: &wordcraft_doc::Cell| if down { cl.props.diag_down } else { cl.props.diag_up }.is_some_and(|b| b.is_visible());
+        let all_on = cells.iter().all(|(r, c)| t.rows.get(*r).and_then(|row| row.cells.get(*c)).is_some_and(has));
+        let set = if all_on { None } else { Some(b) };
+        return with_cells(s, |cl| if down { cl.props.diag_down = set } else { cl.props.diag_up = set });
+    }
     with_table(s, |t| {
         let mut cur = t.props.borders.unwrap_or_default();
         match kind {
@@ -743,12 +757,19 @@ fn borders(s: &mut Session, v: &Value) -> CmdResult {
             "bottom" => cur.bottom = Some(b),
             "left" => cur.left = Some(b),
             "right" => cur.right = Some(b),
+            "insideH" => cur.between = Some(b),
+            "insideV" => cur.inside_v = Some(b),
             _ => {}
         }
         t.props.borders = Some(cur);
         for r in &mut t.rows {
             for c in &mut r.cells {
                 c.props.borders = None;
+                // No Border takes the diagonals off too; the other choices leave them.
+                if kind == "none" {
+                    c.props.diag_down = None;
+                    c.props.diag_up = None;
+                }
             }
         }
     })

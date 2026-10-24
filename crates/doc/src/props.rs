@@ -1131,6 +1131,12 @@ pub struct CellProps {
     pub vmerge: VMerge,
     pub shading: Option<Rgb>,
     pub borders: Option<Borders>,
+    /// Diagonal borders across the cell, top-left to bottom-right (`w:tl2br`) and top-right to
+    /// bottom-left (`w:tr2bl`), ECMA-376 §17.4.79 / §17.4.80.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diag_down: Option<Border>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diag_up: Option<Border>,
     /// Vertical alignment (`w:vAlign`); `None` follows the table style, else top. An explicit
     /// `Top` beats the style.
     #[serde(skip_serializing_if = "Option::is_none")]

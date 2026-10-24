@@ -170,6 +170,12 @@ fn border_el(w: &mut W, name: &str, b: &Border) {
 /// `w:insideH` for tables/cells; `None` for page borders).
 pub fn borders(w: &mut W, tag: &str, b: &Borders, inner: Option<&str>, extra: &[(&str, &str)]) {
     w.open(tag, extra);
+    border_sides(w, b, inner);
+    w.close(tag);
+}
+
+/// The sides of [`borders`], without the wrapping element.
+fn border_sides(w: &mut W, b: &Borders, inner: Option<&str>) {
     if let Some(x) = &b.top {
         border_el(w, "w:top", x);
     }
@@ -192,7 +198,6 @@ pub fn borders(w: &mut W, tag: &str, b: &Borders, inner: Option<&str>, extra: &[
             border_el(w, "w:insideV", x);
         }
     }
-    w.close(tag);
 }
 
 /// `w:pPr` content except the paragraph mark `w:rPr` and `w:sectPr`, which the caller appends.
@@ -563,8 +568,19 @@ fn tcpr_inner(w: &mut W, c: &CellProps) {
         VMerge::Continue => w.empty("w:vMerge", &[]),
         VMerge::None => {}
     }
-    if let Some(b) = &c.borders {
-        borders(w, "w:tcBorders", b, Some("w:insideH"), &[]);
+    // The diagonals come last in `w:tcBorders` (§17.4.66), and need it even without other sides.
+    if c.borders.is_some() || c.diag_down.is_some() || c.diag_up.is_some() {
+        w.open("w:tcBorders", &[]);
+        if let Some(b) = &c.borders {
+            border_sides(w, b, Some("w:insideH"));
+        }
+        if let Some(x) = &c.diag_down {
+            border_el(w, "w:tl2br", x);
+        }
+        if let Some(x) = &c.diag_up {
+            border_el(w, "w:tr2bl", x);
+        }
+        w.close("w:tcBorders");
     }
     if let Some(s) = c.shading {
         w.empty("w:shd", &[("w:val", "clear"), ("w:color", "auto"), ("w:fill", &s.hex())]);

@@ -554,7 +554,16 @@ pub fn tcpr(pc: &PropCtx, e: &El) -> (CellProps, bool) {
             "w:gridSpan" => c.span = k.attr("w:val").and_then(u32_of).unwrap_or(1).clamp(1, 63),
             "w:hMerge" => hcont = k.attr("w:val") != Some("restart"),
             "w:vMerge" => c.vmerge = if k.attr("w:val") == Some("restart") { VMerge::Restart } else { VMerge::Continue },
-            "w:tcBorders" => c.borders = Some(borders(k)),
+            "w:tcBorders" => {
+                c.borders = Some(borders(k));
+                for d in k.els() {
+                    match d.local() {
+                        "tl2br" => c.diag_down = Some(border(d)),
+                        "tr2bl" => c.diag_up = Some(border(d)),
+                        _ => {}
+                    }
+                }
+            }
             "w:shd" => c.shading = pc.shd_fill(k),
             "w:noWrap" => c.no_wrap = on_off(k),
             "w:hideMark" => c.hide_mark = on_off(k),

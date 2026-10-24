@@ -7,6 +7,21 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Borders menu like Word's, with diagonal borders
+- **Home › Paragraph › Borders** and **Table Design › Borders** are now the same menu, laid out as Word's, with a
+  picture before every item: Bottom, Top, Left and Right Border; No, All, Outside and Inside Borders; Inside
+  Horizontal, Inside Vertical, Diagonal Down and Diagonal Up Border; Horizontal Line; Draw Table, View Gridlines (with
+  its check mark) and Borders and Shading…. New in the menu: Inside Horizontal, Inside Vertical, the two diagonals,
+  Draw Table and View Gridlines.
+- In a table the Home menu now sets the table's borders, as Table Design's does (before, it gave the paragraph in
+  the cell a border). Outside a table it sets the paragraph's; Inside Vertical and the diagonals are then greyed out.
+  Not yet like Word: a selection of some cells still gets the whole table's sides, except for the diagonals.
+- **Diagonal borders** (`table.borders` `diagDown` / `diagUp`): a line across each selected cell, corner to corner;
+  choosing it again takes it off, and No Border clears it. A merged cell's diagonal crosses all its rows. Kept in
+  .docx as `w:tl2br` / `w:tr2bl` (ECMA-376 §17.4.79–80) and now also read from Word files, which lost them before
+  (`CellProps::diag_down` / `diag_up`). A slanted line cut at a page break keeps its slope.
+- Test: `table_diagonal_and_inside_borders`; `layout_menu_pictures_all_draw` covers the new pictures.
+
 ### Pictures in five more menus
 - Each item of these menus has a small picture before its name, like the Layout menus since v0.7.1 (`pic_item` and
   `layout_picture` in `crates/ui-egui/src/ribbon.rs`; all drawn in code):
