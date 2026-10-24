@@ -1501,7 +1501,9 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                     let theme = app.session.doc.settings.theme_colors.clone();
                     crate::colors::menu(ui, app, &theme, Target::cmd("para.shading").remember(Remember::Shading));
                 });
-                split(ui, app, "borders", "Borders", "para.borders", json!({"kind": "bottom"}), false, None, border_items);
+                // In a table the button sets the selected cells' bottom border, like its menu.
+                let cmd = if crate::widgets::enabled(app, "table.borders") { "table.borders" } else { "para.borders" };
+                split(ui, app, "borders", "Borders", cmd, json!({"kind": "bottom"}), false, None, border_items);
             });
         });
     });

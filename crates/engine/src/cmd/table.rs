@@ -730,6 +730,15 @@ fn borders(s: &mut Session, v: &Value) -> CmdResult {
         let set = if all_on { None } else { Some(b) };
         return with_cells(s, |cl| if down { cl.props.diag_down = set } else { cl.props.diag_up = set });
     }
+    // Some of the cells (or just the caret's): the edges of that selection, as Word does. The
+    // whole table selected sets the table's own borders.
+    let (tp, _, _) = cell(s)?;
+    let cells = selected_cells(s);
+    let t = s.doc.table(s.sel.focus.story, &tp).ok_or_else(|| CmdError::Disabled("the cursor isn't in a table".into()))?;
+    let total: usize = t.rows.iter().map(|r| r.cells.len()).sum();
+    if !cells.is_empty() && cells.len() < total {
+        return cell_borders(s, &tp, &cells, kind, b, none);
+    }
     with_table(s, |t| {
         let mut cur = t.props.borders.unwrap_or_default();
         match kind {
@@ -773,6 +782,125 @@ fn borders(s: &mut Session, v: &Value) -> CmdResult {
             }
         }
     })
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Side {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+fn side_mut(b: &mut Borders, side: Side) -> &mut Option<Border> {
+    match side {
+        Side::Top => &mut b.top,
+        Side::Bottom => &mut b.bottom,
+        Side::Left => &mut b.left,
+        Side::Right => &mut b.right,
+    }
+}
+
+fn opposite(side: Side) -> Side {
+    match side {
+        Side::Top => Side::Bottom,
+        Side::Bottom => Side::Top,
+        Side::Left => Side::Right,
+        Side::Right => Side::Left,
+    }
+}
+
+/// Borders on part of a table (the selected `cells`, or the caret's one), as Word sets them:
+/// Top, Bottom, Left and Right the selection's outer edge on that side; Outside all its outer
+/// edges; Inside (and Inside Horizontal / Vertical) the edges between its cells; All and No
+/// Border every edge. A side choice whose edges all show already takes them off. The cell on the
+/// other side of an edge gets the same border, so an edge removed doesn't still show from there.
+fn cell_borders(s: &mut Session, tp: &wordcraft_doc::Path, cells: &[(usize, usize)], kind: &str, b: Border, none: Border) -> CmdResult {
+    let story = s.sel.focus.story;
+    let t = s.doc.table(story, tp).ok_or_else(|| CmdError::Disabled("the cursor isn't in a table".into()))?;
+    let selected: std::collections::HashSet<(usize, usize)> = cells.iter().copied().collect();
+    let tb = t.props.borders.unwrap_or_default();
+    let nrows = t.rows.len();
+    // The cells across `side` of cell (r, c): by grid column above and below, beside it in the row.
+    let across = |r: usize, c: usize, side: Side| -> Vec<(usize, usize)> {
+        let (g0, g1) = grid_cols(t, r, c);
+        let row = match side {
+            Side::Top => r.checked_sub(1),
+            Side::Bottom => Some(r + 1).filter(|n| *n < nrows),
+            Side::Left => return c.checked_sub(1).map(|p| vec![(r, p)]).unwrap_or_default(),
+            Side::Right => return t.rows.get(r).filter(|row| c + 1 < row.cells.len()).map(|_| vec![(r, c + 1)]).unwrap_or_default(),
+        };
+        let Some(n) = row else { return Vec::new() };
+        let mut v: Vec<(usize, usize)> = (g0..=g1).filter_map(|g| t.cell_at_grid(n, g)).map(|ci| (n, ci)).collect();
+        v.dedup();
+        v
+    };
+    // The border showing on a cell's side: its own, else the table's outer or inside one.
+    let shows = |r: usize, c: usize, side: Side| -> bool {
+        let own = t.rows.get(r).and_then(|row| row.cells.get(c)).and_then(|cl| cl.props.borders).and_then(|mut bs| *side_mut(&mut bs, side));
+        let edge = across(r, c, side).is_empty();
+        let table = match side {
+            Side::Top | Side::Bottom if edge => {
+                if side == Side::Top {
+                    tb.top
+                } else {
+                    tb.bottom
+                }
+            }
+            Side::Top | Side::Bottom => tb.between,
+            Side::Left if edge => tb.left,
+            Side::Right if edge => tb.right,
+            _ => tb.inside_v,
+        };
+        own.or(table).is_some_and(|x| x.is_visible())
+    };
+    let wanted = |side: Side, outer: bool| match kind {
+        "top" => outer && side == Side::Top,
+        "bottom" => outer && side == Side::Bottom,
+        "left" => outer && side == Side::Left,
+        "right" => outer && side == Side::Right,
+        "outside" => outer,
+        "inside" => !outer,
+        "insideH" => !outer && matches!(side, Side::Top | Side::Bottom),
+        "insideV" => !outer && matches!(side, Side::Left | Side::Right),
+        "all" | "none" => true,
+        _ => false,
+    };
+    let mut targets = Vec::new();
+    for &(r, c) in cells {
+        for side in [Side::Top, Side::Bottom, Side::Left, Side::Right] {
+            let others = across(r, c, side);
+            let outer = others.is_empty() || others.iter().any(|o| !selected.contains(o));
+            if wanted(side, outer) {
+                targets.push((r, c, side, others));
+            }
+        }
+    }
+    let toggles = matches!(kind, "top" | "bottom" | "left" | "right" | "insideH" | "insideV");
+    let off = kind == "none" || (toggles && !targets.is_empty() && targets.iter().all(|(r, c, side, _)| shows(*r, *c, *side)));
+    let value = if off { none } else { b };
+    let t = s.doc.table_mut(story, tp)?;
+    let mut set = |r: usize, c: usize, side: Side| {
+        if let Some(cl) = t.rows.get_mut(r).and_then(|row| row.cells.get_mut(c)) {
+            *side_mut(cl.props.borders.get_or_insert_with(Borders::default), side) = Some(value);
+        }
+    };
+    for (r, c, side, others) in targets {
+        set(r, c, side);
+        for (orow, oc) in others {
+            set(orow, oc, opposite(side));
+        }
+    }
+    if kind == "none" {
+        for &(r, c) in cells {
+            if let Some(cl) = t.rows.get_mut(r).and_then(|row| row.cells.get_mut(c)) {
+                cl.props.diag_down = None;
+                cl.props.diag_up = None;
+            }
+        }
+    }
+    touch_cells(s, tp)?;
+    sel_result(s)
 }
 
 pub(crate) fn cell_text(c: &wordcraft_doc::Cell) -> String {

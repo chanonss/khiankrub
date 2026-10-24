@@ -1748,9 +1748,11 @@ fn table_and_section_direction_commands() {
 fn table_border_presets_mask_the_sides_they_clear() {
     // On a default (TableGrid) table the "outside"/"inside" presets must write nil over the
     // sides they clear; without it those sides inherit the style's grid (#143) and every
-    // preset renders like "all".
+    // preset renders like "all". The whole table is selected: the presets then set the table's
+    // own borders (part of it sets its cells', `table_borders_follow_the_selected_cells`).
     let mut s = s();
     run(&mut s, "insert.table", json!({"rows": 2, "cols": 2}));
+    run(&mut s, "table.selectTable", json!({}));
     // Distinct vertical/horizontal rule positions on page 0.
     let rule_pos = |s: &mut Session| {
         let (mut vx, mut hy) = (Vec::new(), Vec::new());
@@ -1812,11 +1814,72 @@ fn table_diagonal_and_inside_borders() {
     assert!(first(&s).diag_down.is_none(), "a second Diagonal Down takes it off");
     run(&mut s, "table.borders", json!({"kind": "none"}));
     assert!(first(&s).diag_up.is_none(), "No Border clears the diagonals");
+    run(&mut s, "table.selectTable", json!({}));
+    run(&mut s, "table.borders", json!({"kind": "none"}));
     run(&mut s, "table.borders", json!({"kind": "insideV"}));
     run(&mut s, "table.borders", json!({"kind": "insideH"}));
     let b = s.doc.body.iter().find_map(|x| x.as_table()).unwrap().props.borders.unwrap();
     assert!(b.inside_v.is_some_and(|x| x.is_visible()) && b.between.is_some_and(|x| x.is_visible()));
     assert!(b.top.is_some_and(|x| !x.is_visible()), "the frame stays off");
+}
+
+/// Borders on part of a table go on that part's edges, as in Word: a selected row's Bottom Border
+/// is the line under that row (not under the table), a second time takes it off; Left Border on
+/// a column is its left edge; with only the caret in a cell, Outside frames that cell.
+#[test]
+fn table_borders_follow_the_selected_cells() {
+    let mut s = s();
+    run(&mut s, "insert.table", json!({"rows": 3, "cols": 2}));
+    run(&mut s, "table.selectTable", json!({}));
+    run(&mut s, "table.borders", json!({"kind": "none"}));
+    // Visible rules on page 0: (x0, y0, x1, y1).
+    let rules = |s: &mut Session| -> Vec<(f32, f32, f32, f32)> {
+        s.layout().pages[0]
+            .items
+            .iter()
+            .filter_map(|it| match it {
+                crate::layout::Placed::Rule { x0, y0, x1, y1, border } if border.is_visible() => Some((*x0, *y0, *x1, *y1)),
+                _ => None,
+            })
+            .collect()
+    };
+    assert!(rules(&mut s).is_empty(), "no borders to start with");
+    let cell = |s: &Session, r: usize, c: usize| s.doc.body.iter().find_map(|x| x.as_table()).unwrap().rows[r].cells[c].props.clone();
+    // The first row selected, Bottom Border: the line under it, the whole row's width.
+    run(&mut s, "caret.docStart", json!({}));
+    run(&mut s, "table.selectRow", json!({}));
+    run(&mut s, "table.borders", json!({"kind": "bottom"}));
+    for c in 0..2 {
+        assert!(cell(&s, 0, c).borders.and_then(|b| b.bottom).is_some_and(|b| b.is_visible()), "row 1 cell {c} has a bottom border");
+        assert!(cell(&s, 1, c).borders.and_then(|b| b.top).is_some_and(|b| b.is_visible()), "and row 2 the matching top");
+    }
+    assert!(cell(&s, 2, 0).borders.is_none(), "the last row (the table's bottom) is untouched");
+    let level: Vec<_> = rules(&mut s).into_iter().filter(|(_, y0, _, y1)| (y0 - y1).abs() < 0.01).collect();
+    let ys: std::collections::BTreeSet<i32> = level.iter().map(|r| r.1.round() as i32).collect();
+    assert_eq!(ys.len(), 1, "one line, under the first row: {level:?}");
+    // Again: it comes off.
+    run(&mut s, "table.borders", json!({"kind": "bottom"}));
+    assert!(rules(&mut s).is_empty(), "a second Bottom Border takes it off");
+    // A column: Left Border is the column's left edge only.
+    run(&mut s, "caret.docStart", json!({}));
+    run(&mut s, "table.selectColumn", json!({}));
+    run(&mut s, "table.borders", json!({"kind": "left"}));
+    let upright: Vec<_> = rules(&mut s).into_iter().filter(|(x0, _, x1, _)| (x0 - x1).abs() < 0.01).collect();
+    let xs: std::collections::BTreeSet<i32> = upright.iter().map(|r| r.0.round() as i32).collect();
+    assert_eq!(xs.len(), 1, "one upright line, the column's left: {upright:?}");
+    assert!(cell(&s, 0, 1).borders.and_then(|b| b.left).is_none(), "the second column is untouched");
+    // Only the caret, in the middle row's second cell: Outside frames that cell.
+    run(&mut s, "table.selectTable", json!({}));
+    run(&mut s, "table.borders", json!({"kind": "none"}));
+    run(&mut s, "caret.docStart", json!({}));
+    run(&mut s, "caret.down", json!({}));
+    run(&mut s, "caret.right", json!({}));
+    let at = s.sel.focus.path.cell().map(|(_, r, c)| (r, c));
+    run(&mut s, "table.borders", json!({"kind": "outside"}));
+    let b = cell(&s, 1, 1).borders.unwrap();
+    assert!([b.top, b.bottom, b.left, b.right].iter().all(|x| x.is_some_and(|x| x.is_visible())), "{at:?} framed");
+    // Its four sides, and the matching sides of the three neighbours (it's in the last column).
+    assert_eq!(rules(&mut s).len(), 4 + 3);
 }
 
 #[test]

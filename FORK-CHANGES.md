@@ -7,6 +7,19 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Table borders on the selected cells, as in Word
+- In a table, the border choices (Home › Borders and Table Design › Borders) now act on the selected cells, or the
+  caret's cell, instead of always on the whole table. Bottom Border with a row selected is the line under that row;
+  Top, Left and Right the selection's edge on that side; Outside frames the selection; Inside, Inside Horizontal and
+  Inside Vertical go between its cells; All and No Border cover just those cells. Choosing a side again takes it off.
+  The cell on the other side of an edge gets the same border, so a line taken off doesn't still show from there.
+  With the whole table selected, the choices set the table's own borders as before (`cell_borders` in
+  `crates/engine/src/cmd/table.rs`).
+- The Home tab's Borders button (its main half) also sets the selected cells' bottom border in a table, instead of
+  the cell paragraph's.
+- Test: `table_borders_follow_the_selected_cells`; `table_border_presets_mask_the_sides_they_clear` and
+  `table_diagonal_and_inside_borders` now select the whole table where they mean it.
+
 ### Borders menu like Word's, with diagonal borders
 - **Home › Paragraph › Borders** and **Table Design › Borders** are now the same menu, laid out as Word's, with a
   picture before every item: Bottom, Top, Left and Right Border; No, All, Outside and Inside Borders; Inside
@@ -15,7 +28,6 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
   Draw Table and View Gridlines.
 - In a table the Home menu now sets the table's borders, as Table Design's does (before, it gave the paragraph in
   the cell a border). Outside a table it sets the paragraph's; Inside Vertical and the diagonals are then greyed out.
-  Not yet like Word: a selection of some cells still gets the whole table's sides, except for the diagonals.
 - **Diagonal borders** (`table.borders` `diagDown` / `diagUp`): a line across each selected cell, corner to corner;
   choosing it again takes it off, and No Border clears it. A merged cell's diagonal crosses all its rows. Kept in
   .docx as `w:tl2br` / `w:tr2bl` (ECMA-376 §17.4.79–80) and now also read from Word files, which lost them before
