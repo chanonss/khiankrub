@@ -1273,3 +1273,19 @@ fn typing_after_a_citation_goes_outside_its_field() {
     let inside = Pos { off: f[0].start.off + wordcraft_doc::para::OBJ.len_utf8(), ..f[0].start.clone() };
     assert_eq!(s.doc.copy_range(&inside, &f[0].end).plain_text(), "(Smith 2020)");
 }
+
+/// A list level past the last one (a file can say 255) goes to the last level on Increase Indent
+/// and Demote, instead of overflowing.
+#[test]
+fn increase_indent_and_demote_past_the_last_list_level_stop_at_the_last() {
+    for cmd in ["para.indent", "outline.demote"] {
+        let mut s = s();
+        typ(&mut s, "Item");
+        run(&mut s, "para.numbering", json!({}));
+        let at = Pos::body(0, 0);
+        let num = s.doc.para_at(&at).unwrap().props.numbering.unwrap().num;
+        s.doc.para_mut(StoryRef::Body, &at.path).unwrap().props.numbering = Some(wordcraft_doc::props::NumRef { num, level: u8::MAX });
+        run(&mut s, cmd, json!({}));
+        assert_eq!(s.doc.para_at(&at).unwrap().props.numbering.map(|n| n.level), Some(8), "{cmd}");
+    }
+}
