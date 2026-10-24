@@ -1,0 +1,148 @@
+# KhianKrub: build the release files for a tag (`v0.7.3`, or a test tag such as `v0.7.3-test1`) on
+# GitHub's runners and attach them to that tag's release:
+#   - Windows: the installer and portable zip (`packaging/windows/package.ps1 -Arch x64`)
+#   - Mac: KhianKrub-<version>-macos-apple-silicon.zip (`packaging/macos/local-app.sh`, zipped with ditto)
+# A tag with no release yet gets a draft release; its notes and publishing are done by hand. The
+# files are unsigned (no signing secrets; the Mac app is ad-hoc signed), as the hand-built ones
+# were. Started by hand from the Actions tab, it can build one platform only.
+name: Release files
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build and attach to (for example v0.7.3)'
+        required: true
+      platforms:
+        description: 'Which files to build'
+        type: choice
+        options: [both, windows, mac]
+        default: both
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-files-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  # One job makes the draft, so the two builds never race to create two.
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      # The tag names the version in Cargo.toml: v0.7.3 or v0.7.3-anything for 0.7.3.
+      - name: Check the tag matches the version
+        run: |
+          version=$(awk '/^\[/ { p = ($0 == "[workspace.package]"); next } p && $1 == "version" { gsub(/[" ]/, "", $3); print $3; exit }' Cargo.toml)
+          case "$TAG" in
+            "v$version" | "v$version"-*) echo "Building KhianKrub $version for $TAG" ;;
+            *) echo "::error::tag $TAG does not match version $version in Cargo.toml"; exit 1 ;;
+          esac
+
+      - name: Make a draft release if there is none
+        run: |
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "KhianKrub $TAG" \
+              --notes "Built by GitHub Actions. Add the notes, then publish."
+          fi
+
+  windows-x64:
+    needs: draft
+    if: inputs.platforms != 'mac'
+    runs-on: windows-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: windows-release
+
+      - name: Install WiX 5.0.2 and its UI and Util extensions
+        run: |
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add -g WixToolset.UI.wixext/5.0.2
+          wix extension add -g WixToolset.Util.wixext/5.0.2
+
+      - name: Build the installer and portable zip
+        run: ./packaging/windows/package.ps1 -Arch x64
+
+      - name: SHA-256 for the release notes
+        run: |
+          $files = Get-ChildItem dist/release/khiankrub-*-windows-x64*.msi, dist/release/khiankrub-*-windows-x64-portable.zip
+          "| File | SHA-256 |" >> $env:GITHUB_STEP_SUMMARY
+          "|---|---|" >> $env:GITHUB_STEP_SUMMARY
+          foreach ($f in $files) {
+            $sha = (Get-FileHash -Algorithm SHA256 $f.FullName).Hash.ToLowerInvariant()
+            "$($f.Name): $sha"
+            "| ``$($f.Name)`` | ``$sha`` |" >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Attach to the tag's release
+        run: |
+          $files = (Get-ChildItem dist/release/khiankrub-*-windows-x64*.msi, dist/release/khiankrub-*-windows-x64-portable.zip).FullName
+          gh release upload $env:TAG --repo $env:GITHUB_REPOSITORY --clobber @files
+          if ($LASTEXITCODE -ne 0) { throw "attaching the files to $env:TAG failed" }
+
+  macos-arm64:
+    needs: draft
+    if: inputs.platforms != 'windows'
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: macos-release
+
+      # The same steps as a hand-made Mac release (HANDOFF.md section 3).
+      - name: Build the app
+        run: |
+          cargo build --release --locked -p wordcraft
+          packaging/macos/local-app.sh "$RUNNER_TEMP/out/KhianKrub.app"
+
+      - name: Zip it and check the zipped copy
+        run: |
+          set -euo pipefail
+          . packaging/env.sh
+          zip="KhianKrub-$VERSION-macos-apple-silicon.zip"
+          mkdir -p dist/release
+          (cd "$RUNNER_TEMP/out" && ditto -c -k --keepParent --norsrc --noextattr KhianKrub.app "$ROOT/dist/release/$zip")
+          rm -rf "$RUNNER_TEMP/check" && mkdir -p "$RUNNER_TEMP/check"
+          ditto -x -k "dist/release/$zip" "$RUNNER_TEMP/check"
+          codesign --verify --strict --deep "$RUNNER_TEMP/check/KhianKrub.app"
+          lipo -archs "$RUNNER_TEMP/check/KhianKrub.app/Contents/MacOS/KhianKrub" | grep -qx arm64
+          test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$RUNNER_TEMP/check/KhianKrub.app/Contents/Info.plist")" = "${VERSION%%-*}"
+          sha=$(shasum -a 256 "dist/release/$zip" | cut -d' ' -f1)
+          echo "$zip: $sha"
+          { echo "| File | SHA-256 |"; echo "|---|---|"; echo "| \`$zip\` | \`$sha\` |"; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Attach to the tag's release
+        run: gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber dist/release/KhianKrub-*-macos-apple-silicon.zip

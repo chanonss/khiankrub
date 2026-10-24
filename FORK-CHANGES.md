@@ -7,6 +7,13 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-24
 
+### Mac release zip built on GitHub Actions
+- The release workflow (renamed `.github/workflows/release-files.yml`) also builds the Mac zip on GitHub's
+  Apple silicon runner, the same way as by hand (`local-app.sh`, `ditto`, a strict `codesign` check of the unzipped
+  copy), and attaches it next to the Windows files. One job makes the draft release first, so the two builds don't
+  each create one. Started by hand, it takes a tag and `both`, `windows` or `mac`.
+- Why: uploading the Mac zip in the browser failed twice (it stalls partway even on a fast connection).
+
 ### Version 0.7.3
 - The app's version is 0.7.3 (was 0.7.2). It brings the fixes from testing v0.7.2 (a window for each document, File ›
   Recover only after a crash, TH Sarabun New 16 for new documents, Thai caption labels, Header and Footer in the

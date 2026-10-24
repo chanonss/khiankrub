@@ -167,14 +167,17 @@ Chanon asked how to make a Windows version. Three ways; nothing has been tried y
 2. **Build on the PC**: install Rust (rustup.rs) and Visual Studio Build Tools ("Desktop development with C++"), clone,
    `git checkout my-changes`, `cargo build --release -p wordcraft`. `packaging/windows/package.ps1` also makes a portable zip
    and an `.msi` (needs WiX v5; see the script's header). Needs the local commits pushed first, or the `repo` folder copied.
-3. **GitHub Actions** (since 2026-10-24, the way releases are built): `.github/workflows/windows-release.yml` runs
-   when a `v*` tag is pushed (or by hand from the Actions tab with a tag name). On GitHub's Windows runner it installs
-   WiX 5.0.2, runs `packaging\windows\package.ps1 -Arch x64`, writes the SHA-256 of both files in the run's summary,
-   and attaches `khiankrub-<version>-windows-x64.msi` and `-portable.zip` to the tag's release, making a **draft**
-   release when there is none. The tag must be `v<version>` or `v<version>-something` for the version in
-   `Cargo.toml`. Notes, the Mac zip and publishing stay manual. Pushing a tag needs Chanon's OK (rule 1). The
-   original's `release.yml`, `freebsd.yml`, `windows-arm64.yml` and `packaging-lint.yml` were removed: they need
-   storytold's secrets and shared workflows.
+3. **GitHub Actions** (since 2026-10-24, the way releases are built): `.github/workflows/release-files.yml` runs
+   when a `v*` tag is pushed. A first job makes a **draft** release when the tag has none; then the Windows job
+   (WiX 5.0.2, `packaging\windows\package.ps1 -Arch x64`) and the macOS job (`local-app.sh`, `ditto` zip, strict
+   `codesign` check of the unzipped copy) build in parallel and attach `khiankrub-<version>-windows-x64.msi`,
+   `-portable.zip` and `KhianKrub-<version>-macos-apple-silicon.zip`, listing each SHA-256 in the run's summary.
+   The tag must be `v<version>` or `v<version>-something` for the version in `Cargo.toml`. Started by hand from the
+   Actions tab (Run workflow), it takes a tag and `both`, `windows` or `mac`. Notes and publishing stay manual.
+   Pushing a tag needs Chanon's OK (rule 1). Uploading a release zip in the browser failed twice on the Mac (it
+   stalls partway at any network speed), which is why the Mac zip is built there too. The original's `release.yml`,
+   `freebsd.yml`, `windows-arm64.yml` and `packaging-lint.yml` were removed: they need storytold's secrets and
+   shared workflows.
 
 A public Windows release would also need the installer files renamed to KhianKrub (section 6), with a FORK-CHANGES entry.
 The PC needs a Thai font for documents; Windows has Leelawadee UI and Tahoma, TH Sarabun New only if installed.
