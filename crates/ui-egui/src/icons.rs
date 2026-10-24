@@ -255,15 +255,16 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
             pen.fcircle(16.5, 13.5, 1.6, a);
             pen.frect(2.0, 16.5, 18.0, 19.0, yellow);
         }
+        // A dotted 2 × 2 grid with a solid bottom border. Dots every 1.75 units, big enough to
+        // read at 1× (sparser, smaller ones vanished there).
         "borders" => {
-            for y in [3.0, 10.0, 17.0] {
-                for x in [3.0, 6.5, 10.0, 13.5, 17.0] {
-                    pen.fcircle(x, y, 0.6, c);
+            for i in 0..=8 {
+                let t = 3.0 + i as f32 * 1.75;
+                for y in [3.0, 10.0] {
+                    pen.fcircle(t, y, 0.75, c);
                 }
-            }
-            for x in [3.0, 10.0, 17.0] {
-                for y in [6.5, 13.5] {
-                    pen.fcircle(x, y, 0.6, c);
+                for x in [3.0, 10.0, 17.0] {
+                    pen.fcircle(x, t, 0.75, c);
                 }
             }
             pen.line_c(&[(3.0, 17.0), (17.0, 17.0)], a);

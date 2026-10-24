@@ -21,6 +21,8 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
   .docx as `w:tl2br` / `w:tr2bl` (ECMA-376 §17.4.79–80) and now also read from Word files, which lost them before
   (`CellProps::diag_down` / `diag_up`). A slanted line cut at a page break keeps its slope.
 - Test: `table_diagonal_and_inside_borders`; `layout_menu_pictures_all_draw` covers the new pictures.
+- The dotted lines in the border pictures, and the dots of the ribbon's Borders icon, are darker and denser: at
+  normal (1×) screen size they had almost vanished. Checked at 1× and 2×.
 
 ### Pictures in five more menus
 - Each item of these menus has a small picture before its name, like the Layout menus since v0.7.1 (`pic_item` and

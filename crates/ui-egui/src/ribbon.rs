@@ -801,7 +801,8 @@ fn layout_picture(p: &egui::Painter, r: Rect, name: &str, ink: egui::Color32, ac
                 if on {
                     p.line_segment([pt(a.0, a.1), pt(b.0, b.1)], Stroke::new(1.7 * s.max(0.8), accent));
                 } else {
-                    p.extend(egui::Shape::dashed_line(&[pt(a.0, a.1), pt(b.0, b.1)], Stroke::new(0.8, ink.gamma_multiply(0.6)), 1.0 * s, 1.2 * s));
+                    // Dark enough to read at 1× (a faint 0.8 pt dotted line vanished there).
+                    p.extend(egui::Shape::dashed_line(&[pt(a.0, a.1), pt(b.0, b.1)], Stroke::new(1.0, ink.gamma_multiply(0.85)), 1.6 * s, 1.2 * s));
                 }
             };
             edge((4.0, 2.0), (20.0, 2.0), outer || k == "top");
@@ -825,10 +826,10 @@ fn layout_picture(p: &egui::Painter, r: Rect, name: &str, ink: egui::Color32, ac
         // View Gridlines: a table's cells outlined with dotted lines.
         "gridlines" => {
             for y in [2.0, 10.0, 18.0] {
-                p.extend(egui::Shape::dashed_line(&[pt(4.0, y), pt(20.0, y)], Stroke::new(1.0, accent), 1.2 * s, 1.0 * s));
+                p.extend(egui::Shape::dashed_line(&[pt(4.0, y), pt(20.0, y)], Stroke::new(1.3, accent), 1.6 * s, 1.2 * s));
             }
             for x in [4.0, 12.0, 20.0] {
-                p.extend(egui::Shape::dashed_line(&[pt(x, 2.0), pt(x, 18.0)], Stroke::new(1.0, accent), 1.2 * s, 1.0 * s));
+                p.extend(egui::Shape::dashed_line(&[pt(x, 2.0), pt(x, 18.0)], Stroke::new(1.3, accent), 1.6 * s, 1.2 * s));
             }
         }
         // Table Layout › Select and Delete: a 3 × 3 table with the cell, column, row or table
