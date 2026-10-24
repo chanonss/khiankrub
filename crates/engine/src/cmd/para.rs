@@ -138,8 +138,8 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("para.heading3", "Heading 3", "Home › Styles", |s, _| apply_style(s, &json!({"style": "Heading3"}))).key("Mod+Alt+3"),
         CommandSpec::new("para.bullets", "Bullets", "Home › Paragraph", |s, v| list(s, v, ListKind::Bullet)).params(r#"{"kind"?: "bullet" | single char, "off"?: bool}"#).key("Mod+Shift+L"),
         CommandSpec::new("para.numbering", "Numbering", "Home › Paragraph", |s, v| list(s, v, ListKind::Numbered))
-            .params(r#"{"kind"?: "numbered|numberedParen|upperLetter|lowerLetter|lowerRoman|outline", "off"?: bool}"#),
-        CommandSpec::new("para.multilevel", "Multilevel List", "Home › Paragraph", |s, v| list(s, v, ListKind::Legal)).params(r#"{"kind"?: "legal|outline"}"#),
+            .params(r#"{"kind"?: "numbered|numberedParen|upperLetter|lowerLetter|lowerRoman|outline|thaiNumbers|thaiLetters|thaiCounting", "off"?: bool}"#),
+        CommandSpec::new("para.multilevel", "Multilevel List", "Home › Paragraph", |s, v| list(s, v, ListKind::Legal)).params(r#"{"kind"?: "legal|outline|thaiLegal|thaiOutline"}"#),
         CommandSpec::new("para.listLevel", "Change List Level", "Home › Paragraph › Bullets", |s, v| {
             let lvl = p::u64(v, "level").unwrap_or(0).min(8) as u8;
             fmt(s, &|p| {
@@ -506,7 +506,8 @@ fn list(s: &mut Session, v: &Value, default: ListKind) -> CmdResult {
     let kind = p::str(v, "kind").and_then(ListKind::parse).unwrap_or(default);
     let off = p::bool(v, "off").unwrap_or(false);
     let a = s.sel.ordered().0;
-    // Toggle: if every selected paragraph already has this kind of list, remove it.
+    // Toggle: if every selected paragraph already has this kind of list, remove it. A named kind
+    // matches on its first level's text and number format, so ๑. on a 1. list switches it.
     let current: Vec<Option<NumRef>> =
         super::selected_paths(s).iter().map(|p| s.doc.para(a.story, p).and_then(|x| x.props.numbering).filter(|n| n.num != 0)).collect();
     let same_kind = |n: &NumRef| {
@@ -514,7 +515,7 @@ fn list(s: &mut Session, v: &Value, default: ListKind) -> CmdResult {
             let want = wordcraft_doc::numbering::levels_for(kind);
             want.first().is_some_and(|w| {
                 (w.format == wordcraft_doc::section::NumFormat::Bullet) == (l.format == wordcraft_doc::section::NumFormat::Bullet)
-                    && (p::str(v, "kind").is_none() || w.text == l.text)
+                    && (p::str(v, "kind").is_none() || (w.text == l.text && w.format == l.format))
             })
         })
     };

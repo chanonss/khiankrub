@@ -133,6 +133,16 @@ pub enum ListKind {
     LowerRoman,
     /// 1. 1.1. 1.1.1.
     Legal,
+    /// ๑. ก. ๑. (Thai digits)
+    ThaiNumbers,
+    /// ก. ๑. ก. (Thai letters)
+    ThaiLetters,
+    /// หนึ่ง. ๑. ก. (Thai number words)
+    ThaiCounting,
+    /// ๑. ๑.๑. ๑.๑.๑. (Legal in Thai digits)
+    ThaiLegal,
+    /// ๑. ก. (๑) (ก)
+    ThaiOutline,
 }
 
 impl ListKind {
@@ -147,6 +157,11 @@ impl ListKind {
             "lowerLetterDot" => ListKind::LowerLetterDot,
             "lowerRoman" => ListKind::LowerRoman,
             "legal" | "multilevel" => ListKind::Legal,
+            "thaiNumbers" => ListKind::ThaiNumbers,
+            "thaiLetters" => ListKind::ThaiLetters,
+            "thaiCounting" => ListKind::ThaiCounting,
+            "thaiLegal" => ListKind::ThaiLegal,
+            "thaiOutline" => ListKind::ThaiOutline,
             s if s.chars().count() == 1 => ListKind::BulletChar(s.chars().next()?),
             _ => return None,
         })
@@ -203,9 +218,23 @@ pub fn levels_for(kind: ListKind) -> Vec<Level> {
                         .unwrap_or(NumFormat::Decimal);
                     lvl(f, format!("%{n}."))
                 }
-                ListKind::Legal => {
+                ListKind::Legal | ListKind::ThaiLegal => {
                     let text: String = (1..=n).map(|k| format!("%{k}.")).collect();
-                    Level { format: NumFormat::Decimal, text, indent: 18.0 + 25.0 * i as f32, hanging: 18.0 + 7.0 * i as f32, ..Level::default() }
+                    // Not w:isLgl: that would show every level in Arabic digits.
+                    let format = if kind == ListKind::ThaiLegal { NumFormat::ThaiNumbers } else { NumFormat::Decimal };
+                    Level { format, text, indent: 18.0 + 25.0 * i as f32, hanging: 18.0 + 7.0 * i as f32, ..Level::default() }
+                }
+                ListKind::ThaiNumbers => lvl(cyc(NumFormat::ThaiNumbers, NumFormat::ThaiLetters, NumFormat::ThaiNumbers), format!("%{n}.")),
+                ListKind::ThaiLetters => lvl(cyc(NumFormat::ThaiLetters, NumFormat::ThaiNumbers, NumFormat::ThaiLetters), format!("%{n}.")),
+                ListKind::ThaiCounting => lvl(cyc(NumFormat::ThaiCounting, NumFormat::ThaiNumbers, NumFormat::ThaiLetters), format!("%{n}.")),
+                ListKind::ThaiOutline => {
+                    let f = if i % 2 == 0 { NumFormat::ThaiNumbers } else { NumFormat::ThaiLetters };
+                    let text = match i {
+                        0 | 1 => format!("%{n}."),
+                        2 | 3 => format!("(%{n})"),
+                        _ => format!("%{n})"),
+                    };
+                    lvl(f, text)
                 }
             }
         })
@@ -404,6 +433,25 @@ mod tests {
         assert_eq!(l(0), "2.");
         assert_eq!(l(1), "2.3.", "level 2 never restarts");
         assert_eq!(l(2), "(1)", "level 1 restarts level 3");
+    }
+
+    #[test]
+    fn thai_list_kinds_number_in_thai() {
+        let labels = |kind, levels: &[u8]| {
+            let mut n = Numbering::default();
+            let id = n.add_list(kind);
+            let mut c = Counters::default();
+            levels.iter().map(|&lv| c.next_label(&n, id, lv).unwrap().0).collect::<Vec<_>>()
+        };
+        assert_eq!(labels(ListKind::ThaiNumbers, &[0, 0, 1, 1, 0]), ["๑.", "๒.", "ก.", "ข.", "๓."]);
+        assert_eq!(labels(ListKind::ThaiLetters, &[0, 0, 1, 0]), ["ก.", "ข.", "๑.", "ค."]);
+        assert_eq!(labels(ListKind::ThaiCounting, &[0, 0, 1]), ["หนึ่ง.", "สอง.", "๑."]);
+        // Multilevel: every level in Thai digits, including the levels it repeats.
+        assert_eq!(labels(ListKind::ThaiLegal, &[0, 1, 1, 2, 0, 1]), ["๑.", "๑.๑.", "๑.๒.", "๑.๒.๑.", "๒.", "๒.๑."]);
+        assert_eq!(labels(ListKind::ThaiOutline, &[0, 1, 2, 3, 4, 5]), ["๑.", "ก.", "(๑)", "(ก)", "๑)", "ก)"]);
+        for k in ["thaiNumbers", "thaiLetters", "thaiCounting", "thaiLegal", "thaiOutline"] {
+            assert!(ListKind::parse(k).is_some_and(|kind| !kind.is_bullet()), "{k}");
+        }
     }
 
     #[test]

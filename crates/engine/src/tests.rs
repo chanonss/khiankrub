@@ -5401,6 +5401,35 @@ fn list_buttons_follow_the_paragraphs_own_level() {
 }
 
 #[test]
+fn thai_numbering_and_multilevel_lists_apply_switch_and_save_to_word() {
+    use wordcraft_doc::section::NumFormat;
+    let first = |s: &Session| {
+        let n = s.doc.para_at(&s.sel.focus).and_then(|p| p.props.numbering).filter(|n| n.num != 0)?;
+        s.doc.numbering.level(n.num, 0).map(|l| (l.format, l.text.clone()))
+    };
+    let mut s = s();
+    run(&mut s, "text.insert", json!({"text": "ข้อหนึ่ง"}));
+    run(&mut s, "para.numbering", json!({"kind": "numbered"}));
+    assert_eq!(first(&s), Some((NumFormat::Decimal, "%1.".into())));
+    // ๑. on a 1. list switches it to Thai digits instead of removing it (both read "%1.").
+    run(&mut s, "para.numbering", json!({"kind": "thaiNumbers"}));
+    assert_eq!(first(&s), Some((NumFormat::ThaiNumbers, "%1.".into())));
+    run(&mut s, "para.numbering", json!({"kind": "thaiLetters"}));
+    assert_eq!(first(&s), Some((NumFormat::ThaiLetters, "%1.".into())));
+    run(&mut s, "para.numbering", json!({"kind": "thaiLetters"}));
+    assert_eq!(first(&s), None, "the same kind again removes it");
+    run(&mut s, "para.multilevel", json!({"kind": "thaiLegal"}));
+    run(&mut s, "para.listLevel", json!({"level": 1}));
+    let n = s.doc.para_at(&s.sel.focus).and_then(|p| p.props.numbering).unwrap();
+    assert_eq!(s.doc.numbering.level(n.num, 1).map(|l| (l.format, l.text.as_str(), l.legal)), Some((NumFormat::ThaiNumbers, "%1.%2.", false)));
+    // Word reads the same Thai formats back.
+    let back = wordcraft_docx::read(&wordcraft_docx::write(&s.doc).unwrap()).unwrap();
+    let path = back.para_paths(StoryRef::Body).into_iter().next().unwrap();
+    let p = back.para(StoryRef::Body, &path).and_then(|p| p.props.numbering).unwrap();
+    assert_eq!(back.numbering.level(p.num, 1).map(|l| (l.format, l.text.as_str())), Some((NumFormat::ThaiNumbers, "%1.%2.")));
+}
+
+#[test]
 fn replace_all_splits_paragraphs_at_a_paragraph_mark_in_the_replacement() {
     // Issue #423: untracked Replace All left `\r` in the paragraph instead of splitting it.
     for with in ["A\rB", "A\u{2029}B"] {

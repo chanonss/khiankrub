@@ -7,6 +7,22 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-24
 
+### Thai lists from the menus
+- Thai numbering can now be made in KhianKrub itself, not only shown from Word files (see "Thai list numbers and
+  letters", 2026-10-22):
+  - **Home › Numbering** has ๑. ๒. ๓. (`thaiNumbers`), ก. ข. ค. (`thaiLetters`) and หนึ่ง. สอง. สาม.
+    (`thaiCounting`). Deeper levels go on in Thai: ๑. then ก., ก. then ๑., หนึ่ง. then ๑. then ก.
+  - **Home › Multilevel List** has ๑. ๑.๑. ๑.๑.๑., every level in Thai digits, and ๑. ก. (๑) (ก). The first is
+    not Word's legal numbering (`isLgl`), which would show the levels it repeats in Arabic digits.
+  - **Define New Multilevel List › Number style for this level** offers ๑, ๒, ๓, … / ก, ข, ค, … / หนึ่ง, สอง, สาม, ….
+- Choosing another numbering style on a list now switches it. Before, ๑. (or A., i.) on a "1." list removed the
+  numbering, because every one of them reads "%1."; a style now matches a list only when its number format matches
+  too.
+- Saved files keep the Thai formats, so Word shows the same labels. Tests: `thai_list_kinds_number_in_thai`
+  (`crates/doc/src/numbering.rs`) and `thai_numbering_and_multilevel_lists_apply_switch_and_save_to_word`
+  (`crates/engine/src/tests.rs`).
+- Not changed: Insert › Page Number › Format Page Numbers does not offer the Thai formats yet.
+
 ### README: Windows download
 - The README offers KhianKrub for Mac and Windows: a "Download for Windows (64-bit)" link at the top, a Windows part
   in "Download and install" (the MSI, More info › Run anyway, the portable zip, in English and Thai) and how to build

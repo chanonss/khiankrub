@@ -1278,12 +1278,20 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                         mi(ui, app, l, "para.numbering", json!({"kind": k}));
                     }
                     ui.separator();
+                    // Word's three Thai number formats.
+                    let thai = [("๑. ๒. ๓.", "thaiNumbers"), ("ก. ข. ค.", "thaiLetters"), ("หนึ่ง. สอง. สาม.", "thaiCounting")];
+                    for (l, k) in thai {
+                        mi(ui, app, l, "para.numbering", json!({"kind": k}));
+                    }
+                    ui.separator();
                     mi(ui, app, "Restart at 1", "para.restartNumbering", json!({}));
                     mi(ui, app, "None", "para.numbering", json!({"off": true}));
                 });
                 split(ui, app, "multilevel", "Multilevel List", "para.multilevel", json!({}), lists.multilevel, None, |ui, app| {
                     mi(ui, app, "1. 1.1. 1.1.1.", "para.multilevel", json!({"kind": "legal"}));
                     mi(ui, app, "I. A. 1. a.", "para.multilevel", json!({"kind": "outline"}));
+                    mi(ui, app, "๑. ๑.๑. ๑.๑.๑.", "para.multilevel", json!({"kind": "thaiLegal"}));
+                    mi(ui, app, "๑. ก. (๑) (ก)", "para.multilevel", json!({"kind": "thaiOutline"}));
                     ui.separator();
                     mi(ui, app, "Define New Multilevel List…", "list.define", json!({}));
                     ui.separator();
