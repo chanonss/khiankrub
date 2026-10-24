@@ -480,26 +480,32 @@ fn apply_style(s: &mut Session, v: &Value) -> CmdResult {
     if a.path == b.path || a == b {
         let paths = s.doc.paths_between(&a, &b);
         for path in paths {
-            let para = s.doc.para_mut(a.story, &path)?;
-            let len = para.len();
-            para.format(0, len, &|c| {
-                c.font = None;
-                c.font_cs = None;
-                c.font_ea = None;
-                c.size = None;
-                c.size_cs = None;
-                c.color = None;
-            })?;
-            para.mark.font = None;
-            para.mark.font_cs = None;
-            para.mark.font_ea = None;
-            para.mark.size = None;
-            para.mark.size_cs = None;
-            para.mark.color = None;
+            clear_direct_font(s.doc.para_mut(a.story, &path)?)?;
         }
     }
     s.pending = None;
     sel_result(s)
+}
+
+/// The direct font, size and colour of a paragraph's text and mark go, so a paragraph style just
+/// given to it shows (applying a style, or a list level linked to one).
+pub(crate) fn clear_direct_font(para: &mut wordcraft_doc::Paragraph) -> Result<(), CmdError> {
+    let len = para.len();
+    para.format(0, len, &|c| {
+        c.font = None;
+        c.font_cs = None;
+        c.font_ea = None;
+        c.size = None;
+        c.size_cs = None;
+        c.color = None;
+    })?;
+    para.mark.font = None;
+    para.mark.font_cs = None;
+    para.mark.font_ea = None;
+    para.mark.size = None;
+    para.mark.size_cs = None;
+    para.mark.color = None;
+    Ok(())
 }
 
 fn list(s: &mut Session, v: &Value, default: ListKind) -> CmdResult {

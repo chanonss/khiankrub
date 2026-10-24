@@ -203,6 +203,46 @@ fn backspace_at_the_start_of_an_item_removes_the_number_then_the_indent() {
     assert_eq!(paras(&s), vec![para("One", Some(0)), para("|Two", None)]);
 }
 
+/// KhianKrub: a heading numbered through a list level linked to its style. Backspace at its start
+/// takes the number off and makes it Normal in one press (Word keeps the heading style), and is
+/// not joined to the paragraph above. Delete in an empty numbered paragraph takes its number off
+/// instead of pulling the next paragraph up.
+#[test]
+fn backspace_and_delete_take_a_list_number_off() {
+    let mut s = s();
+    s.set_document(wordcraft_doc::Document::from_text("Intro\nMethods\nText"));
+    run(&mut s, "select.text", json!({"text": "Methods"}));
+    run(&mut s, "list.define", json!({"levels": [{"format": "decimal", "text": "%1.", "style": "Heading1"}]}));
+    let style = |s: &Session, i: usize| s.doc.para(StoryRef::Body, &wordcraft_doc::Path::top(i)).unwrap().props.style.clone();
+    assert_eq!(style(&s, 1).as_deref(), Some("Heading1"));
+    s.sel = crate::Selection::caret(Pos::body(1, 0));
+    typ(&mut s, "\u{8}");
+    assert_eq!(style(&s, 1), None, "Normal again");
+    assert_eq!(s.doc.styles.resolve_para(&s.doc.para(StoryRef::Body, &wordcraft_doc::Path::top(1)).unwrap().props).numbering, None);
+    assert_eq!(s.doc.plain_text(StoryRef::Body), "Intro\nMethods\nText", "not joined to Intro");
+    // An empty item, Delete: number off, Text stays its own paragraph.
+    let mut s = typed("* One\n");
+    run(&mut s, "caret.docEnd", json!({}));
+    s.run("text.delete", &json!({})).unwrap();
+    assert_eq!(paras(&s)[1].1, None, "the empty paragraph has no number");
+}
+
+/// Linking a level to a style gives the paragraph the style's look even when its text carries its
+/// own font and size (as a Thai document's often does): those go, as with a style from the gallery.
+#[test]
+fn a_linked_style_shows_over_direct_font() {
+    let mut s = s();
+    s.set_document(wordcraft_doc::Document::from_text("บทที่ 1"));
+    run(&mut s, "select.all", json!({}));
+    run(&mut s, "format.font", json!({"name": "TH SarabunPSK"}));
+    run(&mut s, "format.size", json!({"size": 16}));
+    run(&mut s, "list.define", json!({"levels": [{"format": "decimal", "text": "%1.", "style": "Heading1"}]}));
+    let p = s.doc.para(StoryRef::Body, &wordcraft_doc::Path::top(0)).unwrap();
+    let c = s.doc.styles.resolve_char(p.props.style.as_deref(), p.props_of_char(0));
+    let h1 = s.doc.styles.resolve_char(Some("Heading1"), &Default::default());
+    assert_eq!((c.font, c.size), (h1.font, h1.size), "the text looks like Heading 1");
+}
+
 #[test]
 fn backspace_on_an_empty_item_keeps_the_paragraph() {
     let s = typed("* One\n\u{8}Z");

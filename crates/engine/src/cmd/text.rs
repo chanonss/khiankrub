@@ -678,6 +678,12 @@ fn backspace_inner(s: &mut Session, _: &Value) -> CmdResult {
         return sel_result(s);
     }
     // At the start of a paragraph.
+    if style_numbered(s, para) {
+        // Numbered through its style (a heading linked to a list level): the number goes, and
+        // the paragraph is Normal again, as KhianKrub's users expect (Word keeps the heading).
+        drop_style_list(s.doc.para_mut(f.story, &f.path)?);
+        return sel_result(s);
+    }
     if para.props.numbering.is_some_and(|n| n.num != 0) {
         // First Backspace removes the number but keeps the item's indent (Word): the text stays
         // where it was, so the indent becomes the paragraph's own (`num: 0` alone drops it).
@@ -758,6 +764,18 @@ fn delete_inner(s: &mut Session, _: &Value) -> CmdResult {
     }
     let f = s.sel.focus.clone();
     let Some(para) = s.doc.para_at(&f) else { return sel_result(s) };
+    // Delete in an empty numbered paragraph takes the number off, instead of pulling the next
+    // paragraph up into the list.
+    if para.is_empty() && !s.doc.settings.track_changes {
+        if style_numbered(s, para) {
+            drop_style_list(s.doc.para_mut(f.story, &f.path)?);
+            return sel_result(s);
+        }
+        if para.props.numbering.is_some_and(|n| n.num != 0) {
+            super::leave_list(s.doc.para_mut(f.story, &f.path)?);
+            return sel_result(s);
+        }
+    }
     if f.off < para.len() {
         let b = Pos { off: para.next_boundary(f.off), ..f.clone() };
         s.sel = Selection { anchor: f, focus: b };
@@ -794,6 +812,22 @@ fn delete_inner(s: &mut Session, _: &Value) -> CmdResult {
         }
     }
     sel_result(s)
+}
+
+/// A paragraph numbered by its style (a list level linked to it), not by a number of its own.
+fn style_numbered(s: &Session, para: &wordcraft_doc::Paragraph) -> bool {
+    para.props.numbering.is_none() && s.doc.styles.resolve_para(&para.props).numbering.is_some_and(|n| n.num != 0)
+}
+
+/// Out of a list its style numbers: back to Normal, with no number or list indent.
+fn drop_style_list(para: &mut wordcraft_doc::Paragraph) {
+    para.props.style = None;
+    para.props.numbering = None;
+    para.props.indent_left = None;
+    para.props.indent_first = None;
+    para.props.indent_left_chars = None;
+    para.props.indent_first_chars = None;
+    para.touch();
 }
 
 fn delete_word_back(s: &mut Session, v: &Value) -> CmdResult {

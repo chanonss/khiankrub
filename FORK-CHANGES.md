@@ -7,6 +7,19 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Linked heading style shows on the text; Backspace and Delete take a list number off
+- **Link level to style, again:** the paragraph given the linked style (Heading 1) now also loses its direct font,
+  size and colour, as when a style is applied from the Styles gallery. Thai documents often carry their font and size
+  directly on the text (TH SarabunPSK 16), which kept the heading's look from showing although the style was set.
+  Test: `a_linked_style_shows_over_direct_font`.
+- **Backspace at the start of a heading numbered by its style** (a list level linked to it) takes the number off and
+  makes the paragraph Normal in one press. Before, the number was missed (it isn't the paragraph's own) and Backspace
+  joined the heading to the paragraph above. Word keeps the heading style here; KhianKrub returns to Normal as its
+  users expect. Backspace at the start of an ordinary list item is unchanged (number off, then the indent).
+- **Delete in an empty numbered paragraph** takes the number off instead of pulling the next paragraph up into the
+  list. Test: `backspace_and_delete_take_a_list_number_off`. (Typing changes are recorded here; the original's
+  `docs/typing-parity.md` is not edited in this fork.)
+
 ### Define New Multilevel List: linked styles, the number's font, My Lists
 - **Link level to style** now works as in Word: OK gives the selected paragraph the style its level is linked to (a
   level linked to Heading 1 makes the paragraph a Heading 1, so its text takes the heading's look), and its number

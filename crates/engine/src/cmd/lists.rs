@@ -219,6 +219,12 @@ fn define(s: &mut Session, v: &Value) -> CmdResult {
             .iter()
             .map(|l| l.style.as_deref().map(|st| s.doc.styles.find(st).map(|x| x.id.clone()).unwrap_or_else(|| st.to_string())))
             .collect();
+        // The selected paragraphs' styles before: those given a linked style below lose their
+        // direct font, size and colour, as with a style applied from the gallery, so the text
+        // takes the style's look (a Thai document's text often carries its font directly).
+        let story = s.sel.focus.story;
+        let paths = super::selected_paths(s);
+        let before: Vec<Option<String>> = paths.iter().map(|p| s.doc.para(story, p).and_then(|x| x.props.style.clone())).collect();
         super::para::fmt(s, &|pp| {
             // A paragraph in a style a level is linked to is numbered by that style, at its level.
             if pp.style.as_ref().is_some_and(|st| level_style.iter().flatten().any(|l| l == st)) {
@@ -247,6 +253,12 @@ fn define(s: &mut Session, v: &Value) -> CmdResult {
                 pp.style = Some("ListParagraph".into());
             }
         })?;
+        for (path, was) in paths.iter().zip(before) {
+            let para = s.doc.para_mut(story, path)?;
+            if para.props.style != was && para.props.style.as_ref().is_some_and(|st| level_style.iter().flatten().any(|l| l == st)) {
+                super::para::clear_direct_font(para)?;
+            }
+        }
     }
     let mut r = sel_result(s)?;
     r["num"] = json!(num);
