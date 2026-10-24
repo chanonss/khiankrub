@@ -480,7 +480,8 @@ pub fn style_edit_preview(
         base.styles = doc.styles.clone();
         base.numbering = doc.numbering.clone();
         edit(&mut base.styles);
-        let sample = "AaBbCcYyZz ภาษาไทย สวัสดีครับ AaBbCcYyZz ภาษาไทย สวัสดีครับ AaBbCcYyZz ภาษาไทย";
+        // One line, so a bottom border or the space below shows too.
+        let sample = "AaBbCcYyZz ภาษาไทย สวัสดีครับ";
         let mut p = if character {
             Paragraph::with_text(sample, CharProps { style: Some(id.to_string()), ..CharProps::default() })
         } else {

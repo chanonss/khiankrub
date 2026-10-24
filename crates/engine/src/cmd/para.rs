@@ -199,7 +199,7 @@ pub fn specs() -> Vec<CommandSpec> {
         .pure(),
         CommandSpec::new("styles.create", "Create a Style", "Home › Styles", create_style).params(r#"{"name": string, "basedOn"?: string, "fromSelection"?: bool}"#),
         CommandSpec::new("styles.modify", "Modify Style", "Home › Styles", modify_style)
-            .params(r#"{"style": string, "chr"?: CharProps, "para"?: ParaProps, "name"?: string, "next"?: string, "basedOn"?: style | null}"#),
+            .params(r#"{"style": string, "chr"?: CharProps, "para"?: ParaProps, "name"?: string, "next"?: string, "basedOn"?: style | null, "list"?: {"num": list id} | {"kind": "legal|outline|thaiLegal|thaiOutline"} (a new one) | null (none), "listLevel"?: 0-8, "clear"?: ["shading"|"borders"]}"#),
         CommandSpec::new("styles.updateToMatch", "Update Style to Match Selection", "Home › Styles", update_to_match).params(r#"{"style"?: string}"#),
         CommandSpec::new("styles.delete", "Delete Style", "Home › Styles", delete_style).params(r#"{"style": string (name or id; custom styles only)}"#),
         CommandSpec::new("styles.manage", "Manage Styles", "Home › Styles", |s, v| {
@@ -998,9 +998,48 @@ fn modify_style(s: &mut Session, v: &Value) -> CmdResult {
         c.italic_cs = c.italic_cs.or(c.italic);
         c
     });
+    // Numbering for the style: a list of the document's, a new multilevel list, or none. The
+    // level gets linked back to the style, as Define New Multilevel List's Link level to style does.
+    let level = p::u64(v, "listLevel").unwrap_or(0).min(8) as u8;
+    let numbering = match v.get("list") {
+        None => None,
+        Some(Value::Null) => Some(None),
+        Some(l) => {
+            let num = if let Some(n) = l.get("num").and_then(Value::as_u64) {
+                let n = n.min(u32::MAX as u64) as u32;
+                s.doc.numbering.num(n).ok_or_else(|| CmdError::Params("no such list".into()))?;
+                n
+            } else {
+                let kind = l
+                    .get("kind")
+                    .and_then(Value::as_str)
+                    .and_then(ListKind::parse)
+                    .ok_or_else(|| CmdError::Params("`list` needs `num` or `kind`".into()))?;
+                s.doc.numbering.try_add_list(kind)?
+            };
+            if let Some(aid) = s.doc.numbering.num(num).map(|n| n.abstract_id)
+                && let Some(lv) = s.doc.numbering.abstracts.iter_mut().find(|a| a.id == aid).and_then(|a| a.levels.get_mut(level as usize))
+            {
+                lv.style = Some(id.clone());
+            }
+            Some(Some(NumRef { num, level }))
+        }
+    };
+    let clear: Vec<String> =
+        v.get("clear").and_then(Value::as_array).map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default();
     let st = s.doc.styles.get_mut(&id).ok_or_else(|| CmdError::Params("no such style".into()))?;
     if let Some(c) = chr {
         st.chr.overlay(&c);
+    }
+    if let Some(n) = numbering {
+        st.para.numbering = n;
+    }
+    for c in &clear {
+        match c.as_str() {
+            "shading" => st.para.shading = None,
+            "borders" => st.para.borders = None,
+            _ => {}
+        }
     }
     if let Some(pp) = para {
         st.para.overlay(&pp);

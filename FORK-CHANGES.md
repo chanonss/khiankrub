@@ -7,6 +7,19 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Modify Style with pages (round 2)
+- Three more pages in Modify Style:
+  - **Text Flow:** Widow/Orphan control, Keep with next, Keep lines together, Page break before.
+  - **Borders & Shading:** the sides with a line (Top, Bottom, Left, Right, Between paragraphs; None and Box set
+    them at once), the line's style (Single, Double, Dotted, Dashed, Thick, Dot dash), width and colour; the
+    shading fill, or No Color. The sides left off are set off, so a base style's borders don't show through.
+  - **Numbering:** number the style's paragraphs with one of the document's lists, a new multilevel list
+    (1. 1.1. 1.1.1., I. A. 1. a., ๑. ๑.๑. ๑.๑.๑., ๑. ก. (๑) (ก)) or none, at a chosen level. The level is linked to
+    the style, as Link level to style does from the list's side.
+- `styles.modify` takes `list` (`{"num"}`, `{"kind"}` or null), `listLevel` and `clear` (`shading`, `borders`).
+- The preview's sample is one line, so a bottom border shows under it.
+- Test: `flow_borders_and_numbering_reach_the_style`.
+
 ### Modify Style with pages (round 1)
 - **Modify Style** is a larger window with a list of pages on the left and a live preview below
   (`crates/ui-egui/src/dialogs_style.rs`), after the layout of LibreOffice's style dialog (the idea only; no code):
@@ -24,7 +37,6 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 - `styles.modify` takes `basedOn` (a style or null) and refuses a base that is based on the style itself.
 - Tests: `the_font_page_sets_thai_text_apart`, `indents_alignment_and_base_reach_the_style`;
   `modify_style_font_box_finds_the_family` opens the Font page.
-- Round 2 to come: Text Flow, Borders & Shading, Numbering.
 
 ### Modify Style sizes reach Thai text
 - **Modify Style** (and `styles.modify`) now sets the style's size, Bold and Italic for complex-script (Thai) text

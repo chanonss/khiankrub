@@ -1,5 +1,6 @@
 //! Modify Style (Home › Styles, Manage Styles, the Styles pane, Table of Contents › Modify…): a
-//! window with a list of pages on the left — General, Font, Indents & Spacing, Alignment — and a
+//! window with a list of pages on the left — General, Font, Indents & Spacing, Alignment, Text Flow,
+//! Borders & Shading, Numbering — and a
 //! preview of the style as the boxes leave it. OK sends everything as one `styles.modify`.
 //!
 //! The Font page sets Latin and Thai (complex script) text side by side: Word keeps a separate
@@ -19,7 +20,23 @@ use crate::theme::semibold;
 use crate::widgets::SteadyUi;
 
 /// The pages, in order: (id, name). A character style has only the first two.
-const PAGES: [(&str, &str); 4] = [("general", "General"), ("font", "Font"), ("indents", "Indents & Spacing"), ("alignment", "Alignment")];
+const PAGES: [(&str, &str); 7] = [
+    ("general", "General"),
+    ("font", "Font"),
+    ("indents", "Indents & Spacing"),
+    ("alignment", "Alignment"),
+    ("flow", "Text Flow"),
+    ("borders", "Borders & Shading"),
+    ("numbering", "Numbering"),
+];
+
+/// Border line styles offered: (OOXML name, label).
+const LINES: [(&str, &str); 6] =
+    [("single", "Single"), ("double", "Double"), ("dotted", "Dotted"), ("dashed", "Dashed"), ("thick", "Thick"), ("dotDash", "Dot dash")];
+
+/// New multilevel lists a style can be numbered with: (`list.kind`, sample).
+const NEW_LISTS: [(&str, &str); 4] =
+    [("legal", "1. 1.1. 1.1.1."), ("outline", "I. A. 1. a."), ("thaiLegal", "๑. ๑.๑. ๑.๑.๑."), ("thaiOutline", "๑. ก. (๑) (ก)")];
 
 const ALIGNS: [(&str, &str); 6] = [
     ("left", "Left"),
@@ -73,6 +90,30 @@ pub struct StyleForm {
     // Alignment.
     pub align: String,
     pub rtl: bool,
+    // Text Flow.
+    pub widow: bool,
+    pub keep_next: bool,
+    pub keep_lines: bool,
+    pub page_break: bool,
+    // Borders & Shading: the sides with a line, and that line.
+    pub border_top: bool,
+    pub border_bottom: bool,
+    pub border_left: bool,
+    pub border_right: bool,
+    pub border_between: bool,
+    pub border_style: String,
+    /// Points.
+    pub border_width: f32,
+    pub border_color: String,
+    /// `RRGGBB`, or empty for none.
+    pub shading: String,
+    // Numbering: `""` none, `num:<id>` a list of the document's, `kind:<legal…>` a new one.
+    pub list: String,
+    /// 1-based.
+    pub list_level: u8,
+    /// The document's lists: (`num:<id>`, how it numbers).
+    #[serde(skip)]
+    pub lists: Vec<(String, String)>,
     /// Paragraph styles to base on and follow with: (id, name).
     #[serde(skip)]
     pub styles: Vec<(String, String)>,
@@ -127,6 +168,26 @@ impl StyleForm {
             LineSpacing::Exactly(x) => ("exactly", x),
         };
         let kind = if character { StyleKind::Character } else { StyleKind::Paragraph };
+        let bs = rp.borders.unwrap_or_default();
+        let shown = |b: Option<wordcraft_doc::props::Border>| b.is_some_and(|b| b.is_visible());
+        let first_border = [bs.top, bs.bottom, bs.left, bs.right, bs.between].into_iter().flatten().find(|b| b.is_visible());
+        // The document's numbered lists, one per definition, with how they number.
+        let doc = &app.session.doc;
+        let mut lists = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        for n in &doc.numbering.nums {
+            if !seen.insert(n.abstract_id) {
+                continue;
+            }
+            let Some(levels) = wordcraft_engine::cmd::lists::levels_of(&app.session, n.id) else { continue };
+            if levels.first().is_none_or(|l| l.format == wordcraft_doc::section::NumFormat::Bullet) {
+                continue;
+            }
+            let levels = Value::Array(levels.iter().map(wordcraft_engine::cmd::lists::level_json).collect());
+            let sample = crate::dialogs_lists::SavedList { name: String::new(), levels }.sample();
+            let name = doc.numbering.abstracts.iter().find(|a| a.id == n.abstract_id).and_then(|a| a.name.clone());
+            lists.push((format!("num:{}", n.id), name.map_or(sample.clone(), |nm| format!("{nm}   {sample}"))));
+        }
         let mut styles: Vec<(String, String)> =
             sheet.styles.iter().filter(|s| s.kind == kind && !s.hidden && s.id != id).map(|s| (s.id.clone(), s.name.clone())).collect();
         styles.sort_by(|a, b| a.1.cmp(&b.1));
@@ -166,6 +227,22 @@ impl StyleForm {
             contextual: rp.contextual_spacing,
             align: align_name(rp.align).into(),
             rtl: rp.bidi,
+            widow: rp.widow_control,
+            keep_next: rp.keep_next,
+            keep_lines: rp.keep_lines,
+            page_break: rp.page_break_before,
+            border_top: shown(bs.top),
+            border_bottom: shown(bs.bottom),
+            border_left: shown(bs.left),
+            border_right: shown(bs.right),
+            border_between: shown(bs.between),
+            border_style: first_border.map_or("single".to_string(), |b| b.style.ooxml().to_string()),
+            border_width: first_border.map_or(0.5, |b| b.width),
+            border_color: first_border.and_then(|b| b.color).map_or("auto".to_string(), |c| c.hex()),
+            shading: rp.shading.map(|c| c.hex()).unwrap_or_default(),
+            list: rp.numbering.filter(|n| n.num != 0).map(|n| format!("num:{}", n.num)).unwrap_or_default(),
+            list_level: rp.numbering.filter(|n| n.num != 0).map_or(1, |n| n.level.min(8) + 1),
+            lists,
             styles,
             start: None,
         };
@@ -242,8 +319,47 @@ impl StyleForm {
             space_after: ch(|f| f.after.to_bits()).then_some(self.after.clamp(0.0, 1584.0)),
             line_spacing: self.changed(|f| (f.line_rule.clone(), f.line.to_bits())).then_some(line),
             contextual_spacing: self.changed(|f| f.contextual).then_some(self.contextual),
+            widow_control: self.changed(|f| f.widow).then_some(self.widow),
+            keep_next: self.changed(|f| f.keep_next).then_some(self.keep_next),
+            keep_lines: self.changed(|f| f.keep_lines).then_some(self.keep_lines),
+            page_break_before: self.changed(|f| f.page_break).then_some(self.page_break),
+            borders: self.borders_changed().then(|| self.borders()),
+            shading: wordcraft_doc::Rgb::parse(&self.shading).filter(|_| self.changed(|f| f.shading.clone())),
             ..Default::default()
         })
+    }
+
+    fn borders_changed(&self) -> bool {
+        self.changed(|f| {
+            (
+                [f.border_top, f.border_bottom, f.border_left, f.border_right, f.border_between],
+                f.border_style.clone(),
+                f.border_width.to_bits(),
+                f.border_color.clone(),
+            )
+        })
+    }
+
+    /// The sides with a line, each that line; the others explicitly off (so a base style's
+    /// borders don't show through).
+    fn borders(&self) -> wordcraft_doc::props::Borders {
+        use wordcraft_doc::props::{Border, BorderStyle};
+        let color = if self.border_color.trim().eq_ignore_ascii_case("auto") { None } else { wordcraft_doc::Rgb::parse(&self.border_color) };
+        let line = |on: bool, space: f32| {
+            Some(if on {
+                Border { style: BorderStyle::from_ooxml(&self.border_style), width: self.border_width.clamp(0.25, 6.0), color, space }
+            } else {
+                Border { style: BorderStyle::None, width: 0.0, color: None, space: 0.0 }
+            })
+        };
+        wordcraft_doc::props::Borders {
+            top: line(self.border_top, 1.0),
+            bottom: line(self.border_bottom, 1.0),
+            left: line(self.border_left, 4.0),
+            right: line(self.border_right, 4.0),
+            between: line(self.border_between, 1.0),
+            inside_v: None,
+        }
     }
 
     /// `styles.modify` parameters for everything in the form.
@@ -258,6 +374,19 @@ impl StyleForm {
             v["para"] = serde_json::to_value(p).unwrap_or(Value::Null);
             if !self.next.is_empty() {
                 v["next"] = json!(self.next);
+            }
+            if self.changed(|f| f.shading.clone()) && self.shading.trim().is_empty() {
+                v["clear"] = json!(["shading"]);
+            }
+            if self.changed(|f| (f.list.clone(), f.list_level)) {
+                v["listLevel"] = json!(self.list_level.clamp(1, 9) - 1);
+                v["list"] = if let Some(n) = self.list.strip_prefix("num:").and_then(|n| n.parse::<u64>().ok()) {
+                    json!({"num": n})
+                } else if let Some(k) = self.list.strip_prefix("kind:") {
+                    json!({"kind": k})
+                } else {
+                    Value::Null
+                };
             }
         }
         v
@@ -290,6 +419,9 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) -> bool {
                 "font" => font_page(app, ui, f),
                 "indents" if !f.character => indents_page(ui, f),
                 "alignment" if !f.character => alignment_page(ui, f),
+                "flow" if !f.character => flow_page(ui, f),
+                "borders" if !f.character => borders_page(app, ui, f),
+                "numbering" if !f.character => numbering_page(ui, f),
                 _ => general_page(ui, f),
             }
         });
@@ -499,6 +631,93 @@ fn indents_page(ui: &mut Ui, f: &mut StyleForm) {
     ui.checkbox(&mut f.contextual, tl!("Don't add space between paragraphs of the same style"));
 }
 
+fn flow_page(ui: &mut Ui, f: &mut StyleForm) {
+    heading(ui, "Pagination");
+    ui.checkbox(&mut f.widow, tl!("Widow/Orphan control"));
+    ui.checkbox(&mut f.keep_next, tl!("Keep with next"));
+    ui.checkbox(&mut f.keep_lines, tl!("Keep lines together"));
+    ui.checkbox(&mut f.page_break, tl!("Page break before"));
+}
+
+fn borders_page(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) {
+    heading(ui, "Borders");
+    ui.horizontal(|ui| {
+        if ui.button(tl!("None")).clicked() {
+            (f.border_top, f.border_bottom, f.border_left, f.border_right, f.border_between) = (false, false, false, false, false);
+        }
+        if ui.button(tl!("Box")).clicked() {
+            (f.border_top, f.border_bottom, f.border_left, f.border_right) = (true, true, true, true);
+        }
+    });
+    egui::Grid::new("ms_sides").num_columns(3).spacing(vec2(16.0, 6.0)).show(ui, |ui| {
+        ui.checkbox(&mut f.border_top, tl!("Top"));
+        ui.checkbox(&mut f.border_bottom, tl!("Bottom"));
+        ui.checkbox(&mut f.border_between, tl!("Between paragraphs"));
+        ui.end_row();
+        ui.checkbox(&mut f.border_left, tl!("Left"));
+        ui.checkbox(&mut f.border_right, tl!("Right"));
+        ui.end_row();
+    });
+    egui::Grid::new("ms_line").num_columns(2).spacing(vec2(10.0, 8.0)).show(ui, |ui| {
+        ui.label(tl!("Style:"));
+        let shown = LINES.iter().find(|(k, _)| *k == f.border_style).map_or(f.border_style.clone(), |(_, l)| tl!(l).to_string());
+        egui::ComboBox::from_id_salt("ms_line_style").selected_text(shown).show_ui(ui, |ui| {
+            for (k, l) in LINES {
+                ui.steady_value(&mut f.border_style, k.to_string(), tl!(l));
+            }
+        });
+        ui.end_row();
+        ui.label(tl!("Width (pt):"));
+        ui.add(crate::numfield::NumField::new(&mut f.border_width).range(0.25..=6.0).speed(0.25).max_decimals(2));
+        ui.end_row();
+        ui.label(tl!("Color:"));
+        let theme = app.session.doc.settings.theme_colors.clone();
+        crate::dialogs::color_field(ui, &theme, &mut f.border_color, "Automatic", "auto");
+        ui.end_row();
+    });
+    heading(ui, "Shading");
+    egui::Grid::new("ms_shade").num_columns(2).spacing(vec2(10.0, 8.0)).show(ui, |ui| {
+        ui.label(tl!("Fill:"));
+        let theme = app.session.doc.settings.theme_colors.clone();
+        crate::dialogs::color_field(ui, &theme, &mut f.shading, "No Color", "");
+        ui.end_row();
+    });
+}
+
+fn numbering_page(ui: &mut Ui, f: &mut StyleForm) {
+    heading(ui, "Numbering");
+    ui.label(tl!("Number paragraphs in this style with:"));
+    let shown = if f.list.is_empty() {
+        tl!("(no numbering)").to_string()
+    } else if let Some(k) = f.list.strip_prefix("kind:") {
+        NEW_LISTS.iter().find(|(x, _)| *x == k).map_or(k.to_string(), |(_, s)| crate::i18n::fmt(tl!("New list: {sample}"), &[("sample", s)]))
+    } else {
+        f.lists.iter().find(|(id, _)| *id == f.list).map_or(f.list.clone(), |(_, s)| s.clone())
+    };
+    egui::ComboBox::from_id_salt("ms_list").selected_text(shown).width(360.0).show_ui(ui, |ui| {
+        ui.steady_value(&mut f.list, String::new(), tl!("(no numbering)"));
+        for (id, sample) in &f.lists {
+            ui.steady_value(&mut f.list, id.clone(), sample);
+        }
+        for (k, sample) in NEW_LISTS {
+            ui.steady_value(&mut f.list, format!("kind:{k}"), crate::i18n::fmt(tl!("New list: {sample}"), &[("sample", sample)]));
+        }
+    });
+    ui.add_space(6.0);
+    ui.add_enabled_ui(!f.list.is_empty(), |ui| {
+        ui.horizontal(|ui| {
+            ui.label(tl!("Level:"));
+            egui::ComboBox::from_id_salt("ms_list_level").selected_text(f.list_level.to_string()).show_ui(ui, |ui| {
+                for l in 1..=9u8 {
+                    ui.steady_value(&mut f.list_level, l, l.to_string());
+                }
+            });
+        });
+    });
+    ui.add_space(6.0);
+    ui.label(egui::RichText::new(tl!("The level is linked to this style, as Define New Multilevel List's Link level to style does.")).small().weak());
+}
+
 fn alignment_page(ui: &mut Ui, f: &mut StyleForm) {
     heading(ui, "Alignment");
     for (v, l) in ALIGNS {
@@ -543,6 +762,47 @@ mod tests {
         a.run("styles.modify", sent).unwrap();
         let h = a.session.doc.styles.resolve_char(Some("Heading1"), &Default::default());
         assert_eq!((h.size, h.size_cs), (18.0, 18.0));
+    }
+
+    /// Round 2's pages: Text Flow's boxes, a double bottom border with yellow shading (and No
+    /// Color taking the shading off again), and a new ๑. ๑.๑. list for Heading 1 that numbers its
+    /// paragraphs, with the level linked back to the style.
+    #[test]
+    fn flow_borders_and_numbering_reach_the_style() {
+        let mut a = app();
+        a.run("styles.apply", json!({"style": "Heading 1"})).unwrap();
+        let mut f = StyleForm::read(&a, "Heading1").unwrap();
+        f.keep_next = false;
+        f.page_break = true;
+        f.border_bottom = true;
+        f.border_style = "double".into();
+        f.border_width = 1.5;
+        f.shading = "FFFF00".into();
+        f.list = "kind:thaiLegal".into();
+        f.list_level = 1;
+        a.run("styles.modify", f.params()).unwrap();
+        let rp = a.session.doc.styles.resolve_para(&wordcraft_doc::ParaProps { style: Some("Heading1".into()), ..Default::default() });
+        assert_eq!((rp.keep_next, rp.page_break_before), (false, true));
+        let b = rp.borders.unwrap().bottom.unwrap();
+        assert_eq!((b.style, b.width), (wordcraft_doc::props::BorderStyle::Double, 1.5));
+        assert!(rp.borders.unwrap().top.is_some_and(|t| !t.is_visible()), "the other sides are off");
+        assert_eq!(rp.shading, wordcraft_doc::Rgb::parse("FFFF00"));
+        let n = rp.numbering.expect("numbered by the style");
+        assert_eq!(n.level, 0);
+        let lv = wordcraft_engine::cmd::lists::levels_of(&a.session, n.num).unwrap();
+        assert_eq!(lv[0].style.as_deref(), Some("Heading1"), "the level is linked to the style");
+        let label = a.session.layout().pages[0].items.iter().find_map(|i| match i {
+            wordcraft_layout::Placed::Lines { para, .. } => para.label.as_ref().map(|l| l.text.clone()),
+            _ => None,
+        });
+        assert_eq!(label.as_deref(), Some("๑."));
+        // Opened again: the list shows; No Color takes the shading off.
+        let mut g = StyleForm::read(&a, "Heading1").unwrap();
+        assert_eq!(g.list, format!("num:{}", n.num));
+        g.shading.clear();
+        a.run("styles.modify", g.params()).unwrap();
+        let rp = a.session.doc.styles.resolve_para(&wordcraft_doc::ParaProps { style: Some("Heading1".into()), ..Default::default() });
+        assert_eq!(rp.shading, None);
     }
 
     /// Indents & Spacing, Alignment and General: a hanging indent, line spacing exactly 20 pt,
