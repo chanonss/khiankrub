@@ -1,7 +1,8 @@
 # KhianKrub: build the release files for a tag (`v0.7.3`, or a test tag such as `v0.7.3-test1`) on
 # GitHub's runners and attach them to that tag's release:
 #   - Windows: the installer and portable zip (`packaging/windows/package.ps1 -Arch x64`)
-#   - Mac: KhianKrub-<version>-macos-apple-silicon.zip (`packaging/macos/local-app.sh`, zipped with ditto)
+#   - Mac: KhianKrub-<version>-macos-universal.zip, one app for Apple silicon and Intel Macs
+#     (`packaging/macos/local-app.sh --universal`, zipped with ditto)
 # A tag with no release yet gets a draft release; its notes and publishing are done by hand. The
 # files are unsigned (no signing secrets; the Mac app is ad-hoc signed), as the hand-built ones
 # were. Started by hand from the Actions tab, it can build one platform only.
@@ -104,7 +105,7 @@ jobs:
           gh release upload $env:TAG --repo $env:GITHUB_REPOSITORY --clobber @files
           if ($LASTEXITCODE -ne 0) { throw "attaching the files to $env:TAG failed" }
 
-  macos-arm64:
+  macos-universal:
     needs: draft
     if: inputs.platforms != 'windows'
     runs-on: macos-latest
@@ -116,33 +117,43 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          key: macos-release
+          key: macos-universal
 
-      # The same steps as a hand-made Mac release (HANDOFF.md section 3).
-      - name: Build the app
+      # The same steps as a hand-made Mac release (HANDOFF.md section 3). Keep the deployment target
+      # in step with LSMinimumSystemVersion in Info.plist.in.
+      - name: Build the app (Apple silicon and Intel)
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '11.0'
         run: |
-          cargo build --release --locked -p wordcraft
-          packaging/macos/local-app.sh "$RUNNER_TEMP/out/KhianKrub.app"
+          cargo build --release --locked -p wordcraft --target aarch64-apple-darwin --target x86_64-apple-darwin
+          packaging/macos/local-app.sh --universal "$RUNNER_TEMP/out/KhianKrub.app"
 
       - name: Zip it and check the zipped copy
         run: |
           set -euo pipefail
           . packaging/env.sh
-          zip="KhianKrub-$VERSION-macos-apple-silicon.zip"
+          zip="KhianKrub-$VERSION-macos-universal.zip"
           mkdir -p dist/release
           (cd "$RUNNER_TEMP/out" && ditto -c -k --keepParent --norsrc --noextattr KhianKrub.app "$ROOT/dist/release/$zip")
           rm -rf "$RUNNER_TEMP/check" && mkdir -p "$RUNNER_TEMP/check"
           ditto -x -k "dist/release/$zip" "$RUNNER_TEMP/check"
           codesign --verify --strict --deep "$RUNNER_TEMP/check/KhianKrub.app"
-          lipo -archs "$RUNNER_TEMP/check/KhianKrub.app/Contents/MacOS/KhianKrub" | grep -qx arm64
+          test "$(lipo -archs "$RUNNER_TEMP/check/KhianKrub.app/Contents/MacOS/KhianKrub")" = "x86_64 arm64"
+          # The runner is Apple silicon: run each slice, the Intel one through Rosetta when the runner has it.
+          arch -arm64 "$RUNNER_TEMP/check/KhianKrub.app/Contents/MacOS/KhianKrub" --version
+          if arch -x86_64 /usr/bin/true 2> /dev/null; then
+            arch -x86_64 "$RUNNER_TEMP/check/KhianKrub.app/Contents/MacOS/KhianKrub" --version
+          else
+            echo "::warning::Rosetta is not installed on this runner: the Intel slice was built but not run"
+          fi
           test "$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$RUNNER_TEMP/check/KhianKrub.app/Contents/Info.plist")" = "${VERSION%%-*}"
           sha=$(shasum -a 256 "dist/release/$zip" | cut -d' ' -f1)
           echo "$zip: $sha"
           { echo "| File | SHA-256 |"; echo "|---|---|"; echo "| \`$zip\` | \`$sha\` |"; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Attach to the tag's release
-        run: gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber dist/release/KhianKrub-*-macos-apple-silicon.zip
+        run: gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber dist/release/KhianKrub-*-macos-universal.zip

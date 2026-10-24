@@ -7,6 +7,16 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-24
 
+### Universal Mac build (Apple silicon and Intel)
+- From the next release, the Mac download is one app for Apple silicon and Intel Macs:
+  `KhianKrub-<version>-macos-universal.zip` (about 48 MB, was 23 MB). Both still need macOS 11 or later.
+- `packaging/macos/local-app.sh --universal` joins the `aarch64-apple-darwin` and `x86_64-apple-darwin` builds with
+  `lipo`, as the original's `package.sh` does. The release workflow's macOS job builds both, checks that the app has
+  both halves, and runs each (the Intel one through Rosetta when the runner has it).
+- Tried on this Mac: both halves start (`arch -arm64` and `arch -x86_64`), each built for macOS 11.0, and the
+  signature check passes. Not yet tried on a real Intel Mac.
+- README: "Download for Mac", with the new zip name and what each version needs.
+
 ### Release v0.7.3
 - [v0.7.3](https://github.com/chanonss/khiankrub/releases/tag/v0.7.3), built from commit `0357bfe`, the first
   release whose files were all built by GitHub Actions:

@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/chanonss/khiankrub/releases/latest"><b>⬇️ Download for Mac (Apple silicon)</b></a> ·
+  <a href="https://github.com/chanonss/khiankrub/releases/latest"><b>⬇️ Download for Mac</b></a> ·
   <a href="https://github.com/chanonss/khiankrub/releases/latest"><b>⬇️ Download for Windows (64-bit)</b></a> ·
   <a href="FORK-CHANGES.md">What's new</a> ·
   <a href="#license-and-credits">Licence and credits</a>
@@ -140,7 +140,8 @@ Number menus, show a small picture of each choice. The Insert Table grid is comp
 ### Mac
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
-   **KhianKrub-…-macos-apple-silicon.zip** (under *Assets*).
+   the Mac zip (under *Assets*): **KhianKrub-…-macos-universal.zip** from version 0.7.4 on,
+   **KhianKrub-…-macos-apple-silicon.zip** before.
 2. Double-click the zip to unzip it, then drag **KhianKrub** into your **Applications** folder.
 3. **First time only: right-click › Open.** The app is not signed by Apple, so macOS says it cannot verify the
    developer. Right-click (or Control-click) KhianKrub, choose **Open**, then click **Open** again. If the dialog
@@ -150,7 +151,8 @@ Number menus, show a small picture of each choice. The Insert Table grid is comp
 ดาวน์โหลดไฟล์ zip จากหน้า [Releases](https://github.com/chanonss/khiankrub/releases/latest) ดับเบิลคลิกเพื่อแตกไฟล์
 แล้วลาก KhianKrub ไปไว้ในโฟลเดอร์ Applications ครั้งแรกที่เปิดให้คลิกขวาที่แอป เลือก Open แล้วกด Open อีกครั้ง
 
-**Needs:** a Mac with Apple silicon (M1 or later) and macOS 11 or later. There is no Intel Mac build yet.
+**Needs:** macOS 11 or later. From version 0.7.4 the Mac download is one app for both Apple silicon (M1 or later)
+and Intel Macs; 0.7.3 and earlier run on Apple silicon only.
 
 ### Windows
 

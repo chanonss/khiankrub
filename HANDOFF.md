@@ -48,7 +48,9 @@ cargo install resvg --locked                             # only needed to regene
 
 - **Do not skip the wasm target.** On the second Mac the first `cargo xtask ci` failed at the last step with
   "can't find crate for `core`" until it was added.
-- Apple silicon Mac for the app build (the packaged app is arm64 only, macOS 11 or later).
+- Apple silicon Mac for the app build. Release zips are universal (Apple silicon and Intel, macOS 11 or later) from
+  0.7.4 on: `rustup target add x86_64-apple-darwin`, then build both targets and run `local-app.sh --universal` (see
+  its header). The Intel half can be tried here through Rosetta: `arch -x86_64 …/KhianKrub --version`.
 - First build takes several minutes. `cargo build --release -p wordcraft` is about 3 to 4 minutes.
 - GitHub: Chanon signs in themself (never ask for or type a password). `git push` over HTTPS needs a GitHub login or
   token on that Mac; on the first Mac `GIT_TERMINAL_PROMPT=0 git push origin my-changes` worked because credentials were
@@ -171,7 +173,8 @@ Chanon asked how to make a Windows version. Three ways; nothing has been tried y
    when a `v*` tag is pushed. A first job makes a **draft** release when the tag has none; then the Windows job
    (WiX 5.0.2, `packaging\windows\package.ps1 -Arch x64`) and the macOS job (`local-app.sh`, `ditto` zip, strict
    `codesign` check of the unzipped copy) build in parallel and attach `khiankrub-<version>-windows-x64.msi`,
-   `-portable.zip` and `KhianKrub-<version>-macos-apple-silicon.zip`, listing each SHA-256 in the run's summary.
+   `-portable.zip` and `KhianKrub-<version>-macos-universal.zip` (Apple silicon and Intel; `-apple-silicon.zip`
+   up to 0.7.3), listing each SHA-256 in the run's summary.
    The tag must be `v<version>` or `v<version>-something` for the version in `Cargo.toml`. Started by hand from the
    Actions tab (Run workflow), it takes a tag and `both`, `windows` or `mac`. Notes and publishing stay manual.
    Pushing a tag needs Chanon's OK (rule 1). Uploading a release zip in the browser failed twice on the Mac (it
