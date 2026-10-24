@@ -5,6 +5,20 @@ Thai-speaking audience. This file lists what differs from the original, newest f
 progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each entry matches a commit on the
 `my-changes` branch.
 
+## 2026-10-24
+
+### Windows installer as KhianKrub
+- `packaging/windows/package.ps1` now makes `khiankrub-<version>-windows-<arch>.msi` and
+  `khiankrub-<version>-windows-<arch>-portable.zip`. Cargo still builds `wordcraft.exe`; it is packaged and installed
+  as `KhianKrub.exe`.
+- The MSI (`packaging/windows/wordcraft.wxs`) installs **KhianKrub** by Chanon Sarasuk into `Program Files\KhianKrub`
+  with a KhianKrub Start Menu entry, and links to the GitHub project in Settings › Apps. Its UpgradeCode and component
+  GUIDs are new, so it never upgrades or removes an installed WordCraft. The file types are registered as
+  `KhianKrub.*` ProgIds and under `RegisteredApplications` as `KhianKrub`, the name File › Options › General already
+  opens in Settings › Default apps. The licence page says KhianKrub is a fork of WordCraft, not affiliated with the
+  ArtCraft team.
+- Built and installed on Windows 10 x64 with WiX v5.0.2; the MSI and the app inside are unsigned.
+
 ## 2026-10-23
 
 ### Release v0.7.1
