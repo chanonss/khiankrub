@@ -7,6 +7,10 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-24
 
+### Version 0.7.2
+- The app's version is 0.7.2 (was 0.7.1). It brings the Thai lists from the menus and is the first version released
+  for Windows and Mac together; the Windows build comes first, the Mac build follows.
+
 ### Thai lists from the menus
 - Thai numbering can now be made in KhianKrub itself, not only shown from Word files (see "Thai list numbers and
   letters", 2026-10-22):
