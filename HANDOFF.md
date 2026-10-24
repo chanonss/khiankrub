@@ -33,6 +33,11 @@ travel between Macs (see section 10).
 
 ## 2. Set up another Mac
 
+**Where the code lives (since 2026-10-24):** a git clone at `~/dev/khiankrub` on each Mac (`C:\Users\csara\dev\khiankrub`
+on the PC), synced through GitHub: pull before starting on a machine, commit and push before leaving it. Never keep the
+repo in Google Drive (Drive drops executable bits and can half-sync `.git`). The Drive folder `My Apps/KhianKrub/` holds
+only non-code: `facebook/`, `release/`, `thai-test.docx`, `make_thai_docx.py`.
+
 ```bash
 xcode-select --install                                   # compiler tools, if missing
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # Rust (rustup)
@@ -150,7 +155,7 @@ run `codesign --verify --strict --deep`, and put the zip's SHA-256 in the releas
   (asking `paragraph i` directly returns `missing value`).
 - No `node`, `pandoc` or `pdftoppm` on the second Mac; the system `python3` is too old for `match` statements.
 
-## 8. Building for Windows (not done yet)
+## 8. Building for Windows
 
 Chanon asked how to make a Windows version. Three ways; nothing has been tried yet.
 
@@ -162,7 +167,14 @@ Chanon asked how to make a Windows version. Three ways; nothing has been tried y
 2. **Build on the PC**: install Rust (rustup.rs) and Visual Studio Build Tools ("Desktop development with C++"), clone,
    `git checkout my-changes`, `cargo build --release -p wordcraft`. `packaging/windows/package.ps1` also makes a portable zip
    and an `.msi` (needs WiX v5; see the script's header). Needs the local commits pushed first, or the `repo` folder copied.
-3. **GitHub Actions** (`.github/workflows/release.yml` builds Windows): needs a push and publishes releases, so ask first.
+3. **GitHub Actions** (since 2026-10-24, the way releases are built): `.github/workflows/windows-release.yml` runs
+   when a `v*` tag is pushed (or by hand from the Actions tab with a tag name). On GitHub's Windows runner it installs
+   WiX 5.0.2, runs `packaging\windows\package.ps1 -Arch x64`, writes the SHA-256 of both files in the run's summary,
+   and attaches `khiankrub-<version>-windows-x64.msi` and `-portable.zip` to the tag's release, making a **draft**
+   release when there is none. The tag must be `v<version>` or `v<version>-something` for the version in
+   `Cargo.toml`. Notes, the Mac zip and publishing stay manual. Pushing a tag needs Chanon's OK (rule 1). The
+   original's `release.yml`, `freebsd.yml`, `windows-arm64.yml` and `packaging-lint.yml` were removed: they need
+   storytold's secrets and shared workflows.
 
 A public Windows release would also need the installer files renamed to KhianKrub (section 6), with a FORK-CHANGES entry.
 The PC needs a Thai font for documents; Windows has Leelawadee UI and Tahoma, TH Sarabun New only if installed.

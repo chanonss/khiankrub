@@ -7,6 +7,18 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-24
 
+### Windows builds on GitHub Actions
+- `.github/workflows/windows-release.yml`: pushing a `v*` tag builds the Windows installer and portable zip on
+  GitHub's Windows runner (WiX 5.0.2, `packaging/windows/package.ps1 -Arch x64`), lists their SHA-256 in the run's
+  summary and attaches them to the tag's release, as a draft release when the tag has none. It can also be started
+  by hand from the Actions tab with a tag name. The tag must match the version in `Cargo.toml` (`v0.7.3`, or
+  `v0.7.3-test1` for a trial). The files are unsigned, like the PC-built ones. From the next release on, the PC is
+  only for test installs.
+- Removed the original's `release.yml`, `freebsd.yml`, `windows-arm64.yml` and `packaging-lint.yml`: they call
+  storytold's shared workflows and need its signing secrets, so they can't run here.
+- HANDOFF.md: the code lives in a git clone at `~/dev/khiankrub` on each machine, synced through GitHub, not in
+  Google Drive.
+
 ### Fixes from testing v0.7.2
 - **A new window for each document.** File › Open (and recent files, Finder, a file dropped on the Dock icon) and
   File › New open in a window of their own once the current window holds a document, as in Word. The untouched blank
