@@ -198,7 +198,8 @@ pub fn specs() -> Vec<CommandSpec> {
         })
         .pure(),
         CommandSpec::new("styles.create", "Create a Style", "Home › Styles", create_style).params(r#"{"name": string, "basedOn"?: string, "fromSelection"?: bool}"#),
-        CommandSpec::new("styles.modify", "Modify Style", "Home › Styles", modify_style).params(r#"{"style": string, "chr"?: CharProps, "para"?: ParaProps, "name"?: string, "next"?: string}"#),
+        CommandSpec::new("styles.modify", "Modify Style", "Home › Styles", modify_style)
+            .params(r#"{"style": string, "chr"?: CharProps, "para"?: ParaProps, "name"?: string, "next"?: string, "basedOn"?: style | null}"#),
         CommandSpec::new("styles.updateToMatch", "Update Style to Match Selection", "Home › Styles", update_to_match).params(r#"{"style"?: string}"#),
         CommandSpec::new("styles.delete", "Delete Style", "Home › Styles", delete_style).params(r#"{"style": string (name or id; custom styles only)}"#),
         CommandSpec::new("styles.manage", "Manage Styles", "Home › Styles", |s, v| {
@@ -968,6 +969,20 @@ fn modify_style(s: &mut Session, v: &Value) -> CmdResult {
         v.get("para").map(|c| serde_json::from_value(c.clone())).transpose().map_err(|e| CmdError::Params(e.to_string()))?;
     let next = p::str(v, "next").map(str::to_string);
     let name = p::str(v, "name").map(str::to_string);
+    // Based on another style (null: none). Never on itself, or on a style based on it.
+    let based_on = match v.get("basedOn") {
+        None => None,
+        Some(Value::Null) => Some(None),
+        Some(Value::String(n)) if n.trim().is_empty() => Some(None),
+        Some(Value::String(n)) => {
+            let b = style_id(s, n)?;
+            if b == id || s.doc.styles.chain(&b).iter().any(|x| x.id == id) {
+                return Err(CmdError::Params(format!("`{n}` is based on this style: it can't be its base too")));
+            }
+            Some(Some(b))
+        }
+        Some(_) => return Err(CmdError::Params("`basedOn` must be a style name or null".into())),
+    };
     // The style's size, bold and italic go for complex-script (Thai) text too, unless given for it
     // separately, as the Font size box does: a Thai heading set to 18 pt through Modify Style kept
     // its Thai size (24 pt), so it showed bigger than the box said. A font goes for Thai text only
@@ -992,6 +1007,9 @@ fn modify_style(s: &mut Session, v: &Value) -> CmdResult {
     }
     if let Some(n) = next {
         st.next = Some(n);
+    }
+    if let Some(b) = based_on {
+        st.based_on = b;
     }
     if let Some(n) = name.filter(|n| !n.trim().is_empty()) {
         st.name = n;

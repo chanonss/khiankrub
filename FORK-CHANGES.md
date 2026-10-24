@@ -7,6 +7,25 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Modify Style with pages (round 1)
+- **Modify Style** is a larger window with a list of pages on the left and a live preview below
+  (`crates/ui-egui/src/dialogs_style.rs`), after the layout of LibreOffice's style dialog (the idea only; no code):
+  - **General:** name, Based on, Style for following paragraph, style type.
+  - **Font:** **Latin text** and **Thai text (complex script)** side by side, each with its font, size, Bold and
+    Italic, and "Thai text like Latin text" to copy one to the other; Underline, Strikethrough, Small caps,
+    Superscript, Subscript, All caps, font colour and character spacing.
+  - **Indents & Spacing:** left, right, Special (first line / hanging) and By; space before and after; line
+    spacing (Multiple, At least, Exactly); "Don't add space between paragraphs of the same style".
+  - **Alignment:** Left, Center, Right, Justify, Distributed, Thai Distribution; left-to-right or right-to-left.
+  - A character style has only General and Font.
+- The preview draws sample Latin and Thai text with the edits applied, before OK.
+- OK sends only what changed, so what the style inherits from its base stays inherited. A changed Latin font, size,
+  bold or italic is sent with the Thai one beside it, so the box shown is what the style gets.
+- `styles.modify` takes `basedOn` (a style or null) and refuses a base that is based on the style itself.
+- Tests: `the_font_page_sets_thai_text_apart`, `indents_alignment_and_base_reach_the_style`;
+  `modify_style_font_box_finds_the_family` opens the Font page.
+- Round 2 to come: Text Flow, Borders & Shading, Numbering.
+
 ### Modify Style sizes reach Thai text
 - **Modify Style** (and `styles.modify`) now sets the style's size, Bold and Italic for complex-script (Thai) text
   too, as the Font size box already did; a changed font goes for Thai text too. Before, Heading 1 set to 18 pt kept

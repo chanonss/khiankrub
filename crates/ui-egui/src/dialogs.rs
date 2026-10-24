@@ -323,15 +323,7 @@ pub enum Dialog {
         /// The dialog that comes back when this closes (Table of Contents › Modify…).
         #[serde(skip)]
         resume: Option<Box<Dialog>>,
-        id: String,
-        name: String,
-        font: String,
-        size: f32,
-        bold: bool,
-        italic: bool,
-        color: String,
-        before: f32,
-        after: f32,
+        form: Box<crate::dialogs_style::StyleForm>,
     },
     /// Manage Styles: every style with its preview and description; modify, create, delete and
     /// show or hide them.
@@ -1147,31 +1139,8 @@ impl Dialog {
     }
 
     pub fn modify_style(app: &WordApp, id: &str) -> Option<Dialog> {
-        let st = app.session.doc.styles.get(id)?;
-        let rc = app.session.doc.styles.resolve_char(
-            if st.kind == wordcraft_doc::StyleKind::Paragraph { Some(id) } else { None },
-            &wordcraft_doc::CharProps {
-                style: if st.kind == wordcraft_doc::StyleKind::Character { Some(id.into()) } else { None },
-                ..Default::default()
-            },
-        );
-        let rp = app.session.doc.styles.resolve_para(&wordcraft_doc::ParaProps { style: Some(id.into()), ..Default::default() });
-        Some(Dialog::ModifyStyle {
-            back: false,
-            resume: None,
-            id: id.into(),
-            name: st.name.clone(),
-            font: rc.font,
-            size: rc.size,
-            bold: rc.bold,
-            italic: rc.italic,
-            color: match rc.color {
-                wordcraft_doc::TextColor::Rgb(c) => c.hex(),
-                wordcraft_doc::TextColor::Auto => "auto".into(),
-            },
-            before: rp.space_before,
-            after: rp.space_after,
-        })
+        let form = crate::dialogs_style::StyleForm::read(app, id)?;
+        Some(Dialog::ModifyStyle { back: false, resume: None, form: Box::new(form) })
     }
 }
 
@@ -2304,58 +2273,15 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             }
             ok || cancel
         }
-        Dialog::ModifyStyle { back, resume, id, name, font, size, bold, italic, color, before, after } => {
-            egui::Grid::new("ms").num_columns(2).show(ui, |ui| {
-                ui.label(tl!("Name:"));
-                ui.text_edit_singleline(name);
-                ui.end_row();
-                ui.label(tl!("Font:"));
-                let shown = app.previews.font_shown(font);
-                let fams = app.previews.families();
-                let prev = app.previews.font_preview_fn();
-                if let Some(f) = crate::widgets::font_combo(ui, "ms_font", 220.0, &shown, &fams, Some(&*prev)) {
-                    if f == crate::widgets::ADD_FONT {
-                        let _ = app.run("font.add", json!({}));
-                    } else {
-                        *font = app.previews.font_stored(&f);
-                    }
-                }
-                ui.end_row();
-                ui.label(tl!("Size:"));
-                ui.add(crate::numfield::NumField::new(size).range(1.0..=1638.0).speed(0.5));
-                ui.end_row();
-                ui.label(tl!("Color:"));
-                ui.text_edit_singleline(color);
-                ui.end_row();
-                ui.label(tl!("Space before/after:"));
-                ui.horizontal(|ui| {
-                    ui.add(crate::numfield::NumField::new(before).range(0.0..=1584.0));
-                    ui.add(crate::numfield::NumField::new(after).range(0.0..=1584.0));
-                });
-                ui.end_row();
-            });
-            ui.horizontal(|ui| {
-                ui.checkbox(bold, tl!("Bold"));
-                ui.checkbox(italic, tl!("Italic"));
-            });
-            let (ok, cancel) = buttons(ui, tl!("OK"));
-            if ok {
-                let mut chr = json!({"font": font, "size": *size, "bold": *bold, "italic": *italic});
-                if let Some(c) = wordcraft_doc::Rgb::parse(color) {
-                    chr["color"] = json!({"Rgb": [c.0, c.1, c.2]});
-                }
-                let _ =
-                    app.run("styles.modify", json!({"style": id, "name": name, "chr": chr, "para": {"spaceBefore": *before, "spaceAfter": *after}}));
+        Dialog::ModifyStyle { back, resume, form } => {
+            let close = crate::dialogs_style::body(app, ui, form);
+            if close && *back {
+                app.dialog = Some(Dialog::ManageStyles { alphabetical: false, selected: form.id.clone() });
             }
-            if (ok || cancel) && *back {
-                app.dialog = Some(Dialog::ManageStyles { alphabetical: false, selected: id.clone() });
-            }
-            if (ok || cancel)
-                && let Some(r) = resume.take()
-            {
+            if close && let Some(r) = resume.take() {
                 app.dialog = Some(*r);
             }
-            ok || cancel
+            close
         }
         Dialog::ManageStyles { alphabetical, selected } => manage_styles(app, ui, alphabetical, selected),
         Dialog::TableStyle { id, name, based_on, region, regions, basis, pen } => {
@@ -3452,10 +3378,8 @@ fn manage_styles(app: &mut WordApp, ui: &mut Ui, alphabetical: &mut bool, select
                 }
                 if r.double_clicked() {
                     *selected = id;
-                    if let Some(Dialog::ModifyStyle { id, name, font, size, bold, italic, color, before, after, .. }) =
-                        Dialog::modify_style(app, selected)
-                    {
-                        app.dialog = Some(Dialog::ModifyStyle { back: true, resume: None, id, name, font, size, bold, italic, color, before, after });
+                    if let Some(Dialog::ModifyStyle { form, .. }) = Dialog::modify_style(app, selected) {
+                        app.dialog = Some(Dialog::ModifyStyle { back: true, resume: None, form });
                     }
                 }
             }
@@ -3490,9 +3414,9 @@ fn manage_styles(app: &mut WordApp, ui: &mut Ui, alphabetical: &mut bool, select
     ui.horizontal(|ui| {
         // Table styles are edited from Table Design.
         if ui.add_enabled(ty != "table", egui::Button::new(tl!("Modify…"))).clicked()
-            && let Some(Dialog::ModifyStyle { id, name, font, size, bold, italic, color, before, after, .. }) = Dialog::modify_style(app, selected)
+            && let Some(Dialog::ModifyStyle { form, .. }) = Dialog::modify_style(app, selected)
         {
-            app.dialog = Some(Dialog::ModifyStyle { back: true, resume: None, id, name, font, size, bold, italic, color, before, after });
+            app.dialog = Some(Dialog::ModifyStyle { back: true, resume: None, form });
         }
         if ui.button(tl!("New Style…")).clicked() {
             app.dialog = Some(Dialog::NewStyle { name: "Style1".into(), based_on: str_of(&cur, "name"), back: true });
@@ -4373,6 +4297,10 @@ mod tests {
         use egui_kittest::kittest::{By, Queryable};
         let mut app = app_with("Example");
         app.dialog = Dialog::modify_style(&app, "Normal");
+        // The font boxes are on the Font page.
+        if let Some(Dialog::ModifyStyle { form, .. }) = &mut app.dialog {
+            form.page = "font".into();
+        }
         let mut fonts = false;
         let mut h = egui_kittest::Harness::builder().with_size(vec2(1440.0, 900.0)).build_ui_state(
             move |ui, app: &mut WordApp| {
@@ -4387,7 +4315,8 @@ mod tests {
             app,
         );
         h.run_steps(3);
-        h.get(By::new().role(egui::accesskit::Role::TextInput).value(wordcraft_doc::styles::BODY_FONT)).focus();
+        // The Latin text font is the first box (the Thai one beside it shows the same font here).
+        h.get_all(By::new().role(egui::accesskit::Role::TextInput).value(wordcraft_doc::styles::BODY_FONT)).next().unwrap().focus();
         h.step();
         let key = |key, modifiers| egui::Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers };
         h.event(key(egui::Key::A, egui::Modifiers::COMMAND));

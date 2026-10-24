@@ -455,6 +455,49 @@ fn snippet_blocks(
     Some(egui::ColorImage::from_rgba_unmultiplied([img.width as usize, img.height as usize], &px))
 }
 
+/// Modify Style's preview: a paragraph of sample Latin and Thai text in style `id` (a character
+/// style's text, when `character`) as the dialog's boxes leave it — `edit` changes a copy of the
+/// document's styles — so it follows the boxes. `key` names the edits, for the cache.
+#[allow(clippy::too_many_arguments)]
+pub fn style_edit_preview(
+    app: &mut WordApp,
+    ui: &mut Ui,
+    id: &str,
+    character: bool,
+    key: &str,
+    edit: &dyn Fn(&mut wordcraft_doc::styles::StyleSheet),
+    size: egui::Vec2,
+) {
+    let t = Tokens::get(ui.ctx());
+    let (r, _) = ui.allocate_exact_size(size, Sense::hover());
+    ui.painter().rect(r, 3.0, preview_tint(&t, false), Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
+    let ppp = ui.ctx().pixels_per_point();
+    let (w, h) = (size.x - 12.0, size.y - 8.0);
+    let cache = format!("modify:{id}:{ppp}:{w}x{h}:{key}");
+    let doc = &app.session.doc;
+    let tex = app.previews.get_or(ui.ctx(), &cache, || {
+        let mut base = Document::new();
+        base.styles = doc.styles.clone();
+        base.numbering = doc.numbering.clone();
+        edit(&mut base.styles);
+        let sample = "AaBbCcYyZz ภาษาไทย สวัสดีครับ AaBbCcYyZz ภาษาไทย สวัสดีครับ AaBbCcYyZz ภาษาไทย";
+        let mut p = if character {
+            Paragraph::with_text(sample, CharProps { style: Some(id.to_string()), ..CharProps::default() })
+        } else {
+            Paragraph::with_text(sample, CharProps::default()).styled(id)
+        };
+        p.props.space_before = Some(0.0);
+        p.props.numbering = None;
+        snippet_blocks(&base, vec![Block::Para(p)], w, h, ppp, 4.0, None, false)
+    });
+    if let Some(hd) = tex {
+        let sz = hd.size_vec2() / ppp;
+        let ir = Rect::from_min_size(pos2(r.min.x + 2.0, r.min.y + 2.0), sz.min(r.size() - vec2(4.0, 4.0)));
+        let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2((ir.width() / sz.x).min(1.0), (ir.height() / sz.y).min(1.0)));
+        ui.painter().with_clip_rect(r).image(hd.id(), ir, uv, preview_tint(&t, false));
+    }
+}
+
 /// Manage Styles' preview of one style (`ty`: the `styles.manage` type), `size` points wide and
 /// tall: a line of sample text, or a small table for a table style.
 pub fn style_preview(app: &mut WordApp, ui: &mut Ui, id: &str, ty: &str, size: egui::Vec2) {
