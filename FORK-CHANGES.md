@@ -7,6 +7,11 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-24
 
+### README: Windows download
+- The README offers KhianKrub for Mac and Windows: a "Download for Windows (64-bit)" link at the top, a Windows part
+  in "Download and install" (the MSI, More info › Run anyway, the portable zip, in English and Thai) and how to build
+  the installer. The Windows files are added to the v0.7.1 release; the app code is the same as the Mac build's.
+
 ### Windows installer as KhianKrub
 - `packaging/windows/package.ps1` now makes `khiankrub-<version>-windows-<arch>.msi` and
   `khiankrub-<version>-windows-<arch>-portable.zip`. Cargo still builds `wordcraft.exe`; it is packaged and installed

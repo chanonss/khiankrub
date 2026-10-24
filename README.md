@@ -5,12 +5,13 @@
 <h1 align="center">KhianKrub (เขียนครับ)</h1>
 
 <p align="center">
-  <b>A free, open-source word processor for Thai and English, for the Mac.</b><br>
-  โปรแกรมพิมพ์เอกสารฟรี โอเพนซอร์ส สำหรับภาษาไทยและภาษาอังกฤษ บน Mac
+  <b>A free, open-source word processor for Thai and English, for Mac and Windows.</b><br>
+  โปรแกรมพิมพ์เอกสารฟรี โอเพนซอร์ส สำหรับภาษาไทยและภาษาอังกฤษ บน Mac และ Windows
 </p>
 
 <p align="center">
   <a href="https://github.com/chanonss/khiankrub/releases/latest"><b>⬇️ Download for Mac (Apple silicon)</b></a> ·
+  <a href="https://github.com/chanonss/khiankrub/releases/latest"><b>⬇️ Download for Windows (64-bit)</b></a> ·
   <a href="FORK-CHANGES.md">What's new</a> ·
   <a href="#license-and-credits">Licence and credits</a>
 </p>
@@ -136,6 +137,8 @@ Number menus, show a small picture of each choice. The Insert Table grid is comp
 
 ## Download and install
 
+### Mac
+
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
    **KhianKrub-…-macos-apple-silicon.zip** (under *Assets*).
 2. Double-click the zip to unzip it, then drag **KhianKrub** into your **Applications** folder.
@@ -147,8 +150,26 @@ Number menus, show a small picture of each choice. The Insert Table grid is comp
 ดาวน์โหลดไฟล์ zip จากหน้า [Releases](https://github.com/chanonss/khiankrub/releases/latest) ดับเบิลคลิกเพื่อแตกไฟล์
 แล้วลาก KhianKrub ไปไว้ในโฟลเดอร์ Applications ครั้งแรกที่เปิดให้คลิกขวาที่แอป เลือก Open แล้วกด Open อีกครั้ง
 
-**Needs:** a Mac with Apple silicon (M1 or later) and macOS 11 or later. There is no Intel, Windows or Linux build
-yet. Thai text looks best with a Thai font installed, such as TH Sarabun New.
+**Needs:** a Mac with Apple silicon (M1 or later) and macOS 11 or later. There is no Intel Mac build yet.
+
+### Windows
+
+1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
+   **khiankrub-…-windows-x64.msi** (under *Assets*), then double-click it.
+2. **First time only: More info › Run anyway.** The installer is not signed, so Windows says "Windows protected your
+   PC". Click **More info**, then **Run anyway**, and click **Yes** when Windows asks for permission. KhianKrub is
+   then in the Start menu.
+
+To use it without installing, download **khiankrub-…-windows-x64-portable.zip** instead, unzip it and double-click
+**KhianKrub.exe**.
+
+ดาวน์โหลดไฟล์ .msi จากหน้า [Releases](https://github.com/chanonss/khiankrub/releases/latest) แล้วดับเบิลคลิกเพื่อติดตั้ง
+ถ้าขึ้นหน้าต่าง "Windows protected your PC" ให้กด More info แล้วกด Run anyway
+
+**Needs:** Windows 10 or 11, 64-bit (x64). There is no Windows on ARM or Linux build yet. The features are the same
+as on the Mac, except the menu bar at the top of the screen, which is a macOS feature.
+
+On both, Thai text looks best with a Thai font installed, such as TH Sarabun New.
 
 ## Build it yourself
 
@@ -161,7 +182,9 @@ cargo build --release -p wordcraft
 packaging/macos/local-app.sh
 ```
 
-The last step makes `~/Applications/KhianKrub.app`. `cargo xtask ci` runs all the checks (it also needs
+The last step makes `~/Applications/KhianKrub.app`. On Windows (with the Visual Studio C++ Build Tools and
+[WiX v5](https://wixtoolset.org)), `packaging\windows\package.ps1 -Arch x64` builds the installer and the portable zip
+into `dist\release`. `cargo xtask ci` runs all the checks (it also needs
 `rustup target add wasm32-unknown-unknown`). The crates keep the original `wordcraft-*` names. The original
 project's README, with its full documentation (command line, automation over MCP, architecture), is at
 [storytold/wordcraft](https://github.com/storytold/wordcraft#readme).
