@@ -243,6 +243,31 @@ fn a_linked_style_shows_over_direct_font() {
     assert_eq!((c.font, c.size), (h1.font, h1.size), "the text looks like Heading 1");
 }
 
+/// Chanon's steps (2026-10-24): a new document (TH Sarabun New, Heading 1 24 pt), Heading 1 set to
+/// 18 pt in Modify Style, list level 1 linked to Heading 1 on a Thai line: the Thai text is 18 pt
+/// (Modify Style changed only the Latin size, so it showed at 24). A style with its own Thai font
+/// keeps it when the dialog sends the Latin font unchanged.
+#[test]
+fn modify_style_size_reaches_thai_text() {
+    let mut s = s();
+    s.set_thai_defaults(true);
+    run(&mut s, "text.insert", json!({"text": "หัวข้อหลัก"}));
+    run(&mut s, "styles.modify", json!({"style": "Heading1", "chr": {"font": "TH Sarabun New", "size": 18.0, "bold": true, "italic": false}}));
+    run(&mut s, "list.define", json!({"levels": [{"format": "decimal", "text": "%1.", "style": "Heading1"}]}));
+    let p = s.doc.para(StoryRef::Body, &wordcraft_doc::Path::top(0)).unwrap();
+    let c = s.doc.styles.resolve_char(p.props.style.as_deref(), p.props_of_char(0));
+    assert_eq!((p.props.style.as_deref(), c.size, c.size_cs, c.bold_cs), (Some("Heading1"), 18.0, 18.0, true));
+    // A Word document's heading: Latin Calibri, Thai Angsana New. Only the size is changed.
+    let mut d = super::tests_typing::s();
+    if let Some(h) = d.doc.styles.get_mut("Heading1") {
+        h.chr.font = Some("Calibri".into());
+        h.chr.font_cs = Some("Angsana New".into());
+    }
+    run(&mut d, "styles.modify", json!({"style": "Heading1", "chr": {"font": "Calibri", "size": 20.0}}));
+    let h = d.doc.styles.resolve_char(Some("Heading1"), &Default::default());
+    assert_eq!((h.font_cs.as_str(), h.size_cs), ("Angsana New", 20.0));
+}
+
 #[test]
 fn backspace_on_an_empty_item_keeps_the_paragraph() {
     let s = typed("* One\n\u{8}Z");

@@ -968,6 +968,21 @@ fn modify_style(s: &mut Session, v: &Value) -> CmdResult {
         v.get("para").map(|c| serde_json::from_value(c.clone())).transpose().map_err(|e| CmdError::Params(e.to_string()))?;
     let next = p::str(v, "next").map(str::to_string);
     let name = p::str(v, "name").map(str::to_string);
+    // The style's size, bold and italic go for complex-script (Thai) text too, unless given for it
+    // separately, as the Font size box does: a Thai heading set to 18 pt through Modify Style kept
+    // its Thai size (24 pt), so it showed bigger than the box said. A font goes for Thai text only
+    // when it changed: the dialog sends the font every time, and a document with its own Thai
+    // heading font (Latin Calibri, Thai Angsana New) keeps it.
+    let latin_font = s.doc.styles.resolve_char(Some(&id), &CharProps::default()).font;
+    let chr = chr.map(|mut c| {
+        if c.font_cs.is_none() && c.font.as_ref().is_some_and(|f| *f != latin_font) {
+            c.font_cs = c.font.clone();
+        }
+        c.size_cs = c.size_cs.or(c.size);
+        c.bold_cs = c.bold_cs.or(c.bold);
+        c.italic_cs = c.italic_cs.or(c.italic);
+        c
+    });
     let st = s.doc.styles.get_mut(&id).ok_or_else(|| CmdError::Params("no such style".into()))?;
     if let Some(c) = chr {
         st.chr.overlay(&c);

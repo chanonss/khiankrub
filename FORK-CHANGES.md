@@ -7,6 +7,15 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Modify Style sizes reach Thai text
+- **Modify Style** (and `styles.modify`) now sets the style's size, Bold and Italic for complex-script (Thai) text
+  too, as the Font size box already did; a changed font goes for Thai text too. Before, Heading 1 set to 18 pt kept
+  its Thai size (24 pt in a new document), so a Thai heading showed bigger than the 18 in the size box; it showed once
+  a linked list level cleared the text's direct size. A font sent unchanged (the dialog sends it every time) leaves a
+  separate Thai font alone, so a Word document with Latin Calibri and Thai Angsana New headings keeps Angsana.
+- An existing document with the mismatch is fixed by opening Modify Style on the heading and clicking OK.
+- Test: `modify_style_size_reaches_thai_text`, with Chanon's steps.
+
 ### Linked heading style shows on the text; Backspace and Delete take a list number off
 - **Link level to style, again:** the paragraph given the linked style (Heading 1) now also loses its direct font,
   size and colour, as when a style is applied from the Styles gallery. Thai documents often carry their font and size
