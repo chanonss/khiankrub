@@ -7,6 +7,14 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-24
 
+### Release v0.7.3
+- [v0.7.3](https://github.com/chanonss/khiankrub/releases/tag/v0.7.3), built from commit `0357bfe`, the first
+  release whose files were all built by GitHub Actions:
+  `KhianKrub-0.7.3-macos-apple-silicon.zip` (SHA-256 `e553ae6fc9b49edced0706816f640ce2b4ceb3ddcd673d3c02057ab862918206`),
+  `khiankrub-0.7.3-windows-x64.msi` (`ee8095b3e396c74f071d115be48a509a8fb3fb5f1f9cd9622898adf80b5eb743`) and
+  `khiankrub-0.7.3-windows-x64-portable.zip` (`677c3b472a5a99a6ac1672aa2c837fd9f1bc40d80479f1d67aab4d8f409a82dd`).
+  The published Mac zip was downloaded again and checked (signature, version 0.7.3, commit `0357bfe`).
+
 ### Mac release zip built on GitHub Actions
 - The release workflow (renamed `.github/workflows/release-files.yml`) also builds the Mac zip on GitHub's
   Apple silicon runner, the same way as by hand (`local-app.sh`, `ditto`, a strict `codesign` check of the unzipped
