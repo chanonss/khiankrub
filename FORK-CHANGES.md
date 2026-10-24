@@ -7,6 +7,22 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Define New Multilevel List: linked styles, the number's font, My Lists
+- **Link level to style** now works as in Word: OK gives the selected paragraph the style its level is linked to (a
+  level linked to Heading 1 makes the paragraph a Heading 1, so its text takes the heading's look), and its number
+  comes from that style. A paragraph already in a linked style keeps its style and is numbered by it. Before, the
+  paragraph got the number but stayed Normal (List Paragraph). Test: `a_level_linked_to_a_style_gives_the_paragraph_that_style`.
+- **Font** now changes the number. The font, Bold and Italic are set for complex-script text too (`font_cs`,
+  `bold_cs`, `italic_cs`): a Thai number, or any number in a Thai paragraph, is drawn in the complex-script font, so
+  a font set for Latin text only showed no change. Unticked Bold and Italic follow the paragraph instead of forcing
+  them off. The font is picked from the installed fonts, as in the ribbon's font box, with Clear to go back to the
+  paragraph's. Test: `a_level_font_covers_thai_numbers`.
+- **My Lists:** the dialog has a List name (kept with the list in the document) and "Save in My Lists, for every
+  document". Saved lists are kept with the interface settings (`ui.json`, `savedLists`; up to 50, a list saved again
+  under the same name replaces it) and listed in **Home › Multilevel List › My Lists** with how they number
+  (`Thesis   ๑. ๑.๑. i.`); picking one numbers the selected paragraphs with it. **Remove from My Lists** takes one
+  out (lists already in documents stay). Test: `a_saved_list_is_kept_and_numbers_another_document`.
+
 ### Table borders on the selected cells, as in Word
 - In a table, the border choices (Home › Borders and Table Design › Borders) now act on the selected cells, or the
   caret's cell, instead of always on the whole table. Bottom Border with a row selected is the line under that row;

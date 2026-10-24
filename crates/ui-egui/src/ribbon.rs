@@ -519,6 +519,35 @@ pub(crate) fn mi(ui: &mut Ui, app: &mut WordApp, label: &str, id: &str, params: 
     mi_text(ui, app, tl!(label), id, params);
 }
 
+/// Home › Multilevel List › My Lists: the lists saved by name (Define New Multilevel List), each
+/// with how it numbers; one picked numbers the selected paragraphs with it. Remove from My Lists
+/// takes one out of the settings (lists already in documents stay).
+fn saved_list_items(ui: &mut Ui, app: &mut WordApp) {
+    if app.ui.saved_lists.is_empty() {
+        return;
+    }
+    ui.separator();
+    ui.label(egui::RichText::new(tl!("My Lists")).small().weak());
+    let lists = app.ui.saved_lists.clone();
+    for l in &lists {
+        let label = format!("{}   {}", l.name, l.sample());
+        // The name is the user's: shown as it is, not looked up for a translation.
+        let enabled = crate::widgets::enabled(app, "list.define");
+        if ui.add_enabled(enabled, egui::Button::new(label).min_size(vec2(200.0, 0.0))).clicked() {
+            crate::widgets::run_from_ribbon(app, "list.define", l.params());
+            ui.close();
+        }
+    }
+    ui.menu_button(tl!("Remove from My Lists"), |ui| {
+        for l in &lists {
+            if ui.button(&l.name).clicked() {
+                app.ui.saved_lists.retain(|x| x.name != l.name);
+                ui.close();
+            }
+        }
+    });
+}
+
 /// Home › Borders and Table Design › Borders, as in Word: the sides, the presets, the inside
 /// and diagonal rules, Horizontal Line, then Draw Table, View Gridlines and the dialog. In a table
 /// they set the table's borders (diagonals: the selected cells'); elsewhere the paragraph's, and
@@ -1460,6 +1489,7 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                     mi(ui, app, "I. A. 1. a.", "para.multilevel", json!({"kind": "outline"}));
                     mi(ui, app, "๑. ๑.๑. ๑.๑.๑.", "para.multilevel", json!({"kind": "thaiLegal"}));
                     mi(ui, app, "๑. ก. (๑) (ก)", "para.multilevel", json!({"kind": "thaiOutline"}));
+                    saved_list_items(ui, app);
                     ui.separator();
                     mi(ui, app, "Define New Multilevel List…", "list.define", json!({}));
                     ui.separator();

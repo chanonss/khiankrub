@@ -18,7 +18,7 @@ pub const LEVELS: usize = 9;
 pub fn specs() -> Vec<CommandSpec> {
     vec![
         CommandSpec::new("list.define", "Define New Multilevel List", "Home › Paragraph › Multilevel List", define).params(
-            r#"{"levels": [{"format"?: "decimal|lowerLetter|upperLetter|lowerRoman|upperRoman|decimalZero|ordinal|cardinalText|thaiNumbers|thaiLetters|thaiCounting|bullet|none", "text"?: "%1.%2." (%n = level n's number; the bullet character for bullet), "start"?: n, "restartAfter"?: 0-8 (0 = never; omit = the level above), "style"?: paragraph style linked to the level | null, "align"?: "left|center|right", "alignedAt"?: pt, "indentAt"?: pt, "follow"?: "tab|space|nothing", "tabAt"?: pt | null, "font"?: string | null, "bold"?: bool, "italic"?: bool, "color"?: "RRGGBB" | null, "legal"?: bool}, …] (index = level, up to 9; fields left out keep the base list's), "num"?: list id to change in place (default: a new list), "apply"?: bool (default true: number the selected paragraphs), "name"?: string}"#,
+            r#"{"levels": [{"format"?: "decimal|lowerLetter|upperLetter|lowerRoman|upperRoman|decimalZero|ordinal|cardinalText|thaiNumbers|thaiLetters|thaiCounting|bullet|none", "text"?: "%1.%2." (%n = level n's number; the bullet character for bullet), "start"?: n, "restartAfter"?: 0-8 (0 = never; omit = the level above), "style"?: paragraph style linked to the level | null, "align"?: "left|center|right", "alignedAt"?: pt, "indentAt"?: pt, "follow"?: "tab|space|nothing", "tabAt"?: pt | null, "font"?: string | null, "bold"?: bool, "italic"?: bool (false: as the paragraph), "color"?: "RRGGBB" | null, "legal"?: bool}, …] (index = level, up to 9; fields left out keep the base list's), "num"?: list id to change in place (default: a new list), "apply"?: bool (default true: number the selected paragraphs), "name"?: string}"#,
         ),
         CommandSpec::new("list.get", "List Definition", "Home › Paragraph › Multilevel List", get)
             .params(r#"{"num"?: list id (default: the caret's list)} → {"num", "levels": [as list.define]}"#)
@@ -51,7 +51,7 @@ pub fn level_json(l: &Level) -> Value {
             LevelSuffix::Nothing => "nothing",
         },
         "tabAt": l.tab,
-        "font": l.chr.font,
+        "font": l.chr.font.as_ref().or(l.chr.font_cs.as_ref()),
         "bold": l.chr.bold.unwrap_or(false),
         "italic": l.chr.italic.unwrap_or(false),
         "color": color,
@@ -114,16 +114,22 @@ pub fn level_from(mut l: Level, i: usize, v: &Value) -> Level {
         Some(_) => l.tab = pt("tabAt").or(l.tab),
         None => {}
     }
+    // The number's font, bold and italic go for complex-script text too: a Thai number (or any
+    // number in a Thai paragraph) is drawn in the complex-script font, so a font set only for
+    // Latin text changed nothing there. Unticked bold and italic follow the paragraph.
     match v.get("font") {
-        Some(Value::Null) => l.chr.font = None,
-        Some(Value::String(s)) => l.chr.font = Some(s.chars().take(64).collect()).filter(|s: &String| !s.trim().is_empty()),
+        Some(Value::Null) => (l.chr.font, l.chr.font_cs) = (None, None),
+        Some(Value::String(s)) => {
+            let f: Option<String> = Some(s.chars().take(64).collect()).filter(|s: &String| !s.trim().is_empty());
+            (l.chr.font, l.chr.font_cs) = (f.clone(), f);
+        }
         _ => {}
     }
     if let Some(b) = p::bool(v, "bold") {
-        l.chr.bold = Some(b);
+        (l.chr.bold, l.chr.bold_cs) = if b { (Some(true), Some(true)) } else { (None, None) };
     }
     if let Some(b) = p::bool(v, "italic") {
-        l.chr.italic = Some(b);
+        (l.chr.italic, l.chr.italic_cs) = if b { (Some(true), Some(true)) } else { (None, None) };
     }
     match v.get("color") {
         Some(Value::Null) => l.chr.color = None,
@@ -208,9 +214,30 @@ fn define(s: &mut Session, v: &Value) -> CmdResult {
         touch_styles(s, &linked)?;
     }
     if p::bool(v, "apply").unwrap_or(true) {
+        // The style each level is linked to (its id), by level.
+        let level_style: Vec<Option<String>> = levels
+            .iter()
+            .map(|l| l.style.as_deref().map(|st| s.doc.styles.find(st).map(|x| x.id.clone()).unwrap_or_else(|| st.to_string())))
+            .collect();
         super::para::fmt(s, &|pp| {
+            // A paragraph in a style a level is linked to is numbered by that style, at its level.
+            if pp.style.as_ref().is_some_and(|st| level_style.iter().flatten().any(|l| l == st)) {
+                pp.numbering = None;
+                return;
+            }
             // Paragraphs already in a list keep their level.
             let level = pp.numbering.filter(|n| n.num != 0).map(|n| n.level).unwrap_or(0);
+            // A level linked to a style gives the paragraph that style, as in Word: its text takes
+            // the style's look (Heading 1) and its number comes from the style.
+            if let Some(st) = level_style.get(level as usize).cloned().flatten() {
+                pp.style = Some(st);
+                pp.numbering = None;
+                pp.indent_left = None;
+                pp.indent_first = None;
+                pp.indent_left_chars = None;
+                pp.indent_first_chars = None;
+                return;
+            }
             pp.numbering = Some(NumRef { num, level });
             pp.indent_left = None;
             pp.indent_first = None;
@@ -264,6 +291,38 @@ mod tests {
             .flat_map(|p| &p.items)
             .filter_map(|i| if let Placed::Lines { para, l0: 0, .. } = i { para.label.as_ref().map(|lb| lb.text.clone()) } else { None })
             .collect()
+    }
+
+    /// Link level to style: OK gives the paragraph the linked style (Heading 1's look, as in Word),
+    /// and the number comes from the style; another paragraph already in that style is numbered too.
+    #[test]
+    fn a_level_linked_to_a_style_gives_the_paragraph_that_style() {
+        let mut s = Session::new(Document::from_text("Introduction\nBody text\nMethods"));
+        s.run("select.text", &json!({"text": "Methods"})).unwrap();
+        s.run("styles.apply", &json!({"style": "Heading 1"})).unwrap();
+        s.run("select.text", &json!({"text": "Introduction"})).unwrap();
+        s.run("list.define", &json!({"levels": [{"format": "decimal", "text": "%1.", "style": "Heading1"}]})).unwrap();
+        let paths = s.doc.para_paths(wordcraft_doc::StoryRef::Body);
+        let p = s.doc.para(wordcraft_doc::StoryRef::Body, &paths[0]).unwrap();
+        assert_eq!(p.props.style.as_deref(), Some("Heading1"), "the paragraph takes the linked style");
+        assert_eq!(p.props.numbering, None, "its number comes from the style");
+        assert_eq!(labels(&mut s), ["1.", "2."], "Introduction and Methods, both Heading 1, are numbered");
+    }
+
+    /// The number's font, bold and italic also go for complex-script text (Thai numbers), and
+    /// unticked bold follows the paragraph instead of forcing it off.
+    #[test]
+    fn a_level_font_covers_thai_numbers() {
+        let mut s = Session::new(Document::from_text("หนึ่ง"));
+        s.run("list.define", &json!({"levels": [{"format": "thaiNumbers", "text": "%1.", "font": "Tahoma", "bold": true}]})).unwrap();
+        let num = s.doc.para(wordcraft_doc::StoryRef::Body, &wordcraft_doc::Path::top(0)).unwrap().props.numbering.unwrap().num;
+        let l = super::levels_of(&s, num).unwrap();
+        let c = &l[0].chr;
+        assert_eq!((c.font.as_deref(), c.font_cs.as_deref()), (Some("Tahoma"), Some("Tahoma")));
+        assert_eq!((c.bold, c.bold_cs), (Some(true), Some(true)));
+        s.run("list.define", &json!({"num": num, "apply": false, "levels": [{"bold": false, "font": null}]})).unwrap();
+        let c = &super::levels_of(&s, num).unwrap()[0].chr;
+        assert_eq!((c.bold, c.bold_cs, c.font_cs.as_deref()), (None, None, None), "unticked: as the paragraph");
     }
 
     /// #328: a custom three-level list numbers paragraphs 1. / 1.1. / a) and survives a save to

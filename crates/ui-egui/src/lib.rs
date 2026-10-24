@@ -303,6 +303,10 @@ pub struct UiState {
     /// Caption labels the user added (References › Insert Caption › New Label), kept between
     /// runs like Word keeps them in its Normal template (#402).
     pub caption_labels: Vec<String>,
+    /// Multilevel lists the user defined and saved by name (Define New Multilevel List › Save in My
+    /// Lists), offered in Home › Multilevel List in every document. Unreadable entries are dropped.
+    #[serde(deserialize_with = "crate::dialogs_lists::lenient_saved_lists")]
+    pub saved_lists: Vec<crate::dialogs_lists::SavedList>,
     /// The launch notice that TH Sarabun New isn't installed was turned off ("Don't show this again").
     pub thai_font_notice_off: bool,
     /// Draw › Add Pen: the pens added to the pen gallery; the session owns them while running.
@@ -375,6 +379,7 @@ impl Default for UiState {
             keyboard: wordcraft_engine::KeyMap::default(),
             ribbon: wordcraft_engine::RibbonLayout::default(),
             caption_labels: Vec::new(),
+            saved_lists: Vec::new(),
             thai_font_notice_off: false,
             ink_pens: Vec::new(),
             initials: String::new(),

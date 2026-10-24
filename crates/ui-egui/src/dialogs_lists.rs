@@ -4,7 +4,7 @@
 
 use crate::widgets::SteadyUi;
 use egui::{Sense, Ui, vec2};
-use serde::Serialize;
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::{Value, json};
 use wordcraft_doc::section::NumFormat;
 use wordcraft_engine::cmd::lists::{LEVELS, caret_list, level_json, levels_of};
@@ -103,6 +103,46 @@ impl LevelForm {
     }
 }
 
+/// A multilevel list saved by name in My Lists: its levels as `list.define` takes them (positions
+/// in points, so a change of measurement unit doesn't change it).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct SavedList {
+    pub name: String,
+    pub levels: Value,
+}
+
+/// At most this many saved lists; longer names are cut.
+pub const MAX_SAVED_LISTS: usize = 50;
+const MAX_LIST_NAME: usize = 64;
+
+/// The saved lists in the settings file: entries without a name or levels are dropped.
+pub fn lenient_saved_lists<'de, D: Deserializer<'de>>(d: D) -> Result<Vec<SavedList>, D::Error> {
+    let v = Value::deserialize(d)?;
+    Ok(v.as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|x| serde_json::from_value::<SavedList>(x.clone()).ok())
+                .filter(|l| !l.name.trim().is_empty() && l.levels.is_array())
+                .take(MAX_SAVED_LISTS)
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
+impl SavedList {
+    /// How its first three levels number, as the menu shows it (`1. 1.1. 1.1.1.`).
+    pub fn sample(&self) -> String {
+        let levels = (0..LEVELS).map(|i| LevelForm::read(i, self.levels.get(i).unwrap_or(&Value::Null))).collect();
+        let f = ListForm { levels, level: 0, styles: Vec::new(), name: String::new(), save: false };
+        (0..3).map(|k| f.sample(k)).filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" ")
+    }
+
+    /// `list.define` parameters that number the selected paragraphs with it.
+    pub fn params(&self) -> Value {
+        json!({"levels": self.levels, "name": self.name})
+    }
+}
+
 /// The Define New Multilevel List form: nine levels and the one being edited.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -112,6 +152,10 @@ pub struct ListForm {
     /// Paragraph styles a level can link to: (id, name).
     #[serde(skip)]
     pub styles: Vec<(String, String)>,
+    /// The list's name (kept in the document, and in My Lists when saved).
+    pub name: String,
+    /// Save in My Lists, for every document.
+    pub save: bool,
 }
 
 impl ListForm {
@@ -130,12 +174,28 @@ impl ListForm {
             .map(|st| (st.id.clone(), st.name.clone()))
             .collect();
         styles.sort_by(|a, b| a.1.cmp(&b.1));
-        ListForm { levels, level: 0, styles }
+        ListForm { levels, level: 0, styles, name: String::new(), save: false }
     }
 
     /// `list.define` parameters for the whole list.
     pub fn params(&self) -> Value {
-        json!({"levels": self.levels.iter().enumerate().map(|(i, l)| l.params(i)).collect::<Vec<_>>()})
+        let levels: Vec<Value> = self.levels.iter().enumerate().map(|(i, l)| l.params(i)).collect();
+        let name = self.name.trim();
+        if name.is_empty() { json!({"levels": levels}) } else { json!({"levels": levels, "name": name}) }
+    }
+
+    /// Save in My Lists (when asked, with a name): a list of the same name is replaced.
+    pub fn save_to(&self, saved: &mut Vec<SavedList>) {
+        let name: String = self.name.trim().chars().take(MAX_LIST_NAME).collect();
+        if !self.save || name.is_empty() {
+            return;
+        }
+        let levels = self.params().get("levels").cloned().unwrap_or(Value::Null);
+        saved.retain(|l| l.name != name);
+        saved.push(SavedList { name, levels });
+        if saved.len() > MAX_SAVED_LISTS {
+            saved.remove(0);
+        }
     }
 
     /// The number level `k` shows with every level at its start value, as in the preview.
@@ -191,6 +251,8 @@ pub fn define_list(app: &mut WordApp, ui: &mut Ui, f: &mut ListForm) -> bool {
     });
     let i = f.level.min(LEVELS - 1);
     let styles = f.styles.clone();
+    let fams = app.previews.families();
+    let font_preview = app.previews.font_preview_fn();
     let Some(l) = f.levels.get_mut(i) else { return true };
     heading(ui, "Number format");
     egui::Grid::new("mll_number").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
@@ -251,7 +313,17 @@ pub fn define_list(app: &mut WordApp, ui: &mut Ui, f: &mut ListForm) -> bool {
         ui.end_row();
         ui.label(tl!("Font:"));
         ui.horizontal(|ui| {
-            ui.add(egui::TextEdit::singleline(&mut l.font).desired_width(110.0));
+            // The installed fonts, as in the ribbon's font box; empty follows the paragraph.
+            let shown = if l.font.is_empty() { tl!("(as the paragraph)").to_string() } else { l.font.clone() };
+            if let Some(pick) = crate::widgets::font_combo(ui, "mll_font", 170.0, &shown, &fams, Some(&*font_preview))
+                && pick != crate::widgets::ADD_FONT
+                && pick != crate::widgets::LOAD_SYSTEM_FONTS
+            {
+                l.font = if pick == tl!("(as the paragraph)") { String::new() } else { pick };
+            }
+            if !l.font.is_empty() && ui.small_button(tl!("Clear")).on_hover_text(tl!("Use the paragraph's font")).clicked() {
+                l.font.clear();
+            }
             ui.checkbox(&mut l.bold, tl!("Bold"));
             ui.checkbox(&mut l.italic, tl!("Italic"));
         });
@@ -291,9 +363,18 @@ pub fn define_list(app: &mut WordApp, ui: &mut Ui, f: &mut ListForm) -> bool {
         ui.add_enabled(l.follow == "tab" && l.tab_on, len(&mut l.tab_at, unit));
         ui.end_row();
     });
+    heading(ui, "Name");
+    ui.horizontal(|ui| {
+        ui.label(tl!("List name:"));
+        ui.add(egui::TextEdit::singleline(&mut f.name).desired_width(200.0).char_limit(MAX_LIST_NAME).hint_text(tl!("Optional")));
+    });
+    ui.add_enabled(!f.name.trim().is_empty(), egui::Checkbox::new(&mut f.save, tl!("Save in My Lists, for every document")));
     let (ok, cancel) = buttons(ui, tl!("OK"));
-    if ok && let Err(e) = app.run("list.define", f.params()) {
-        app.status(e);
+    if ok {
+        match app.run("list.define", f.params()) {
+            Ok(_) => f.save_to(&mut app.ui.saved_lists),
+            Err(e) => app.status(e),
+        }
     }
     ok || cancel
 }
@@ -548,6 +629,49 @@ mod tests {
 
     fn app() -> WordApp {
         WordApp::new(Session::new(wordcraft_doc::Document::new()), Services::default())
+    }
+
+    /// A list named and saved in My Lists is kept with the settings (and read back from them),
+    /// shows how it numbers, and numbers a paragraph in another document; one saved again under
+    /// the same name replaces it, and a malformed entry in the settings is dropped.
+    #[test]
+    fn a_saved_list_is_kept_and_numbers_another_document() {
+        let mut a = app();
+        let mut f = super::ListForm::read(&a);
+        f.levels[0].format = "thaiNumbers".into();
+        f.levels[0].text = "%1.".into();
+        f.levels[1].format = "thaiNumbers".into();
+        f.levels[1].text = "%1.%2.".into();
+        f.name = "Thesis".into();
+        f.save = true;
+        a.run("list.define", f.params()).unwrap();
+        f.save_to(&mut a.ui.saved_lists);
+        f.save_to(&mut a.ui.saved_lists);
+        assert_eq!(a.ui.saved_lists.len(), 1, "saved again under its name: replaced");
+        let saved = a.ui.saved_lists[0].clone();
+        assert_eq!(saved.sample(), "๑. ๑.๑. i.");
+        // Through the settings file and back, with a bad entry beside it.
+        let mut json = serde_json::to_value(a.prefs()).unwrap();
+        json["savedLists"].as_array_mut().unwrap().push(json!({"name": 3}));
+        let back = crate::UiState::from_json(&serde_json::to_vec(&json).unwrap()).unwrap();
+        assert_eq!(back.saved_lists, vec![saved.clone()]);
+        // Another document: picking it numbers the paragraph in Thai.
+        let mut b = WordApp::new(Session::new(wordcraft_doc::Document::from_text("บทนำ")), Services::default());
+        b.run("list.define", saved.params()).unwrap();
+        let p = b.session.doc.para(wordcraft_doc::StoryRef::Body, &wordcraft_doc::Path::top(0)).unwrap();
+        let num = p.props.numbering.expect("numbered").num;
+        let aid = b.session.doc.numbering.num(num).unwrap().abstract_id;
+        let abs = b.session.doc.numbering.abstracts.iter().find(|x| x.id == aid).unwrap();
+        assert_eq!(abs.name.as_deref(), Some("Thesis"));
+        // Unsaved or nameless: nothing kept.
+        let mut g = super::ListForm::read(&b);
+        g.name = "Draft".into();
+        let mut none = Vec::new();
+        g.save_to(&mut none);
+        g.save = true;
+        g.name = "  ".into();
+        g.save_to(&mut none);
+        assert!(none.is_empty());
     }
 
     /// #328: the ribbon opens Define New Multilevel List; OK defines the list and numbers the
