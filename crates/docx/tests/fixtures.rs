@@ -475,7 +475,8 @@ fn custom_style_named_like_a_quick_builtin_is_not_quick() {
     assert!(!ids.iter().any(|i| i == "MyTitle" || i == "Title"), "{ids:?}");
 }
 
-/// A file that uses `w:qFormat` (Word's own) keeps exactly the gallery it says.
+/// A file that uses `w:qFormat` (Word's own) keeps exactly the gallery it says, plus Header and
+/// Footer, which KhianKrub always offers.
 #[test]
 fn styles_with_qformat_keep_their_gallery() {
     let styles = format!(
@@ -484,7 +485,7 @@ fn styles_with_qformat_keep_their_gallery() {
  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:basedOn w:val="Normal"/></w:style>
 </w:styles>"#
     );
-    assert_eq!(gallery_ids(&styles), vec!["Normal".to_string()]);
+    assert_eq!(gallery_ids(&styles), ["Normal", "Footer", "Header"].map(String::from).to_vec());
 }
 
 /// Word starts every note with a `w:footnoteRef` / `w:endnoteRef` mark: the note's own number.

@@ -913,4 +913,24 @@ mod tests {
         settle(&mut s);
         assert_eq!(s.recovery_documents().len(), 1);
     }
+
+    #[test]
+    fn letting_a_document_go_removes_only_its_copy() {
+        let t = Temp::new();
+        let mut s = session(&t.0);
+        s.run("text.insert", &json!({"text": "Older synthetic draft"})).unwrap();
+        save_now(&mut s);
+        s.run("file.new", &json!({})).unwrap();
+        s.run("text.insert", &json!({"text": "Draft the user lets go"})).unwrap();
+        save_now(&mut s);
+        assert_eq!(s.recovery_documents().len(), 2);
+        // "Don't Save", or closing the app: the next launch offers only the older draft.
+        s.discard_recovery_copy().unwrap();
+        settle(&mut s);
+        let left = s.recovery_documents();
+        assert_eq!(left.len(), 1);
+        drop(s);
+        let s = session(&t.0);
+        assert_eq!(s.recovery_documents().iter().map(|d| &d.id).collect::<Vec<_>>(), left.iter().map(|d| &d.id).collect::<Vec<_>>());
+    }
 }

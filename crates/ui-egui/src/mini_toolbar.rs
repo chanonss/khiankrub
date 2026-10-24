@@ -31,9 +31,10 @@ const SEP_W: f32 = 9.0;
 const COMBO_SIZE_W: f32 = 52.0;
 /// Gap between the size box and the grow/shrink buttons.
 const GAP: f32 = 3.0;
-/// Row 2, like Word's: B I U S | highlight, font colour | the four alignments. Fourteen
-/// allocations, so thirteen gaps; the two inside the split buttons are counted in `SPLIT_W`.
-const ROW2_W: f32 = 8.0 * BTN_W + 2.0 * SPLIT_W + 2.0 * SEP_W + 11.0 * SPACING;
+/// Row 2, like Word's: B I U S | highlight, font colour | the four alignments, then Thai
+/// Distribution. Fifteen allocations, so fourteen gaps; the two inside the split buttons are
+/// counted in `SPLIT_W`.
+const ROW2_W: f32 = 9.0 * BTN_W + 2.0 * SPLIT_W + 2.0 * SEP_W + 12.0 * SPACING;
 /// Row 1: font, size, grow, shrink. The font box takes what row 2 leaves, so both rows end
 /// together and the box starts at the bar's left edge.
 const COMBO_FONT_W: f32 = ROW2_W - (COMBO_SIZE_W + GAP + 2.0 * BTN_W + 3.0 * SPACING);
@@ -263,6 +264,7 @@ fn content(app: &mut WordApp, ui: &mut egui::Ui, t: &Tokens) {
         widgets::small(ui, app, "alignCenter", None, "Center", "para.alignCenter", json!({}), align == A::Center);
         widgets::small(ui, app, "alignRight", None, "Align Right", "para.alignRight", json!({}), align == A::Right);
         widgets::small(ui, app, "justify", None, "Justify", "para.justify", json!({}), align == A::Justify);
+        widgets::small(ui, app, "thaiDistribute", None, "Thai Distribution", "para.thaiDistribute", json!({}), align == A::ThaiDistribute);
     });
 }
 
@@ -636,5 +638,21 @@ mod tests {
         click_at(&mut h, twenty);
         assert_eq!(format_state(&mut h).get("size").and_then(Value::as_f64), Some(20.0), "the bar's size list applied 20 pt");
         assert!(visible(h.state()) && bar_layer(&h).is_some(), "the bar stays up after its own list is used");
+    }
+
+    /// The bar has Thai Distribution after Justify, and it sets the paragraph's alignment.
+    #[test]
+    fn the_bar_sets_thai_distribution() {
+        use egui_kittest::kittest::Queryable;
+        let mut h = bar_over("brown fox");
+        assert!(bar_layer(&h).is_some(), "the bar is up");
+        // The ribbon's button is the topmost one; the bar has its own lower down.
+        let all: Vec<egui::Pos2> = h.query_all_by_label("Thai Distribution").map(|n| n.rect().center()).collect();
+        assert_eq!(all.len(), 2, "the ribbon's button and the bar's");
+        let button = all.into_iter().max_by(|a, b| a.y.total_cmp(&b.y)).expect("the bar has a Thai Distribution button");
+        click_at(&mut h, button);
+        let s = &h.state().session;
+        let align = s.doc.para_at(&s.sel.focus).map(|p| s.doc.styles.resolve_para(&p.props).align);
+        assert_eq!(align, Some(wordcraft_doc::Align::ThaiDistribute));
     }
 }

@@ -10,6 +10,7 @@ use egui::{Sense, Ui, vec2};
 use serde::Serialize;
 use serde_json::{Value, json};
 use wordcraft_doc::{Block, Source, StyleKind};
+use wordcraft_engine::cmd::citations::{THAI_FIGURE, THAI_TABLE};
 use wordcraft_engine::cmd::references::FieldCode;
 
 use crate::WordApp;
@@ -202,8 +203,8 @@ fn sample(ui: &mut Ui, lines: &[(usize, String, String)], right: bool, leader: O
 // ---------------------------------------------------------------------------------------------
 // Caption
 
-/// Labels every document has.
-const BUILT_IN_LABELS: [&str; 3] = ["Equation", "Figure", "Table"];
+/// Labels every document has: Word's, then the Thai figure and table labels, the defaults.
+const BUILT_IN_LABELS: [&str; 5] = ["Equation", "Figure", "Table", THAI_FIGURE, THAI_TABLE];
 
 const NUMBER_FORMATS: [(&str, &str); 5] =
     [("ARABIC", "1, 2, 3, …"), ("alphabetic", "a, b, c, …"), ("ALPHABETIC", "A, B, C, …"), ("roman", "i, ii, iii, …"), ("ROMAN", "I, II, III, …")];
@@ -250,7 +251,7 @@ impl CaptionForm {
                 .get(app.session.sel.focus.path.0.first().copied().unwrap_or(0) as usize)
                 .is_some_and(|b| matches!(&**b, Block::Table(_)));
         CaptionForm {
-            label: if in_table { "Table" } else { "Figure" }.into(),
+            label: if in_table { THAI_TABLE } else { THAI_FIGURE }.into(),
             labels,
             text: String::new(),
             position: "below".into(),
@@ -327,7 +328,7 @@ fn caption_ui(app: &mut WordApp, ui: &mut Ui, f: &mut CaptionForm) -> Next {
         if ui.add_enabled(custom, egui::Button::new(tl!("Delete Label"))).clicked() {
             app.ui.caption_labels.retain(|l| *l != f.label);
             f.labels.retain(|l| *l != f.label);
-            f.label = "Figure".into();
+            f.label = THAI_FIGURE.into();
         }
         if ui.button(tl!("Numbering…")).clicked() {
             then = Some(RefsDialog::CaptionNumbering { was: Box::new(f.clone()), form: f.clone() });
@@ -1178,7 +1179,7 @@ mod tests {
         a.run("select.text", json!({"text": "A chart"})).unwrap();
         assert_eq!(a.run("references.caption", json!({})).unwrap(), json!({"pending": "caption"}));
         let RefsDialog::Caption(mut f) = form(&a) else { panic!() };
-        assert_eq!((f.label.as_str(), f.labels.len()), ("Figure", 3));
+        assert_eq!((f.label.as_str(), f.labels.len()), (THAI_FIGURE, 5));
         // New Label…, then Numbering… with a chapter number.
         f.new_label = "Plate".into();
         a.dialog = None;

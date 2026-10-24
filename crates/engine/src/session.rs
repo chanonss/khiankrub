@@ -447,6 +447,10 @@ pub struct Session {
     /// `None` is WordCraft's default, US English. The front end sets it from the interface
     /// language with [`Session::set_editing_language`] (a Polish interface writes Polish).
     pub editing_lang: Option<String>,
+    /// New blank documents use KhianKrub's Thai fonts ([`wordcraft_doc::Document::apply_thai_defaults`]).
+    /// The desktop app turns it on with [`Session::set_thai_defaults`]; headless sessions keep the
+    /// original defaults.
+    pub thai_defaults: bool,
     /// Editing inside an equation: which one and the caret in it.
     pub math: Option<MathEdit>,
     /// Equations are typed in LaTeX rather than the linear format.
@@ -650,6 +654,7 @@ impl Session {
             keymap: crate::KeyMap::default(),
             ribbon: crate::RibbonLayout::default(),
             editing_lang: None,
+            thai_defaults: false,
             read_aloud: Default::default(),
             password: None,
             #[cfg(not(target_arch = "wasm32"))]
@@ -845,6 +850,22 @@ impl Session {
         let untouched = self.path.is_none() && !self.dirty && self.history.is_empty() && self.redo.is_empty();
         if untouched && self.doc.plain_text(StoryRef::Body).trim().is_empty() && self.doc.paragraph_count() <= 1 {
             self.doc.styles.default_chr.lang = Some(self.editing_lang.clone().unwrap_or_else(|| "en-US".into()));
+            self.rev = self.rev.wrapping_add(1);
+            self.relayout();
+        }
+    }
+
+    /// Give new blank documents KhianKrub's Thai fonts ([`Session::thai_defaults`]). Like
+    /// [`Session::set_editing_language`], the untouched blank document a session starts with
+    /// switches too, with no undo step.
+    pub fn set_thai_defaults(&mut self, on: bool) {
+        if self.thai_defaults == on {
+            return;
+        }
+        self.thai_defaults = on;
+        let untouched = self.path.is_none() && !self.dirty && self.history.is_empty() && self.redo.is_empty();
+        if on && untouched && self.doc.plain_text(StoryRef::Body).trim().is_empty() && self.doc.paragraph_count() <= 1 {
+            self.doc.apply_thai_defaults();
             self.rev = self.rev.wrapping_add(1);
             self.relayout();
         }
@@ -1096,6 +1117,7 @@ impl Session {
             ribbon: _,
             // A preference for new documents, like `prefs`: not part of this document.
             editing_lang: _,
+            thai_defaults: _,
             // Equation editing mode, like `view`: not part of the document or its history.
             math: _,
             math_latex: _,

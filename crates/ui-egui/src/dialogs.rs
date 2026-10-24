@@ -55,6 +55,9 @@ pub enum GoToWhat {
 }
 
 /// The Special ▾ menu: (name, code) for Find what, without and with wildcards.
+/// Where TH Sarabun New is downloaded from ([`Dialog::MissingFont`]): its release page on f0nt.com.
+const THAI_FONT_URL: &str = "https://www.f0nt.com/release/th-sarabun-new/";
+
 const SPECIAL_FIND: &[(&str, &str)] = &[
     ("Paragraph Mark", "^p"),
     ("Tab Character", "^t"),
@@ -385,6 +388,11 @@ pub enum Dialog {
     /// Tabs: 0 About, 1 Contributors, 2 Models.
     About {
         tab: u8,
+    },
+    /// TH Sarabun New, the font of new documents, isn't installed: offer its download page
+    /// (shown once at launch, unless turned off).
+    MissingFont {
+        dont_remind: bool,
     },
     /// Confirm before deleting a recovery copy.
     DiscardRecovery {
@@ -827,6 +835,7 @@ impl Dialog {
             Dialog::About { .. } => "about",
             Dialog::SaveChanges { .. } => "saveChanges",
             Dialog::DiscardRecovery { .. } => "discardRecovery",
+            Dialog::MissingFont { .. } => "missingFont",
             Dialog::RecipientList { .. } => "recipientList",
             Dialog::SelectTable { .. } => "selectTable",
             Dialog::InsertMergeField { .. } => "insertMergeField",
@@ -1275,6 +1284,7 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
         Dialog::About { .. } => "About KhianKrub",
         Dialog::SaveChanges { .. } => "KhianKrub",
         Dialog::DiscardRecovery { .. } => "Discard recovery copy",
+        Dialog::MissingFont { .. } => "Font Not Installed",
         Dialog::RecipientList { .. } => "Recipient List",
         Dialog::SelectTable { .. } => "Select Table",
         Dialog::InsertMergeField { .. } => "Insert Merge Field",
@@ -2489,6 +2499,32 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                     app.status(e.clone());
                 }
                 return result.is_ok();
+            }
+            false
+        }
+        Dialog::MissingFont { dont_remind } => {
+            let font = wordcraft_doc::styles::THAI_FONT;
+            ui.label(egui::RichText::new(crate::i18n::fmt(tl!("{font} is not installed"), &[("font", font)])).font(semibold(15.0)));
+            ui.label(crate::i18n::fmt(
+                tl!("New documents use {font}, the standard font for Thai documents. Until it is installed, a similar font is shown in its place."),
+                &[("font", font)],
+            ));
+            ui.label(tl!("Download it, install it, then restart KhianKrub."));
+            ui.add_space(4.0);
+            ui.checkbox(dont_remind, tl!("Don't show this again"));
+            ui.add_space(6.0);
+            let (download, not_now) = ui
+                .horizontal(|ui| {
+                    let not_now = ui.button(tl!("Not Now")).clicked() || ui.input(|i| i.key_pressed(egui::Key::Escape));
+                    (ui.button(tl!("Download…")).clicked(), not_now)
+                })
+                .inner;
+            if download || not_now {
+                app.ui.thai_font_notice_off = *dont_remind;
+                if download {
+                    app.canvas.open_url = Some(THAI_FONT_URL.into());
+                }
+                return true;
             }
             false
         }

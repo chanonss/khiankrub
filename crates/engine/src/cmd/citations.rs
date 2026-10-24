@@ -313,11 +313,13 @@ pub fn specs() -> Vec<CommandSpec> {
         })
         .params(r#"{"title"?: string}"#),
         CommandSpec::new("references.tableOfFigures", "Insert Table of Figures", "References › Captions", |s, v| {
-            let label = p::str(v, "label").unwrap_or("Figure").to_string();
+            // Without a label: the document's Thai figure captions when it has some, else Figure.
+            let thai = || ref_targets(s, "figure").iter().any(|(t, _)| t.starts_with(THAI_FIGURE));
+            let label = p::str(v, "label").map(str::to_string).unwrap_or_else(|| if thai() { THAI_FIGURE } else { "Figure" }.to_string());
             generated_list(s, &format!("TOC \\c \"{label}\""), "")?;
             sel_result(s)
         })
-        .params(r#"{"label"?: "Figure|Table|Equation"}"#),
+        .params(r#"{"label"?: "Figure|Table|Equation|ภาพที่|ตารางที่"}"#),
         CommandSpec::new("references.updateFigures", "Update Table", "References › Captions", |s, _| {
             update_generated(s)?;
             sel_result(s)
@@ -907,20 +909,25 @@ fn cross_ref(s: &mut Session, v: &Value) -> CmdResult {
 }
 
 /// Cross-reference targets of a kind: (shown text or bookmark name, position).
+/// Thai caption labels for figures and tables ("Figure n", "Table n" in Thai documents).
+pub const THAI_FIGURE: &str = "ภาพที่";
+pub const THAI_TABLE: &str = "ตารางที่";
+
 pub fn ref_targets(s: &Session, to: &str) -> Vec<(String, Pos)> {
     let mut targets: Vec<(String, Pos)> = Vec::new();
     match to {
         "bookmark" => targets = s.doc.bookmarks(),
         "figure" | "table" | "equation" => {
-            let label = match to {
-                "table" => "Table",
-                "equation" => "Equation",
-                _ => "Figure",
+            // The English label and its Thai one (the Caption dialog's defaults).
+            let labels: &[&str] = match to {
+                "table" => &["Table", THAI_TABLE],
+                "equation" => &["Equation"],
+                _ => &["Figure", THAI_FIGURE],
             };
             for path in s.doc.para_paths(StoryRef::Body) {
                 if let Some(p) = s.doc.para(StoryRef::Body, &path)
                     && p.props.style.as_deref() == Some("Caption")
-                    && p.plain_text().starts_with(label)
+                    && labels.iter().any(|l| p.plain_text().starts_with(l))
                 {
                     targets.push((p.plain_text(), Pos { story: StoryRef::Body, path: path.clone(), off: 0 }));
                 }
@@ -1103,6 +1110,26 @@ mod tests {
         let (name, _) = s.doc.bookmarks().into_iter().find(|(n, _)| n.starts_with("_Ref")).unwrap();
         assert_eq!(crate::cmd::references::bookmark_text(&s.doc, &name).as_deref(), Some("Figure 1"));
         assert!(fields(&s).contains(&(format!("REF {name} \\h"), "Figure 1".to_string())), "{:?}", fields(&s));
+    }
+
+    /// Thai captions (ภาพที่, ตารางที่) number, list in a table of figures (its default when the
+    /// document has them) and are figure and table cross-reference targets.
+    #[test]
+    fn thai_captions_list_and_cross_reference() {
+        let mut s = Session::new(wordcraft_doc::Document::from_text("เตาเผา\nตาราง\nท้าย"));
+        s.run("select.text", &json!({"text": "เตาเผา"})).unwrap();
+        s.run("references.caption", &json!({"label": THAI_FIGURE, "text": "เตาเผา"})).unwrap();
+        s.run("select.text", &json!({"text": "ตาราง"})).unwrap();
+        s.run("references.caption", &json!({"label": THAI_TABLE, "text": "ราคา"})).unwrap();
+        assert!(s.doc.plain_text(StoryRef::Body).contains("ภาพที่ 1: เตาเผา"), "{}", s.doc.plain_text(StoryRef::Body));
+        assert!(s.doc.plain_text(StoryRef::Body).contains("ตารางที่ 1: ราคา"));
+        assert_eq!(ref_targets(&s, "figure").len(), 1);
+        assert_eq!(ref_targets(&s, "table").len(), 1);
+        s.run("caret.docEnd", &json!({})).unwrap();
+        s.run("text.newParagraph", &json!({})).unwrap();
+        s.run("references.tableOfFigures", &json!({})).unwrap();
+        assert!(fields(&s).iter().any(|(i, _)| i == "TOC \\c \"ภาพที่\""), "{:?}", fields(&s));
+        assert!(s.doc.plain_text(StoryRef::Body).contains("ภาพที่ 1: เตาเผา\t1"));
     }
 
     /// #661: References › Table of Authorities › Update Table picks up citations marked after the table.

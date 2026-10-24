@@ -7,6 +7,41 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-24
 
+### Fixes from testing v0.7.2
+- **A new window for each document.** File › Open (and recent files, Finder, a file dropped on the Dock icon) and
+  File › New open in a window of their own once the current window holds a document, as in Word. The untouched blank
+  document a window starts with is still replaced, and a template still opens in the current window. Each window is
+  its own copy of the app (`new_window` in `apps/wordcraft/src/main.rs`), so on the Mac each has its own Dock icon. A
+  new blank window starts with `--new`. Test: `open_and_new_use_a_new_window_once_this_one_has_a_document`.
+- **File › Recover no longer comes back after a normal close.** A document's recovery copy is now removed when the
+  user chooses Don't Save and when the app closes normally (`Session::discard_recovery_copy`), so only a crash leaves
+  one. And a file opened at launch (Finder, the command line) stays in front: the Recover page shows by itself only
+  on an empty start; otherwise the status bar says copies can be recovered from File › Recover. Copies already left
+  by earlier versions show once more; Discard removes them. Test: `letting_a_document_go_removes_only_its_copy`.
+- **New documents use TH Sarabun New 16.** The desktop app's new blank documents (and opened plain text) use
+  TH Sarabun New for Thai and English text, 16 pt body text, with every built-in style's size stepped up to match
+  (Heading 1 24 pt, Heading 2 20 pt, Heading 3 18 pt, Title 37 pt, Caption 12 pt). Opened documents and templates keep
+  their own fonts; headless use (`wordcraft-cli`, MCP) keeps the original's defaults
+  (`Session::set_thai_defaults`, `StyleSheet::apply_thai_defaults`). When the font isn't installed, a notice at
+  launch offers its download page, <https://www.f0nt.com/release/th-sarabun-new/>, with "Don't show this again". The
+  font is not bundled. Test: `new_documents_use_the_thai_fonts`.
+- **Thai caption labels.** Insert Caption offers ภาพที่ and ตารางที่ and uses them by default (ตารางที่ in a table,
+  ภาพที่ elsewhere); Figure, Table and Equation are still there. Cross-reference lists Thai captions under Figure and
+  Table, and Insert Table of Figures uses ภาพที่ when the document has such captions. Test:
+  `thai_captions_list_and_cross_reference`.
+- **Header and Footer in the Styles gallery**, for new documents and for opened Word files (where Word hides them or
+  leaves them out); a file's own style named Footer is left alone. Tests: `header_and_footer_are_in_the_gallery`,
+  `styles_with_qformat_keep_their_gallery`.
+- **Thai Distribution on the floating format bar**, after Justify. Test: `the_bar_sets_thai_distribution`.
+
+### Release v0.7.2
+- [v0.7.2](https://github.com/chanonss/khiankrub/releases/tag/v0.7.2), built from commit `9f474710`. Windows files
+  `khiankrub-0.7.2-windows-x64.msi` (SHA-256 `bccb048c09faa119dff61489ba3adb5498d514d457ce9b3cd37882ed8ec06a7c`) and
+  `khiankrub-0.7.2-windows-x64-portable.zip` (`c359f96a99cf886c49f095574781f4ca3c9a7accb1744999007bcd5a48a3046d`);
+  Mac file `KhianKrub-0.7.2-macos-apple-silicon.zip`, SHA-256
+  `d402084070dc44454d7da8288dc52af863e8e0bf9b6d484f3f6208cd0bfe1f66`, built on the Mac after `cargo xtask ci` passed
+  there. On the Mac the bold Thai interface test (`thai_heading_text_has_glyphs`) passes; it fails only on Windows.
+
 ### Version 0.7.2
 - The app's version is 0.7.2 (was 0.7.1). It brings the Thai lists from the menus and is the first version released
   for Windows and Mac together; the Windows build comes first, the Mac build follows.

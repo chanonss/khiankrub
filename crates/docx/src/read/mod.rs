@@ -885,6 +885,8 @@ impl Reader<'_> {
         if !sheet.styles.iter().any(|s| s.quick) {
             sheet.add_default_gallery();
         }
+        // KhianKrub offers Header and Footer in the gallery too.
+        sheet.add_header_footer_gallery();
         self.doc.styles = sheet;
         Ok(())
     }

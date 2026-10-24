@@ -75,6 +75,11 @@ impl eframe::App for App {
         if closing && !self.0.close_requested() {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
         } else if (closing || self.0.quit_requested) && !self.0.printing.busy() {
+            // The close is allowed: the document is saved, or the user chose Don't Save. Its
+            // recovery copy is no longer needed; only a crash leaves one for the next launch.
+            if let Err(e) = self.0.session.discard_recovery_copy() {
+                log::warn!("recovery: {e}");
+            }
             // On macOS, letting eframe drop the window inside `-[NSApplication run]` aborts in
             // `-[_NSTouchBarFinderObservation invalidate]`. Command-Q calls `terminate:`. Once
             // the close is allowed, take that path instead of dropping the window on this turn.
@@ -263,8 +268,24 @@ fn services(file_dialog: file_dialogs::Hook, ctx: &egui::Context) -> Services {
         set_clipboard_html: Some(Box::new(clipboard::set_html)),
         clipboard_rtf: Some(Box::new(clipboard::rtf)),
         clipboard_formats: Some(Box::new(clipboard::formats)),
+        new_window: Some(Box::new(new_window)),
         ..Default::default()
     }
+}
+
+/// Another document in a window of its own: a second copy of the app, given the file (or
+/// `--new` for a blank document). Its exit status is collected on a thread, so no finished
+/// window is left behind as a zombie process.
+fn new_window(path: Option<&str>) -> Result<(), String> {
+    let exe = std::env::current_exe().map_err(|e| format!("couldn't find the app to open a new window: {e}"))?;
+    let mut command = std::process::Command::new(exe);
+    match path {
+        Some(p) => command.arg(p),
+        None => command.arg("--new"),
+    };
+    let mut child = command.spawn().map_err(|e| format!("couldn't open a new window: {e}"))?;
+    std::thread::Builder::new().name("window-reaper".into()).spawn(move || child.wait()).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 /// Window, Dock and taskbar icon.
@@ -280,10 +301,11 @@ const USAGE: &str = "\
 wordcraft — the KhianKrub desktop app
 
 USAGE:
-  wordcraft [--sample] [--control PORT] [FILE…]
+  wordcraft [--sample] [--new] [--control PORT] [FILE…]
 
 OPTIONS:
   --sample            open the sample document
+  --new               start on a new blank document instead of the Start screen
   --control PORT      start the localhost control server on PORT, for agents and scripts
                       (or set WORDCRAFT_CONTROL_PORT); see docs/control-protocol.md
   --version           print the version
@@ -336,6 +358,7 @@ fn main() -> eframe::Result {
     let mut control_port: Option<u16> = std::env::var("WORDCRAFT_CONTROL_PORT").ok().and_then(|p| p.parse().ok());
     let mut files = Vec::new();
     let mut sample = false;
+    let mut new_blank = false;
     let (args, other_files) = text_args();
     let mut bad_control: Option<Option<String>> = None;
     let mut args = args.into_iter().peekable();
@@ -350,6 +373,7 @@ fn main() -> eframe::Result {
                 }
             }
             "--sample" => sample = true,
+            "--new" => new_blank = true,
             "--version" => {
                 println!("wordcraft {} ({})", env!("CARGO_PKG_VERSION"), build_sha());
                 return Ok(());
@@ -443,6 +467,8 @@ fn main() -> eframe::Result {
                 let doc = app.session.blank_document();
                 app.session.set_document(doc);
             }
+            // KhianKrub: new documents are in TH Sarabun New 16 (the blank one at launch too).
+            app.session.set_thai_defaults(true);
             app.watch_desktop_theme(&cc.egui_ctx);
             if prefs_enabled()
                 && let Some(dir) = wordcraft_control_key::settings_dir()
@@ -469,7 +495,7 @@ fn main() -> eframe::Result {
             // Nothing to open (no files, no sample, no control channel driving the editor): start
             // on File › Home, as Word does (#766), unless the Start screen option is off. Files
             // macOS hands over later open on top of it and close it (`apple_events`).
-            if files.is_empty() && other_files.is_empty() && !sample && control_port.is_none() {
+            if files.is_empty() && other_files.is_empty() && !sample && !new_blank && control_port.is_none() {
                 app.start_screen();
             }
             for f in files {

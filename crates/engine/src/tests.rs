@@ -5871,6 +5871,33 @@ fn new_documents_follow_the_editing_language() {
     assert_eq!(s.editing_lang, None);
 }
 
+/// KhianKrub's desktop app writes new documents in TH Sarabun New 16 (headings stepped up to
+/// match): the untouched blank document switches, File › New and opened plain text follow, and
+/// opened documents and templates keep their own fonts.
+#[test]
+fn new_documents_use_the_thai_fonts() {
+    use wordcraft_doc::styles::THAI_FONT;
+    let mut s = s();
+    assert_ne!(s.doc.styles.default_chr.font.as_deref(), Some(THAI_FONT), "off unless the app asks");
+    s.set_thai_defaults(true);
+    let thai = |s: &Session| {
+        let body = s.doc.styles.resolve_char(None, &Default::default());
+        let h1 = s.doc.styles.resolve_char(Some("Heading1"), &Default::default());
+        (body.font, body.font_cs, body.size, h1.font, h1.size)
+    };
+    let expected = || (THAI_FONT.to_string(), THAI_FONT.to_string(), 16.0, THAI_FONT.to_string(), 24.0);
+    assert_eq!(thai(&s), expected(), "the untouched blank document switches");
+    assert!(!s.dirty && !s.can_undo());
+    run(&mut s, "file.new", json!({}));
+    assert_eq!(thai(&s), expected());
+    assert_eq!(s.doc.settings.minor_font, THAI_FONT);
+    let data = crate::cmd::insert::base64_encode("ข้อความ".as_bytes());
+    run(&mut s, "file.open", json!({"path": "note.txt", "data": data}));
+    assert_eq!(thai(&s), expected());
+    run(&mut s, "file.new", json!({"template": "letter"}));
+    assert_ne!(s.doc.styles.default_chr.font.as_deref(), Some(THAI_FONT), "templates keep their fonts");
+}
+
 /// A Polish document keeps its languages through .docx: the default (`w:docDefaults`) and an
 /// English run (`w:lang`) come back, and so does the proofing.
 #[test]

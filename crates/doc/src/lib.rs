@@ -720,6 +720,14 @@ impl Document {
         d
     }
 
+    /// A new document in KhianKrub's Thai fonts ([`styles::StyleSheet::apply_thai_defaults`]),
+    /// the theme's heading and body fonts too.
+    pub fn apply_thai_defaults(&mut self) {
+        self.styles.apply_thai_defaults();
+        self.settings.major_font = styles::THAI_FONT.into();
+        self.settings.minor_font = styles::THAI_FONT.into();
+    }
+
     /// Every story must hold at least one paragraph, and every cell too.
     pub fn ensure_nonempty(&mut self) {
         fn fix(bl: &mut Blocks) {

@@ -109,6 +109,9 @@ pub struct Services {
     /// sender counts as cancelled. An `Err` says no system dialog could be shown, and the app shows
     /// its built-in file browser instead (#576). The app shows one dialog at a time ([`file_dialogs`]).
     pub file_dialog: Option<Box<dyn Fn(FileDialogRequest) -> std::sync::mpsc::Receiver<FileDialogAnswer>>>,
+    /// Desktop: open a document (a path, or `None` for a new blank one) in a window of its own
+    /// ([`WordApp::run`] uses it for Open and New when this window already holds a document).
+    pub new_window: Option<Box<dyn Fn(Option<&str>) -> Result<(), String>>>,
     /// Web: open a file picker; the file arrives later through `inbox`.
     pub open_async: Option<Box<dyn Fn(&str)>>,
     /// Web: files (name, bytes) delivered asynchronously (picker, drag and drop).
@@ -300,6 +303,8 @@ pub struct UiState {
     /// Caption labels the user added (References › Insert Caption › New Label), kept between
     /// runs like Word keeps them in its Normal template (#402).
     pub caption_labels: Vec<String>,
+    /// The launch notice that TH Sarabun New isn't installed was turned off ("Don't show this again").
+    pub thai_font_notice_off: bool,
     /// Draw › Add Pen: the pens added to the pen gallery; the session owns them while running.
     /// Entries that aren't pens are dropped on reading.
     #[serde(deserialize_with = "wordcraft_engine::cmd::draw::lenient_pens")]
@@ -370,6 +375,7 @@ impl Default for UiState {
             keyboard: wordcraft_engine::KeyMap::default(),
             ribbon: wordcraft_engine::RibbonLayout::default(),
             caption_labels: Vec::new(),
+            thai_font_notice_off: false,
             ink_pens: Vec::new(),
             initials: String::new(),
             options_pane: "general".into(),
@@ -540,6 +546,10 @@ pub struct WordApp {
     /// between, such as an Undo, starts a new one).
     pub(crate) info_editing: Option<(&'static str, u64)>,
     recovery_seen: bool,
+    /// Whether the Thai document font was looked for at launch ([`dialogs::Dialog::MissingFont`]).
+    /// The browser has no installed fonts to look in.
+    #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
+    font_checked: bool,
     /// Started on the Start screen with nothing to open (#1129): the id of the placeholder
     /// blank document the session holds until the user creates or opens one. While it is still
     /// the session's document, no document is open: the window shows no page and only the File
@@ -640,6 +650,7 @@ impl WordApp {
             file_browser: file_browser::State::default(),
             info_editing: None,
             recovery_seen: false,
+            font_checked: false,
             no_document: None,
         }
     }
@@ -756,6 +767,9 @@ impl WordApp {
         if id == "file.recover" && params.as_object().is_none_or(|p| p.is_empty()) {
             self.ui.backstage = true;
             self.ui.backstage_page = "recover".into();
+        }
+        if let Some(r) = self.open_in_new_window(id, &params) {
+            return r;
         }
         // A button whose command needs input the user hasn't given yet opens its dialog (#240).
         if let Some(name) = input_dialog(id, &params)
@@ -991,7 +1005,13 @@ impl WordApp {
         }
         let go = match choice {
             SaveChoice::Cancel => false,
-            SaveChoice::DontSave => true,
+            SaveChoice::DontSave => {
+                // Not saving lets the changes go: their recovery copy goes too.
+                if let Err(e) = self.session.discard_recovery_copy() {
+                    log::warn!("recovery: {e}");
+                }
+                true
+            }
             // A new document: ask where through Save As; the command runs once that has saved,
             // which with the desktop's non-blocking dialog is on a later frame (#94).
             SaveChoice::Save if self.session.path.is_none() && self.services.download.is_none() => {
@@ -1018,6 +1038,42 @@ impl WordApp {
             return Ok(json!({"done": false}));
         }
         self.execute_user(&then, params).map(|r| json!({"done": true, "result": r}))
+    }
+
+    /// Open and New in a window of their own, like Word, when this window already holds a
+    /// document: anything but the untouched blank one a window starts with, which they replace.
+    /// `None` runs the command here (no `new_window` service, a template, bytes or a password
+    /// to open with). A file already open in this window just stays.
+    fn open_in_new_window(&mut self, id: &str, params: &Value) -> Option<Result<Value, String>> {
+        let spawn = self.services.new_window.as_ref()?;
+        let untouched = self.session.path.is_none()
+            && !self.session.dirty
+            && !self.session.can_undo()
+            && self.session.doc.plain_text(wordcraft_doc::StoryRef::Body).trim().is_empty();
+        if !self.has_document() || untouched {
+            return None;
+        }
+        let r = match id {
+            "file.open" => {
+                let path = params.get("path")?.as_str()?;
+                if params.get("data").is_some() || params.get("password").is_some() {
+                    return None;
+                }
+                if self.session.path.as_deref() == Some(std::path::Path::new(path)) {
+                    return Some(Ok(json!({"alreadyOpen": path})));
+                }
+                spawn(Some(path)).map(|()| json!({"newWindow": path}))
+            }
+            "file.new" if params.get("template").and_then(Value::as_str).is_none_or(|t| t == "blank") => {
+                spawn(None).map(|()| json!({"newWindow": null}))
+            }
+            _ => return None,
+        };
+        self.ui.backstage = false;
+        if let Err(e) = &r {
+            self.status(e.clone());
+        }
+        Some(r)
     }
 
     /// [`WordApp::execute`] for something the user did: a document that turns out to be
@@ -1836,9 +1892,23 @@ impl WordApp {
         }
         if !self.recovery_seen && self.session.recovery_ready() {
             self.recovery_seen = true;
+            // Only an empty start shows the page: a file opened at launch (Finder, the command
+            // line) stays in front, and the copies wait in File › Recover.
             if !self.session.recovery_documents().is_empty() && !self.session.dirty {
-                self.ui.backstage = true;
-                self.ui.backstage_page = "recover".into();
+                if self.session.path.is_none() {
+                    self.ui.backstage = true;
+                    self.ui.backstage_page = "recover".into();
+                } else {
+                    self.status(tl!("Unsaved copies can be recovered from File › Recover."));
+                }
+            }
+        }
+        // New documents are in TH Sarabun New: when it isn't installed, say where to get it.
+        #[cfg(not(target_arch = "wasm32"))]
+        if !self.font_checked && self.session.thai_defaults && self.dialog.is_none() {
+            self.font_checked = true;
+            if !self.ui.thai_font_notice_off && !wordcraft_fonts::FontDb::global().has_family(wordcraft_doc::styles::THAI_FONT) {
+                self.dialog = Some(dialogs::Dialog::MissingFont { dont_remind: false });
             }
         }
         if let Some(wait) = self.session.recovery_wait() {
@@ -4077,6 +4147,40 @@ mod tests {
         a.run("ui.saveChanges", json!({"answer": "dontSave"})).unwrap();
         assert!(body_text(&a).contains("Signed contract"));
         assert_eq!(a.session.path.as_deref(), Some(path.as_path()));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// With a `new_window` service (the desktop app), Open and New go to a window of their own
+    /// once this one holds a document; the untouched blank document is replaced instead, and a
+    /// template or the file already open here stays in this window.
+    #[test]
+    fn open_and_new_use_a_new_window_once_this_one_has_a_document() {
+        let dir = scratch("windows");
+        let path = docx_on_disk(&dir, "Second document");
+        let spawned = std::rc::Rc::new(std::cell::RefCell::new(Vec::<Option<String>>::new()));
+        let with_windows = |a: &mut WordApp| {
+            let log = spawned.clone();
+            a.services.new_window = Some(Box::new(move |p: Option<&str>| {
+                log.borrow_mut().push(p.map(str::to_string));
+                Ok(())
+            }));
+        };
+        let mut blank = app();
+        with_windows(&mut blank);
+        blank.run("file.open", json!({"path": path.to_string_lossy()})).unwrap();
+        assert!(body_text(&blank).contains("Second document"), "the untouched blank document is replaced");
+        assert!(spawned.borrow().is_empty());
+        let mut a = typed();
+        with_windows(&mut a);
+        let r = a.run("file.open", json!({"path": path.to_string_lossy()})).unwrap();
+        assert_eq!(r, json!({"newWindow": path.to_string_lossy()}));
+        assert_eq!(prompt(&a), None, "nothing to save: this window keeps its document");
+        assert!(body_text(&a).contains(UNSAVED));
+        a.run("file.new", json!({})).unwrap();
+        assert_eq!(*spawned.borrow(), vec![Some(path.to_string_lossy().to_string()), None]);
+        a.run("file.new", json!({"template": "letter"})).unwrap();
+        assert_eq!(prompt(&a), Some("saveChanges"), "a template still replaces this window's document");
+        assert_eq!(spawned.borrow().len(), 2);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

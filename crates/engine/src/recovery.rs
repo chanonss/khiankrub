@@ -102,6 +102,21 @@ impl Session {
         }
         Ok(())
     }
+    /// The user let this document go without saving ("Don't Save", or closing the app): remove
+    /// its copy so the next launch doesn't offer it. Waits for the worker; a document that is
+    /// still edited afterwards gets a new copy on a later tick.
+    pub fn discard_recovery_copy(&mut self) -> Result<(), String> {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let document = self.document_id();
+            if let Some(r) = &mut self.recovery
+                && r.document_is(document)
+            {
+                r.purge()?;
+            }
+        }
+        Ok(())
+    }
     pub(crate) fn recover(&mut self, v: &Value) -> CmdResult {
         let restore = v.get("restore");
         let discard = v.get("discard");

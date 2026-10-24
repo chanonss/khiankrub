@@ -447,6 +447,24 @@ pub const HEADING_BLUE: Rgb = Rgb(0x0F, 0x47, 0x61);
 /// Default body/heading fonts (theme minor/major). Substituted by layout when not installed.
 pub const BODY_FONT: &str = "Aptos";
 pub const HEADING_FONT: &str = "Aptos Display";
+/// KhianKrub's font for new documents ([`StyleSheet::apply_thai_defaults`]): the standard Thai
+/// document font, for Thai and English text alike.
+pub const THAI_FONT: &str = "TH Sarabun New";
+
+/// A built-in style size in the Thai set: TH Sarabun New at 16 pt reads like 12 pt Latin text,
+/// so each size steps up the way Thai documents set them (12 → 16, 14 → 18, 20 → 24 …).
+fn thai_size(pt: f32) -> f32 {
+    match pt {
+        x if x <= 9.0 => 12.0,
+        x if x <= 10.0 => 14.0,
+        x if x <= 11.0 => 15.0,
+        x if x <= 12.0 => 16.0,
+        x if x <= 14.0 => 18.0,
+        x if x <= 16.0 => 20.0,
+        x if x <= 20.0 => 24.0,
+        x => (x * 4.0 / 3.0).round(),
+    }
+}
 
 fn chr() -> CharProps {
     CharProps::default()
@@ -650,6 +668,8 @@ impl StyleSheet {
                     ..para()
                 },
                 priority: Some(99),
+                // In the Styles gallery, so a header or footer paragraph can be given its style.
+                quick: true,
                 ..p_style()
             });
         }
@@ -726,7 +746,9 @@ impl StyleSheet {
     /// The Quick Styles gallery, in priority order.
     pub fn gallery(&self) -> Vec<&Style> {
         let mut v: Vec<&Style> = self.styles.iter().filter(|s| s.quick && !s.hidden && s.kind != StyleKind::Table).collect();
-        v.sort_by_key(|s| (s.priority.unwrap_or(99), s.name.clone()));
+        // Header and Footer (always offered, [`StyleSheet::add_header_footer_gallery`]) come after
+        // the file's own styles of the same priority.
+        v.sort_by_key(|s| (s.priority.unwrap_or(99), matches!(s.id.as_str(), "Header" | "Footer"), s.name.clone()));
         v
     }
     /// The `based_on` chain from the root down to `id` (bounded, cycle-safe).
@@ -805,6 +827,47 @@ impl StyleSheet {
                     && self.find(&b.name).is_none()
                 {
                     self.styles.push(b.clone());
+                }
+            }
+        }
+    }
+    /// KhianKrub's new-document fonts: TH Sarabun New for Thai and English text, 16 pt body text,
+    /// and every built-in style's size stepped up to match ([`thai_size`]). Only for a style set
+    /// that still has the built-in fonts (a new document); styles with other fonts keep them.
+    pub fn apply_thai_defaults(&mut self) {
+        let thai = |c: &mut CharProps| {
+            if c.font.as_deref().is_some_and(|f| f == BODY_FONT || f == HEADING_FONT) {
+                c.font = Some(THAI_FONT.into());
+                c.font_cs = Some(THAI_FONT.into());
+            }
+            if let Some(pt) = c.size {
+                c.size = Some(thai_size(pt));
+                c.size_cs = Some(thai_size(pt));
+            }
+        };
+        thai(&mut self.default_chr);
+        for st in &mut self.styles {
+            thai(&mut st.chr);
+        }
+    }
+    /// Header and Footer in the Styles gallery of a file that has them hidden (Word leaves them
+    /// out of its gallery) or lacks them: the file's own style becomes quick, a missing one is
+    /// added from [`StyleSheet::builtin`]. A user style of the same name is left alone.
+    pub fn add_header_footer_gallery(&mut self) {
+        let builtin = StyleSheet::builtin();
+        for id in ["Header", "Footer"] {
+            let found = self.styles.iter().position(|s| s.id == id).or_else(|| self.styles.iter().position(|s| s.name.eq_ignore_ascii_case(id)));
+            match found.and_then(|i| self.styles.get_mut(i)) {
+                Some(st) => {
+                    if st.builtin && st.kind == StyleKind::Paragraph {
+                        st.quick = true;
+                        st.hidden = false;
+                    }
+                }
+                None => {
+                    if let Some(b) = builtin.get(id) {
+                        self.styles.push(b.clone());
+                    }
                 }
             }
         }
@@ -955,6 +1018,24 @@ mod tests {
         assert!(s.get("Subtitle").is_none(), "a style with that name exists: not duplicated");
         assert!(s.get("Custom1").is_some_and(|x| x.quick), "found by name only, built in: quick");
         assert_eq!(s.get("Custom1").and_then(|x| x.para.space_after), Some(99.0));
+    }
+
+    /// Header and Footer are in the gallery of a new document, and are put there (or added) for
+    /// a file that has them hidden or lacks them; a user style named Footer is left alone.
+    #[test]
+    fn header_and_footer_are_in_the_gallery() {
+        let in_gallery = |s: &StyleSheet, id: &str| s.gallery().iter().any(|x| x.id == id);
+        let b = StyleSheet::builtin();
+        assert!(in_gallery(&b, "Header") && in_gallery(&b, "Footer"));
+        let mut s = StyleSheet::empty();
+        s.styles.push(Style { id: "Header".into(), name: "header".into(), builtin: true, ..p_style() });
+        s.styles.push(Style { id: "MyFooter".into(), name: "Footer".into(), builtin: false, ..p_style() });
+        s.add_header_footer_gallery();
+        assert!(in_gallery(&s, "Header"), "the file's hidden Header is offered");
+        assert!(!in_gallery(&s, "MyFooter") && s.get("Footer").is_none(), "a user style named Footer is untouched, not duplicated");
+        let mut bare = StyleSheet::empty();
+        bare.add_header_footer_gallery();
+        assert!(in_gallery(&bare, "Header") && in_gallery(&bare, "Footer"), "missing ones are added");
     }
 
     #[test]

@@ -191,11 +191,14 @@ fn new(s: &mut Session, v: &Value) -> CmdResult {
 }
 
 /// A blank document on the Normal template: the region's paper (#838), written in the editing
-/// language (the templates' text is English).
+/// language (the templates' text is English), in the Thai fonts when [`Session::thai_defaults`].
 fn normal_document(s: &Session) -> Document {
     let mut d = s.blank_document();
     if let Some(lang) = &s.editing_lang {
         d.styles.default_chr.lang = Some(lang.clone());
+    }
+    if s.thai_defaults {
+        d.apply_thai_defaults();
     }
     d
 }
@@ -226,6 +229,10 @@ fn open(s: &mut Session, v: &Value) -> CmdResult {
         && matches!(ext.as_str(), "txt" | "text" | "md" | "markdown")
     {
         doc.styles.default_chr.lang = Some(lang.clone());
+    }
+    // Nor fonts: they get a new document's.
+    if s.thai_defaults && matches!(ext.as_str(), "txt" | "text" | "md" | "markdown") {
+        doc.apply_thai_defaults();
     }
     s.set_document(doc);
     if let Some(z) = s.doc.settings.zoom {
