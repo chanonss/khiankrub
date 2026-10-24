@@ -519,8 +519,9 @@ pub(crate) fn mi(ui: &mut Ui, app: &mut WordApp, label: &str, id: &str, params: 
     mi_text(ui, app, tl!(label), id, params);
 }
 
-/// A Layout menu item with a small picture before its name (Text Direction, Orientation, Columns,
-/// Breaks, Line Numbers), as in Word. `checked` (`Some`) highlights the current setting.
+/// A menu item with a small picture before its name (Layout's Margins, Text Direction, Orientation,
+/// Columns, Breaks and Line Numbers; Table Design's Borders; Table Layout's Select, Delete and
+/// AutoFit), as in Word. `checked` (`Some`) highlights the current setting.
 fn pic_item(ui: &mut Ui, app: &mut WordApp, label: &str, checked: Option<bool>, pic: &str, id: &str, params: Value) {
     let enabled = crate::widgets::enabled(app, id);
     let atom = ui.id().with(("layout picture", pic));
@@ -720,6 +721,118 @@ fn layout_picture(p: &egui::Painter, r: Rect, name: &str, ink: egui::Color32, ac
             p.rect_stroke(Rect::from_min_max(pt(16.5, 3.0), pt(23.0, 15.0)), 0.5, Stroke::new(1.1, ink), egui::StrokeKind::Middle);
             line((16.5, 9.0), (23.0, 9.0), ink);
             line((19.75, 3.0), (19.75, 15.0), ink);
+        }
+        // Margins: the page with its text area outlined, as wide as the preset leaves it.
+        _ if name.starts_with("mg_") => {
+            let margin_box = |x0: f32, y0: f32, x1: f32, y1: f32| {
+                let pts = [pt(x0, y0), pt(x1, y0), pt(x1, y1), pt(x0, y1), pt(x0, y0)];
+                p.extend(egui::Shape::dashed_line(&pts, Stroke::new(1.0, accent), 1.6 * s, 1.2 * s));
+            };
+            if name == "mg_mirrored" {
+                // Facing pages: the inside margins are the wider ones.
+                page(0.5, 1.5, 11.5, 18.5);
+                page(12.5, 1.5, 23.5, 18.5);
+                margin_box(1.8, 3.5, 8.5, 16.5);
+                margin_box(15.5, 3.5, 22.2, 16.5);
+            } else {
+                page(5.0, 0.5, 19.0, 19.5);
+                // Left, top, right and bottom insets, in the picture's units.
+                let (l, t, r, b) = match name {
+                    "mg_narrow" => (1.3, 1.3, 1.3, 1.3),
+                    "mg_moderate" => (1.8, 2.6, 1.8, 2.6),
+                    "mg_wide" => (4.2, 2.6, 4.2, 2.6),
+                    "mg_office2003" => (3.2, 2.6, 3.2, 2.6),
+                    _ => (2.6, 2.6, 2.6, 2.6),
+                };
+                margin_box(5.0 + l, 0.5 + t, 19.0 - r, 19.5 - b);
+                rows(5.0 + l + 0.8, 19.0 - r - 0.8, 0.5 + t + 2.0, 3, 2.6, ink);
+                if name == "mg_custom" {
+                    for x in [9.0, 12.0, 15.0] {
+                        p.circle_filled(pt(x, 15.0), 1.0 * s, accent);
+                    }
+                }
+            }
+        }
+        // Table Design › Borders: a 2 × 2 table; the borders the choice sets are solid, the rest dotted.
+        _ if name.starts_with("tb_") => {
+            let (outer, inner, top, bottom) = match name {
+                "tb_all" => (true, true, false, false),
+                "tb_outside" => (true, false, false, false),
+                "tb_inside" => (false, true, false, false),
+                "tb_top" => (false, false, true, false),
+                "tb_bottom" => (false, false, false, true),
+                _ => (false, false, false, false),
+            };
+            let edge = |a: (f32, f32), b: (f32, f32), on: bool| {
+                if on {
+                    p.line_segment([pt(a.0, a.1), pt(b.0, b.1)], Stroke::new(1.7 * s.max(0.8), accent));
+                } else {
+                    p.extend(egui::Shape::dashed_line(&[pt(a.0, a.1), pt(b.0, b.1)], Stroke::new(0.8, ink.gamma_multiply(0.6)), 1.0 * s, 1.2 * s));
+                }
+            };
+            edge((4.0, 2.0), (20.0, 2.0), outer || top);
+            edge((4.0, 18.0), (20.0, 18.0), outer || bottom);
+            edge((4.0, 2.0), (4.0, 18.0), outer);
+            edge((20.0, 2.0), (20.0, 18.0), outer);
+            edge((4.0, 10.0), (20.0, 10.0), inner);
+            edge((12.0, 2.0), (12.0, 18.0), inner);
+        }
+        // Table Layout › Select and Delete: a 3 × 3 table with the cell, column, row or table
+        // shaded; Delete crosses it out.
+        _ if name.starts_with("sel_") || name.starts_with("del_") => {
+            let (x0, y0, x1, y1) = match name.strip_prefix("sel_").or_else(|| name.strip_prefix("del_")).unwrap_or("") {
+                "cell" => (9.0, 7.5, 15.0, 12.5),
+                "column" => (9.0, 2.0, 15.0, 18.0),
+                "row" => (3.0, 7.5, 21.0, 12.5),
+                _ => (3.0, 2.0, 21.0, 18.0),
+            };
+            p.rect_filled(Rect::from_min_max(pt(x0, y0), pt(x1, y1)), 0.0, accent.gamma_multiply(0.6));
+            p.rect_stroke(Rect::from_min_max(pt(3.0, 2.0), pt(21.0, 18.0)), 0.5, Stroke::new(1.1, ink), egui::StrokeKind::Middle);
+            for x in [9.0, 15.0] {
+                line((x, 2.0), (x, 18.0), ink);
+            }
+            for y in [7.5, 12.5] {
+                line((3.0, y), (21.0, y), ink);
+            }
+            if name.starts_with("del_") {
+                let (cx, cy) = ((x0 + x1) / 2.0, (y0 + y1) / 2.0);
+                // In `ink`, so it shows on the shaded cells.
+                let h = 2.8;
+                p.line_segment([pt(cx - h, cy - h), pt(cx + h, cy + h)], Stroke::new(2.0 * s.max(0.8), ink));
+                p.line_segment([pt(cx - h, cy + h), pt(cx + h, cy - h)], Stroke::new(2.0 * s.max(0.8), ink));
+            }
+        }
+        // Table Layout › AutoFit: the table drawn in to its text, out to the page's edges, or with
+        // fixed column widths marked on a ruler.
+        "fit_contents" => {
+            p.rect_stroke(Rect::from_min_max(pt(8.0, 5.0), pt(16.0, 15.0)), 0.5, Stroke::new(1.1, ink), egui::StrokeKind::Middle);
+            line((12.0, 5.0), (12.0, 15.0), ink);
+            rows(9.2, 10.8, 8.5, 2, 3.0, ink);
+            rows(13.2, 14.8, 8.5, 2, 3.0, ink);
+            line((1.5, 10.0), (4.5, 10.0), accent);
+            head((6.5, 10.0), 1.0, 0.0);
+            line((22.5, 10.0), (19.5, 10.0), accent);
+            head((17.5, 10.0), -1.0, 0.0);
+        }
+        "fit_window" => {
+            line((1.0, 1.0), (1.0, 19.0), ink);
+            line((23.0, 1.0), (23.0, 19.0), ink);
+            p.rect_stroke(Rect::from_min_max(pt(2.5, 7.0), pt(21.5, 17.0)), 0.5, Stroke::new(1.1, ink), egui::StrokeKind::Middle);
+            line((12.0, 7.0), (12.0, 17.0), ink);
+            line((10.0, 3.5), (5.5, 3.5), accent);
+            head((3.5, 3.5), -1.0, 0.0);
+            line((14.0, 3.5), (18.5, 3.5), accent);
+            head((20.5, 3.5), 1.0, 0.0);
+        }
+        "fit_fixed" => {
+            p.rect_stroke(Rect::from_min_max(pt(3.0, 7.0), pt(21.0, 17.0)), 0.5, Stroke::new(1.1, ink), egui::StrokeKind::Middle);
+            for x in [9.0, 15.0] {
+                line((x, 7.0), (x, 17.0), ink);
+            }
+            line((3.0, 3.5), (21.0, 3.5), accent);
+            for x in [3.0, 9.0, 15.0, 21.0] {
+                line((x, 1.5), (x, 5.0), accent);
+            }
         }
         // Anything else is a ribbon icon (Insert Table…, Draw Table, the Page Number options).
         _ => crate::icons::paint(p, Rect::from_center_size(r.center(), vec2(20.0 * s, 20.0 * s)), name, ink, accent),
@@ -1751,9 +1864,9 @@ fn margins_items(ui: &mut Ui, app: &mut WordApp) {
         };
         // Mirrored margins come from the document as well as from the preset (#1181).
         let on = current == Some(k) || (k == "mirrored" && app.session.doc.settings.mirror_margins);
-        mi_check(ui, app, &label, on, "layout.margins", json!({"preset": k}));
+        pic_item(ui, app, &label, Some(on), &format!("mg_{k}"), "layout.margins", json!({"preset": k}));
     }
-    mi(ui, app, "Custom Margins…", "ui.dialog", json!({"name": "pageSetup"}));
+    pic_item(ui, app, "Custom Margins…", None, "mg_custom", "ui.dialog", json!({"name": "pageSetup"}));
 }
 
 fn orientation_items(ui: &mut Ui, app: &mut WordApp) {
@@ -2926,7 +3039,7 @@ fn table_design(app: &mut WordApp, ui: &mut Ui) {
                 ("Top Border", "top"),
                 ("Bottom Border", "bottom"),
             ] {
-                mi(ui, app, l, "table.borders", json!({"kind": k}));
+                pic_item(ui, app, l, None, &format!("tb_{k}"), "table.borders", json!({"kind": k}));
             }
         });
         big(ui, app, "borderPainter", "Border\nPainter", "table.borderPainter", json!({}), false);
@@ -3001,10 +3114,10 @@ fn table_layout(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Table", None, app, |ui, app| {
         stack(ui, |ui| {
             menu_button(ui, app, "selectTable", Some("Select"), "Select", false, "table.selectTable", |ui, app| {
-                mi(ui, app, "Select Cell", "table.selectCell", json!({}));
-                mi(ui, app, "Select Column", "table.selectColumn", json!({}));
-                mi(ui, app, "Select Row", "table.selectRow", json!({}));
-                mi(ui, app, "Select Table", "table.selectTable", json!({}));
+                pic_item(ui, app, "Select Cell", None, "sel_cell", "table.selectCell", json!({}));
+                pic_item(ui, app, "Select Column", None, "sel_column", "table.selectColumn", json!({}));
+                pic_item(ui, app, "Select Row", None, "sel_row", "table.selectRow", json!({}));
+                pic_item(ui, app, "Select Table", None, "sel_table", "table.selectTable", json!({}));
             });
             let g = app.session.view.table_gridlines;
             small(ui, app, "gridlines", Some("View Gridlines"), "View Gridlines", "table.viewGridlines", json!({}), g);
@@ -3019,10 +3132,10 @@ fn table_layout(app: &mut WordApp, ui: &mut Ui) {
     });
     group(ui, "Rows & Columns", None, app, |ui, app| {
         menu_button(ui, app, "deleteTable", Some("Delete"), "Delete", true, "table.deleteTable", |ui, app| {
-            mi(ui, app, "Delete Cells", "table.deleteCells", json!({}));
-            mi(ui, app, "Delete Columns", "table.deleteColumn", json!({}));
-            mi(ui, app, "Delete Rows", "table.deleteRow", json!({}));
-            mi(ui, app, "Delete Table", "table.deleteTable", json!({}));
+            pic_item(ui, app, "Delete Cells", None, "del_cell", "table.deleteCells", json!({}));
+            pic_item(ui, app, "Delete Columns", None, "del_column", "table.deleteColumn", json!({}));
+            pic_item(ui, app, "Delete Rows", None, "del_row", "table.deleteRow", json!({}));
+            pic_item(ui, app, "Delete Table", None, "del_table", "table.deleteTable", json!({}));
         });
         big(ui, app, "insertAbove", "Insert\nAbove", "table.insertRowAbove", json!({}), false);
         stack(ui, |ui| {
@@ -3040,9 +3153,9 @@ fn table_layout(app: &mut WordApp, ui: &mut Ui) {
     });
     group(ui, "Cell Size", None, app, |ui, app| {
         menu_button(ui, app, "autofit", Some("AutoFit"), "AutoFit", true, "table.autofit", |ui, app| {
-            mi(ui, app, "AutoFit Contents", "table.autofit", json!({"mode": "contents"}));
-            mi(ui, app, "AutoFit Window", "table.autofit", json!({"mode": "window"}));
-            mi(ui, app, "Fixed Column Width", "table.autofit", json!({"mode": "fixed"}));
+            pic_item(ui, app, "AutoFit Contents", None, "fit_contents", "table.autofit", json!({"mode": "contents"}));
+            pic_item(ui, app, "AutoFit Window", None, "fit_window", "table.autofit", json!({"mode": "window"}));
+            pic_item(ui, app, "Fixed Column Width", None, "fit_fixed", "table.autofit", json!({"mode": "fixed"}));
         });
         cell_size_boxes(ui, app);
         stack(ui, |ui| {
@@ -3241,8 +3354,9 @@ mod tests {
         }
     }
 
-    /// Every Layout menu picture (Text Direction, Orientation, Columns, Breaks, Line Numbers) draws
-    /// something: a misspelt name would leave an empty space before the label.
+    /// Every menu picture (Layout's Text Direction, Orientation, Columns, Breaks, Line Numbers and
+    /// Margins; the table menus' Borders, Select, Delete and AutoFit) draws something: a misspelt
+    /// name would leave an empty space before the label.
     #[test]
     fn layout_menu_pictures_all_draw() {
         let names = [
@@ -3269,6 +3383,30 @@ mod tests {
             "ln_restartPage",
             "ln_restartSection",
             "lnOptions",
+            "mg_normal",
+            "mg_narrow",
+            "mg_moderate",
+            "mg_wide",
+            "mg_mirrored",
+            "mg_office2003",
+            "mg_custom",
+            "tb_all",
+            "tb_outside",
+            "tb_inside",
+            "tb_none",
+            "tb_top",
+            "tb_bottom",
+            "sel_cell",
+            "sel_column",
+            "sel_row",
+            "sel_table",
+            "del_cell",
+            "del_column",
+            "del_row",
+            "del_table",
+            "fit_contents",
+            "fit_window",
+            "fit_fixed",
         ];
         let ctx = egui::Context::default();
         crate::theme::install_fonts(&ctx);

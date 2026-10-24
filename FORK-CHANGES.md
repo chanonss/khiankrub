@@ -5,6 +5,20 @@ Thai-speaking audience. This file lists what differs from the original, newest f
 progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each entry matches a commit on the
 `my-changes` branch.
 
+## 2026-10-25
+
+### Pictures in five more menus
+- Each item of these menus has a small picture before its name, like the Layout menus since v0.7.1 (`pic_item` and
+  `layout_picture` in `crates/ui-egui/src/ribbon.rs`; all drawn in code):
+  - **Table Design › Borders:** a 2 × 2 table with the borders the choice sets drawn solid, the others dotted.
+  - **Table Layout › Select:** a 3 × 3 table with the cell, column, row or whole table shaded.
+  - **Table Layout › Delete:** the same, crossed out.
+  - **Table Layout › AutoFit:** the table drawn in to its text, stretched to the page's edges, or with its column
+    widths fixed on a ruler.
+  - **Layout › Margins:** the page with its text area outlined as wide as the preset leaves it, two facing pages for
+    Mirrored; the current preset stays highlighted.
+- Checked in the light and dark themes. Test: `layout_menu_pictures_all_draw` now covers the new pictures.
+
 ## 2026-10-24
 
 ### Universal Mac build (Apple silicon and Intel)
