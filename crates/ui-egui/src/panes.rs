@@ -174,6 +174,20 @@ fn nav(app: &mut WordApp, ui: &mut Ui) {
             let caret = app.session.sel.focus.clone();
             let mut current: Option<usize> = None;
             let mut items = Vec::new();
+            // Each heading's list number as the page shows it (`1.1.`), from the layout.
+            let numbers: std::collections::HashMap<wordcraft_doc::Path, String> = app
+                .session
+                .layout()
+                .pages
+                .iter()
+                .flat_map(|pg| &pg.items)
+                .filter_map(|it| match it {
+                    wordcraft_layout::Placed::Lines { story: StoryRef::Body, path, para, l0: 0, .. } => {
+                        para.label.as_ref().map(|l| (path.clone(), l.text.trim().to_string())).filter(|(_, t)| !t.is_empty())
+                    }
+                    _ => None,
+                })
+                .collect();
             for path in app.session.doc.para_paths(StoryRef::Body) {
                 let Some(p) = app.session.doc.para(StoryRef::Body, &path) else { continue };
                 let rp = app.session.doc.styles.resolve_para(&p.props);
@@ -185,6 +199,11 @@ fn nav(app: &mut WordApp, ui: &mut Ui) {
                     if path <= caret.path {
                         current = Some(items.len());
                     }
+                    // Numbered headings show their number, as on the page.
+                    let txt = match numbers.get(&path) {
+                        Some(n) => format!("{n} {txt}"),
+                        None => txt,
+                    };
                     items.push((path, lv, txt));
                 }
             }
@@ -850,6 +869,27 @@ mod navigation_tests {
             );
             output.drop_without_applying_deltas();
         }
+    }
+
+    /// Numbered headings show their number in Navigation › Headings, as on the page.
+    #[test]
+    fn numbered_headings_show_their_number() {
+        use egui_kittest::kittest::Queryable;
+        let mut a =
+            crate::WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::from_text("Intro\nBody")), crate::Services::default());
+        a.run("select.text", json!({"text": "Intro"})).unwrap();
+        a.run("list.define", json!({"levels": [{"format": "decimal", "text": "%1.", "style": "Heading1"}]})).unwrap();
+        a.run("view.navigationPane", json!({"value": true})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1200.0, 800.0)).build_ui_state(
+            |ui, app: &mut crate::WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        assert!(h.query_by_label("1. Intro").is_some(), "the heading is listed with its number");
     }
 
     /// Word lists headings flush left, each level indented under its parent (#1199).

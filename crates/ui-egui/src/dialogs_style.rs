@@ -15,7 +15,6 @@ use wordcraft_doc::props::{LineSpacing, TabAlign, TabLeader, TabStop, Underline,
 use wordcraft_doc::{Align, CharProps, ParaProps, StyleKind, TextColor};
 
 use crate::WordApp;
-use crate::dialogs::buttons;
 use crate::options::MeasureExt;
 use crate::theme::semibold;
 use crate::widgets::SteadyUi;
@@ -560,9 +559,19 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) -> bool {
         },
         vec2(720.0, 64.0),
     );
-    let (ok, cancel) = buttons(ui, tl!("OK"));
-    if ok && let Err(e) = app.run("styles.modify", f.params()) {
-        app.status(e);
+    let (ok, apply, cancel) = crate::dialogs::buttons_with_apply(ui, tl!("OK"));
+    if ok || apply {
+        match app.run("styles.modify", f.params()) {
+            // Apply: the document shows the change and the window stays, now starting from it
+            // (so the next Apply or OK sends only what changes after this).
+            Ok(_) if apply => {
+                if let Some(fresh) = StyleForm::read(app, &f.id) {
+                    *f = StyleForm { page: f.page.clone(), tab: f.tab, ..fresh };
+                }
+            }
+            Ok(_) => {}
+            Err(e) => app.status(e),
+        }
     }
     ok || cancel
 }
@@ -980,6 +989,34 @@ mod tests {
 
     fn app() -> WordApp {
         WordApp::new(Session::new(wordcraft_doc::Document::from_text("หัวข้อ")), Services::default())
+    }
+
+    /// Apply changes the style at once and keeps the window open, starting again from the change:
+    /// a second Apply with nothing new sends nothing.
+    #[test]
+    fn apply_changes_the_style_and_keeps_the_window() {
+        use egui_kittest::kittest::Queryable;
+        let mut a = app();
+        a.dialog = crate::dialogs::Dialog::modify_style(&a, "Heading1");
+        if let Some(crate::dialogs::Dialog::ModifyStyle { form, .. }) = &mut a.dialog {
+            form.size = 30.0;
+            form.size_cs = 30.0;
+        }
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1200.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        h.get_by_label("Apply").click();
+        h.run_steps(3);
+        let size = h.state().session.doc.styles.resolve_char(Some("Heading1"), &Default::default()).size;
+        assert_eq!(size, 30.0, "applied");
+        let Some(crate::dialogs::Dialog::ModifyStyle { form, .. }) = &h.state().dialog else { panic!("the window stays open") };
+        assert!(form.params()["chr"].as_object().is_some_and(|c| c.is_empty()), "nothing new to send");
     }
 
     /// The Font page shows Latin and Thai text apart: Heading 1 with Latin 18 pt and Thai 24 pt

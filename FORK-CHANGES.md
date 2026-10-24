@@ -7,6 +7,13 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Modify Style: Apply; heading numbers in the Navigation pane
+- **Apply** in Modify Style (between OK and Cancel) changes the style at once and keeps the window open, starting
+  again from the change, so a second Apply or OK sends only what changes after it
+  (`dialogs::buttons_with_apply`). Test: `apply_changes_the_style_and_keeps_the_window`.
+- **Navigation › Headings** shows a numbered heading with its number, as on the page (`1.1. ทดสอบ`), read from
+  the layout. Test: `numbered_headings_show_their_number`.
+
 ### Modify Style: icons and more settings
 - Each page in Modify Style's list has its icon (drawn in code, from the ribbon's set).
 - New pages, after LibreOffice's style dialog (the idea only), limited to what a Word document keeps:

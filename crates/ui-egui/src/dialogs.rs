@@ -1433,6 +1433,29 @@ pub(crate) fn buttons(ui: &mut Ui, ok: &str) -> (bool, bool) {
     r
 }
 
+/// [`buttons`] with Apply between them: (OK, Apply, Cancel). Apply changes the document and
+/// keeps the dialog open.
+pub(crate) fn buttons_with_apply(ui: &mut Ui, ok: &str) -> (bool, bool, bool) {
+    let mut r = (false, false, false);
+    ui.add_space(8.0);
+    ui.horizontal(|ui| {
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let keys = !crate::colors::is_open(ui.ctx());
+            if ui.button(tl!("Cancel")).clicked() || (keys && ui.input(|i| i.key_pressed(egui::Key::Escape))) {
+                r.2 = true;
+            }
+            if ui.button(tl!("Apply")).clicked() {
+                r.1 = true;
+            }
+            let okb = ui.add(crate::widgets::primary_button(ui, ok));
+            if okb.clicked() || (keys && ui.input(|i| i.key_pressed(egui::Key::Enter))) {
+                r.0 = true;
+            }
+        });
+    });
+    r
+}
+
 /// The character properties the Font dialog's fields stand for.
 fn font_props(d: &Dialog) -> serde_json::Map<String, Value> {
     let Dialog::Font { font, font_ea, size, bold, italic, underline, strike, sup, sub, small_caps, caps, hidden, color, spacing, .. } = d else {
