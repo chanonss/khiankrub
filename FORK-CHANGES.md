@@ -7,6 +7,12 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-24
 
+### Version 0.7.3
+- The app's version is 0.7.3 (was 0.7.2). It brings the fixes from testing v0.7.2 (a window for each document, File ›
+  Recover only after a crash, TH Sarabun New 16 for new documents, Thai caption labels, Header and Footer in the
+  Styles gallery, Thai Distribution on the floating format bar), for Mac and Windows together. It is the first
+  release whose Windows files are built by GitHub Actions.
+
 ### Windows builds on GitHub Actions
 - `.github/workflows/windows-release.yml`: pushing a `v*` tag builds the Windows installer and portable zip on
   GitHub's Windows runner (WiX 5.0.2, `packaging/windows/package.ps1 -Arch x64`), lists their SHA-256 in the run's
