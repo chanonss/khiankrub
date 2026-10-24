@@ -19,9 +19,10 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
     Delete, Delete All. Deleting a stop the style inherits writes a clear for it.
 - **Text Flow** adds Suppress line numbers and Don't hyphenate; **Borders & Shading** adds Distance from text.
 - A character style has General, Font, Font Effects and Position.
-- Colibre (LibreOffice's icon set) was considered and not used: its README says it follows "the monoline style set
-  by Redmond", i.e. Microsoft Office's look, which this project's asset rule forbids; and the linked copy has no
-  licence file (in LibreOffice it falls under MPL 2.0).
+- LibreOffice's icon sets were considered and not used; the icons stay drawn in code. Colibre (CC0) follows "the
+  monoline style set by Redmond", i.e. Microsoft Office's look, which this project's asset rule forbids; Sukapura
+  (MPL 2.0) is Colibre recoloured. Sifr (CC BY-SA 3.0, GNOME/Tango artists) would be allowed with credits and
+  share-alike, but needs a row per file in ATTRIBUTION.md and a hand mapping to our commands.
 - Test: `effects_position_tabs_and_more_reach_the_style`.
 
 ### Modify Style with pages (round 2)
