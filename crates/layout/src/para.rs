@@ -3014,6 +3014,19 @@ fn resolve_tab(pl: &mut ParaLayout, pending: &mut Option<(usize, TabStop, f32)>,
 }
 
 impl ParaLayout {
+    /// Size of the paragraph's mark (¶), points: its first run's size, as the mark is drawn.
+    pub fn mark_size(&self) -> f32 {
+        self.styles.first().map(|s| s.size).unwrap_or(11.0)
+    }
+    /// How much room the drawn ¶ takes after the text, points: the 1 pt gap before it and the
+    /// glyph, at least [`PARA_MARK_WIDTH`]. A selection running past the paragraph's end
+    /// highlights this much, so the highlight covers the whole mark, as in Word.
+    pub fn mark_width(&self) -> f32 {
+        (1.0 + self.mark_size() * 0.6).max(PARA_MARK_WIDTH)
+    }
+}
+
+impl ParaLayout {
     /// The automatic space in cluster `k`'s advance ([`auto_space`]), 0 without one.
     fn auto_space_after(&self, k: usize) -> f32 {
         self.auto_space.binary_search_by_key(&k, |a| a.0).ok().and_then(|i| self.auto_space.get(i)).map_or(0.0, |a| a.1)

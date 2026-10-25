@@ -1366,7 +1366,7 @@ fn lines(
         // Formatting marks.
         let marks = opts.always.shown(opts.marks);
         if marks.any() {
-            let msize = pl.styles.first().map(|s| s.size).unwrap_or(11.0);
+            let msize = pl.mark_size();
             for k in line.c0..line.c1 {
                 let Some(c) = pl.clusters.get(k) else { continue };
                 let cx = x + line.cl_left(k).unwrap_or(0.0);
