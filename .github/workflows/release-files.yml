@@ -55,7 +55,9 @@ jobs:
         run: |
           if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "KhianKrub $TAG" \
-              --notes "Built by GitHub Actions. Add the notes, then publish."
+              --notes "Built by GitHub Actions. Add the notes, then publish.
+
+          Code signing policy: https://github.com/chanonss/khiankrub#code-signing-policy"
           fi
 
   windows-x64:

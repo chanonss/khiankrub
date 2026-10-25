@@ -16,7 +16,8 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 - The README has a **Code signing policy** section, as SignPath Foundation requires for free code signing:
   what is signed, the team roles, the basis on WordCraft, and a **Privacy** statement (nothing is sent unless
   asked; the opt-in update check described; Zotero and the automation channel stay on 127.0.0.1). The
-  application to SignPath is Chanon's to send.
+  application to SignPath is Chanon's to send. New release drafts start with a link to the policy
+  (`release-files.yml`), and v0.8.0's release notes link to it too.
 
 ### Update check
 - When KhianKrub starts (at most once a day), the desktop app asks GitHub's API for the latest release of
