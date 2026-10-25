@@ -7,6 +7,13 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### New README
+- The README opens with the new look (Thai menus, navy and gold) and a "What's new" section with pictures: Thai
+  menus beside the English ones, the dark theme, Modify Style, Thai captions, the Borders menu and Define New
+  Multilevel List, then a list of smaller changes. The older sections are kept under "Earlier changes", after
+  Download and install. A short note in English and Thai asks for bug reports.
+- New screenshots in `docs/images` (`khiankrub-hero.png` replaced), each with an ATTRIBUTION.md row.
+
 ### Curved corners where the active tab meets the ribbon
 - The active tab's bottom corners curve outward into the ribbon, with the same radius as its rounded top
   corners, so the tab and the ribbon read as one shape. Light and dark themes alike. All four corners are 8 pt

@@ -17,12 +17,79 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/khiankrub-hero.png" alt="KhianKrub with a Thai test document open: the Home tab of the ribbon, the Navigation pane listing the document's Thai headings, and a page with Thai text in TH Sarabun New" width="100%">
+  <img src="docs/images/khiankrub-hero.png" alt="KhianKrub with Thai menus: a navy title bar and tab strip with Thai tab names, the white Home ribbon with gold highlights, the Navigation pane listing numbered Thai headings 1. บทนำ, 2. วัตถุประสงค์, 3. ผลการทดลองใช้, and a page in TH Sarabun New with a table captioned ตารางที่ 1" width="100%">
 </p>
 
 KhianKrub is a fork of [WordCraft](https://github.com/storytold/wordcraft) by the ArtCraft team, adapted for Thai
 users by Chanon Sarasuk. It opens, edits and saves Word documents (`.docx`), with a ribbon laid out like Microsoft
-Word's, and adds what Thai writing needs. It is not affiliated with or endorsed by the ArtCraft team.
+Word's, and adds what Thai writing needs. It is made with schools in mind: students and teachers who need a free
+program for reports, worksheets and theses in Thai. It is not affiliated with or endorsed by the ArtCraft team.
+
+This is a one-person project and still young. If something doesn't work, please
+[open an issue](https://github.com/chanonss/khiankrub/issues); every report helps.
+
+โปรแกรมนี้ทำขึ้นเพื่อนักเรียน นักศึกษา และครู ที่ต้องการโปรแกรมพิมพ์เอกสารภาษาไทยที่ใช้ได้ฟรี ยังอยู่ระหว่างพัฒนา
+หากพบปัญหา แจ้งได้ที่หน้า [Issues](https://github.com/chanonss/khiankrub/issues) ขอบคุณทุกความคิดเห็นครับ
+
+## What's new
+
+### Thai menus
+
+The ribbon, the title bar, the File page and the right-click menus can be in Thai. Choose **ไทย** in
+File › Options › Language › Interface language; on a Mac or PC set to Thai, KhianKrub opens in Thai by itself.
+Dialogs are still in English for now.
+
+<p align="center">
+  <img src="docs/images/khiankrub-ribbon-th.png" alt="The Home ribbon in Thai: tabs ไฟล์, หน้าแรก, แทรก, วาด, ออกแบบ, เค้าโครง, การอ้างอิง and the groups คลิปบอร์ด, ฟอนต์, ย่อหน้า, สไตล์" width="100%">
+  <img src="docs/images/khiankrub-ribbon-en.png" alt="The same Home ribbon in English: File, Home, Insert, Draw, Design, Layout, References and the groups Clipboard, Font, Paragraph, Styles" width="100%">
+</p>
+
+### A new look: navy and gold
+
+The title bar and tabs are in KhianKrub's navy, from the app icon. The active tab joins the white ribbon with curved
+corners, and buttons light up in the icon's gold when you point at them or turn them on. The dark theme follows the
+same colours.
+
+<p align="center">
+  <img src="docs/images/khiankrub-dark.png" alt="KhianKrub in the dark theme, with Thai menus, the Navigation pane and a Thai document" width="100%">
+</p>
+
+### Styles for Thai documents
+
+<table>
+<tr>
+<td width="62%" valign="top"><img src="docs/images/khiankrub-modify-style.png" alt="The Modify Style window: a list of pages with icons (General, Font, Font Effects, Position, Indents and Spacing, Alignment, Text Flow, Tabs, Borders and Shading, Numbering), the Font page with Latin text and Thai text side by side, a preview, and OK, Apply and Cancel" width="100%"><p align="center"><sub><b>Modify Style</b>, redesigned with ten pages. The font and size for Latin and Thai text side by side, so a heading can be TH Sarabun New 18 pt in Thai. <b>Apply</b> shows the change without closing the window.</sub></p></td>
+<td width="38%" valign="top"><img src="docs/images/khiankrub-caption.png" alt="The Caption window with the label ภาพที่ and the caption ภาพที่ 1" width="100%"><p align="center"><sub><b>Thai captions:</b> ภาพที่ and ตารางที่ are ready to use for pictures and tables.</sub></p>
+<img src="docs/images/khiankrub-borders-menu.png" alt="Table Design, Borders menu with a picture of each border, including Diagonal Down Border and Diagonal Up Border, the pointed item lit in gold" width="100%"><p align="center"><sub><b>Table borders</b> with a picture for each, now with diagonal lines, applied to the selected cells.</sub></p></td>
+</tr>
+</table>
+
+### Numbered headings and multilevel lists
+
+<table>
+<tr>
+<td width="45%" valign="top"><img src="docs/images/khiankrub-define-list.png" alt="The Define New Multilevel List window: levels 1 to 9, a preview, number format, Link level to style, font, position, and a name with Save in My Lists" width="100%"></td>
+<td width="55%" valign="top">
+
+- **Link level to style:** Heading 1 numbers itself (1., 2., 3.) and the number takes the heading's look.
+- **My Lists:** name a list you made and use it again in any document.
+- The **Navigation pane** shows each heading with its number, as on the page.
+- **Backspace or Delete** at the start of a numbered line removes the number and returns to Normal.
+
+</td>
+</tr>
+</table>
+
+### Smaller changes
+
+- **TH Sarabun New** is the default font for new documents. If it isn't installed, KhianKrub offers the free
+  download page.
+- **Header and Footer** styles in the Styles gallery.
+- **Thai Distribution** on the floating formatting bar that appears over selected text.
+- **Several windows:** open more than one document at a time, each in its own window.
+- Opening a file goes straight to the document; the Recover panel no longer gets in the way.
+- **Windows and Mac downloads are built on GitHub.** The Mac download is one app for both Apple silicon and Intel
+  Macs, from the next release on.
 
 ## Made for Thai
 
@@ -32,8 +99,8 @@ Word's, and adds what Thai writing needs. It is not affiliated with or endorsed 
 <td width="50%" valign="top"><img src="docs/images/khiankrub-thai-lists.png" alt="Lists numbered with bullets, Thai digits ๑ ๒ ๓ ๔ and Thai letters ก ข ค" width="100%"><p align="center"><sub><b>Thai list numbering.</b> Thai digits (๑ ๒ ๓), Thai letters (ก ข ค) and Thai counting words, matching Word.</sub></p></td>
 </tr>
 <tr>
-<td width="50%" valign="top"><img src="docs/images/khiankrub-page-thumbnails.png" alt="The Navigation pane's Pages tab with a thumbnail of each page, the first outlined in blue" width="100%"><p align="center"><sub><b>Navigation.</b> Thai headings and page thumbnails; click one to go there.</sub></p></td>
-<td width="50%" valign="top"><img src="docs/images/khiankrub-file-menu.png" alt="The File menu: a blue sidebar with an icon beside each entry, and template thumbnails" width="100%"><p align="center"><sub><b>File menu.</b> New, open, recover, save, print and export to PDF.</sub></p></td>
+<td width="50%" valign="top"><img src="docs/images/khiankrub-page-thumbnails.png" alt="The Navigation pane's Pages tab with a thumbnail of each page" width="100%"><p align="center"><sub><b>Navigation.</b> Thai headings and page thumbnails; click one to go there.</sub></p></td>
+<td width="50%" valign="top"><img src="docs/images/khiankrub-file-menu.png" alt="The File menu: a sidebar with an icon beside each entry, and template thumbnails" width="100%"><p align="center"><sub><b>File menu.</b> New, open, recover, save, print and export to PDF.</sub></p></td>
 </tr>
 </table>
 
@@ -42,107 +109,17 @@ Word's, and adds what Thai writing needs. It is not affiliated with or endorsed 
 - **Thai list numbers, letters and counting words** in lists and page numbers.
 - **Text boundaries:** a thin grey outline around the text area of each page (View › Show › Text Boundaries).
 - **View only** mode in the Editing menu: read a document without changing it by accident.
-- **Thai menus** (File › Options › Language): the ribbon, the File page and right-click menus in Thai; dialogs are
-  still in English. Thai text in documents, Thai fonts and Thai typing fully supported.
+- Thai text in documents, Thai fonts and Thai typing fully supported.
 
 Everything that differs from the original, newest first, is in [FORK-CHANGES.md](FORK-CHANGES.md).
-
-## Before and after
-
-### The ribbon, sized and spaced like Word's
-
-Larger icons, and the buttons centred in each group with even spacing, on every tab.
-
-<p align="center">
-  <img src="docs/images/khiankrub-ribbon-before-after.png" alt="The Home ribbon before, with small icons sitting at the top of each group, and after, with larger icons centred in their groups" width="100%">
-</p>
-
-### Bugs fixed
-
-<table>
-<tr>
-<td width="35%" valign="top"><img src="docs/images/khiankrub-fix-navigation.png" alt="The Navigation pane before, listing Thai headings as question marks, and after, listing them in Thai" width="100%"><p align="center"><sub><b>Thai headings</b> in the Navigation pane showed as <code>?</code>; they now show in Thai.</sub></p></td>
-<td width="65%" valign="top"><img src="docs/images/khiankrub-fix-space-dots.png" alt="Thai text with formatting marks on: before, the dot for each space floats near the top of the letters; after, it sits in the middle" width="100%"><p align="center"><sub><b>Space marks on Thai text</b> (with ¶ on) floated near the top of the letters; they now sit in the middle.</sub><br><br></p>
-<img src="docs/images/khiankrub-fix-paragraph-dialog.png" alt="The Paragraph dialog's Alignment box: before it shows the raw text thaidistribute, after it shows Thai Distribution" width="70%"><p align="center"><sub><b>Paragraph dialog</b> showed the raw name <code>thaidistribute</code>; it now says Thai Distribution and keeps it.</sub></p></td>
-</tr>
-<tr>
-<td colspan="2"><img src="docs/images/khiankrub-fix-recover.png" alt="File, Recover: before, a black page with a blank white button; after, the blue File sidebar with icons and readable buttons" width="100%"><p align="center"><sub><b>File › Recover</b> was black with blank white buttons in the light theme; it now follows the theme like the other File pages.</sub></p></td>
-</tr>
-</table>
-
-## More of what was added
-
-<table>
-<tr>
-<td width="62%" valign="top"><img src="docs/images/khiankrub-thai-word-breaking.png" alt="The full name of Bangkok, a long Thai word without spaces, wrapped onto a second line at a word boundary, and a long Thai paragraph wrapping between words" width="100%"><p align="center"><sub><b>Thai word breaking.</b> Lines wrap between Thai words, even in long text with no spaces at all.</sub></p>
-<img src="docs/images/khiankrub-view-only.png" alt="The Editing menu open, offering Editing, Reviewing and View only" width="100%"><p align="center"><sub><b>View only</b> in the Editing menu: read a document without changing it by accident.</sub></p></td>
-<td width="38%" valign="top"><img src="docs/images/khiankrub-shapes-menu.png" alt="Insert, Shapes menu with a small drawing beside each shape and connector name" width="100%"><p align="center"><sub><b>Insert › Shapes</b> shows a picture of each shape and connector.</sub></p></td>
-</tr>
-</table>
-
-## Newest additions
-
-### A real macOS menu bar
-
-File, Edit, Insert, Format, View, Window and Help at the top of the screen, with the usual Mac shortcuts. Each item
-runs the same command as its ribbon button or key.
-
-<p align="center">
-  <img src="docs/images/khiankrub-mac-menu-bar.png" alt="The macOS menu bar showing KhianKrub, File, Edit, Insert, Format, View, Window and Help, with the Format menu open: Font, Paragraph, Bullets and Numbering, Borders and Shading, Columns, Styles, Bold, Italic, Underline, font size, Clear Formatting and the alignments including Thai Distribution, each with its shortcut" width="60%">
-</p>
-
-### Page number at set distances from the paper's edges
-
-Insert › Page Number › **Page Number Position…** places the number, for example, 1 inch from the top edge (to its
-baseline) and 1 inch from the right edge, as theses often require. Top or bottom, left, centre or right, and no number
-on the first page if wanted. Word opens the file with the number in the same place.
-
-<table>
-<tr>
-<td width="50%" valign="top"><img src="docs/images/khiankrub-page-number-position.png" alt="The Page Number Position dialog: from the top edge, 1 inch to the baseline; right, 1 inch from the right edge; a check box for no number on the first page; and a small page preview with the number at the top right" width="100%"><p align="center"><sub>The dialog, with a preview of where the number goes.</sub></p></td>
-<td width="50%" valign="top"><img src="docs/images/khiankrub-page-number-result.png" alt="The top right corner of a page at 150 percent zoom: the page number 1 with red arrows showing 1 inch from the top edge to its baseline and 1 inch from its right end to the right edge" width="100%"><p align="center"><sub>The result, measured: 1 in from the top edge and 1 in from the right edge.</sub></p></td>
-</tr>
-</table>
-
-### Page breaks like Word's
-
-Insert › Page Break (or ⌘Enter) moves the cursor to the next page, so what you type next goes there. With formatting
-marks on, a page break shows as a dotted line with **Page Break** in the middle.
-
-<table>
-<tr>
-<td width="50%" valign="top"><img src="docs/images/khiankrub-page-break.png" alt="Two pages side by side: page 1 has the word One and a dotted Page Break line; page 2 starts with Two, typed after the break, with the cursor" width="100%"><p align="center"><sub>"One", the break, then "Two" typed on page 2.</sub></p></td>
-<td width="50%" valign="top"><img src="docs/images/khiankrub-break-label.png" alt="A Thai document with formatting marks on: a dotted line across the page with the words Page Break in the middle" width="100%"><p align="center"><sub>The "Page Break" mark, as in Word.</sub></p></td>
-</tr>
-</table>
-
-### Hanging indent, as in Word
-
-The Paragraph dialog has **Special: (none) / First line / Hanging** and **By**, instead of a negative first-line indent.
-
-<p align="center">
-  <img src="docs/images/khiankrub-hanging-indent.png" alt="The Paragraph dialog with Indentation Left 0.89 inches and Special set to Hanging, By 0.89 inches" width="50%">
-</p>
-
-### Pictures in the menus
-
-The Layout tab's Text Direction, Orientation, Columns, Breaks and Line Numbers menus, and Insert's Table and Page
-Number menus, show a small picture of each choice. The Insert Table grid is compact, as in Word.
-
-<p align="center">
-  <img src="docs/images/khiankrub-layout-menus.png" alt="Five Layout menus side by side, each choice with a small picture: Text Direction (Horizontal, Rotate 90 and 270 degrees), Orientation (Portrait, Landscape), Columns (One, Two, Three, Left, Right, More Columns), Breaks (Page, Column, Text Wrapping and the four section breaks) and Line Numbers (None, Continuous, Restart Each Page, Restart Each Section, options)" width="100%">
-</p>
-<p align="center">
-  <img src="docs/images/khiankrub-insert-menus.png" alt="Insert, Table menu with a compact 10 by 8 grid and icons for Insert Table, Draw Table and Convert Text to Table; and Insert, Page Number menu with pictures for Top of Page, Bottom of Page, Page X of Y, Current Position, Format Page Numbers and Page Number Position" width="80%">
-</p>
 
 ## Download and install
 
 ### Mac
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
-   the Mac zip (under *Assets*): **KhianKrub-…-macos-universal.zip** from version 0.7.4 on,
-   **KhianKrub-…-macos-apple-silicon.zip** before.
+   the Mac zip (under *Assets*): **KhianKrub-…-macos-universal.zip** in new releases,
+   **KhianKrub-…-macos-apple-silicon.zip** in 0.7.3 and earlier.
 2. Double-click the zip to unzip it, then drag **KhianKrub** into your **Applications** folder.
 3. **First time only: right-click › Open.** The app is not signed by Apple, so macOS says it cannot verify the
    developer. Right-click (or Control-click) KhianKrub, choose **Open**, then click **Open** again. If the dialog
@@ -152,8 +129,8 @@ Number menus, show a small picture of each choice. The Insert Table grid is comp
 ดาวน์โหลดไฟล์ zip จากหน้า [Releases](https://github.com/chanonss/khiankrub/releases/latest) ดับเบิลคลิกเพื่อแตกไฟล์
 แล้วลาก KhianKrub ไปไว้ในโฟลเดอร์ Applications ครั้งแรกที่เปิดให้คลิกขวาที่แอป เลือก Open แล้วกด Open อีกครั้ง
 
-**Needs:** macOS 11 or later. From version 0.7.4 the Mac download is one app for both Apple silicon (M1 or later)
-and Intel Macs; 0.7.3 and earlier run on Apple silicon only.
+**Needs:** macOS 11 or later. After 0.7.3 the Mac download is one app for both Apple silicon (M1 or later) and
+Intel Macs; 0.7.3 and earlier run on Apple silicon only.
 
 ### Windows
 
@@ -173,6 +150,99 @@ To use it without installing, download **khiankrub-…-windows-x64-portable.zip*
 as on the Mac, except the menu bar at the top of the screen, which is a macOS feature.
 
 On both, Thai text looks best with a Thai font installed, such as TH Sarabun New.
+
+## Earlier changes
+
+Changes from earlier versions.
+
+### Before and after
+
+#### The ribbon, sized and spaced like Word's
+
+Larger icons, and the buttons centred in each group with even spacing, on every tab.
+
+<p align="center">
+  <img src="docs/images/khiankrub-ribbon-before-after.png" alt="The Home ribbon before, with small icons sitting at the top of each group, and after, with larger icons centred in their groups" width="100%">
+</p>
+
+#### Bugs fixed
+
+<table>
+<tr>
+<td width="35%" valign="top"><img src="docs/images/khiankrub-fix-navigation.png" alt="The Navigation pane before, listing Thai headings as question marks, and after, listing them in Thai" width="100%"><p align="center"><sub><b>Thai headings</b> in the Navigation pane showed as <code>?</code>; they now show in Thai.</sub></p></td>
+<td width="65%" valign="top"><img src="docs/images/khiankrub-fix-space-dots.png" alt="Thai text with formatting marks on: before, the dot for each space floats near the top of the letters; after, it sits in the middle" width="100%"><p align="center"><sub><b>Space marks on Thai text</b> (with ¶ on) floated near the top of the letters; they now sit in the middle.</sub><br><br></p>
+<img src="docs/images/khiankrub-fix-paragraph-dialog.png" alt="The Paragraph dialog's Alignment box: before it shows the raw text thaidistribute, after it shows Thai Distribution" width="70%"><p align="center"><sub><b>Paragraph dialog</b> showed the raw name <code>thaidistribute</code>; it now says Thai Distribution and keeps it.</sub></p></td>
+</tr>
+<tr>
+<td colspan="2"><img src="docs/images/khiankrub-fix-recover.png" alt="File, Recover: before, a black page with a blank white button; after, the blue File sidebar with icons and readable buttons" width="100%"><p align="center"><sub><b>File › Recover</b> was black with blank white buttons in the light theme; it now follows the theme like the other File pages.</sub></p></td>
+</tr>
+</table>
+
+### More of what was added
+
+<table>
+<tr>
+<td width="62%" valign="top"><img src="docs/images/khiankrub-thai-word-breaking.png" alt="The full name of Bangkok, a long Thai word without spaces, wrapped onto a second line at a word boundary, and a long Thai paragraph wrapping between words" width="100%"><p align="center"><sub><b>Thai word breaking.</b> Lines wrap between Thai words, even in long text with no spaces at all.</sub></p>
+<img src="docs/images/khiankrub-view-only.png" alt="The Editing menu open, offering Editing, Reviewing and View only" width="100%"><p align="center"><sub><b>View only</b> in the Editing menu: read a document without changing it by accident.</sub></p></td>
+<td width="38%" valign="top"><img src="docs/images/khiankrub-shapes-menu.png" alt="Insert, Shapes menu with a small drawing beside each shape and connector name" width="100%"><p align="center"><sub><b>Insert › Shapes</b> shows a picture of each shape and connector.</sub></p></td>
+</tr>
+</table>
+
+### Earlier additions
+
+#### A real macOS menu bar
+
+File, Edit, Insert, Format, View, Window and Help at the top of the screen, with the usual Mac shortcuts. Each item
+runs the same command as its ribbon button or key.
+
+<p align="center">
+  <img src="docs/images/khiankrub-mac-menu-bar.png" alt="The macOS menu bar showing KhianKrub, File, Edit, Insert, Format, View, Window and Help, with the Format menu open: Font, Paragraph, Bullets and Numbering, Borders and Shading, Columns, Styles, Bold, Italic, Underline, font size, Clear Formatting and the alignments including Thai Distribution, each with its shortcut" width="60%">
+</p>
+
+#### Page number at set distances from the paper's edges
+
+Insert › Page Number › **Page Number Position…** places the number, for example, 1 inch from the top edge (to its
+baseline) and 1 inch from the right edge, as theses often require. Top or bottom, left, centre or right, and no number
+on the first page if wanted. Word opens the file with the number in the same place.
+
+<table>
+<tr>
+<td width="50%" valign="top"><img src="docs/images/khiankrub-page-number-position.png" alt="The Page Number Position dialog: from the top edge, 1 inch to the baseline; right, 1 inch from the right edge; a check box for no number on the first page; and a small page preview with the number at the top right" width="100%"><p align="center"><sub>The dialog, with a preview of where the number goes.</sub></p></td>
+<td width="50%" valign="top"><img src="docs/images/khiankrub-page-number-result.png" alt="The top right corner of a page at 150 percent zoom: the page number 1 with red arrows showing 1 inch from the top edge to its baseline and 1 inch from its right end to the right edge" width="100%"><p align="center"><sub>The result, measured: 1 in from the top edge and 1 in from the right edge.</sub></p></td>
+</tr>
+</table>
+
+#### Page breaks like Word's
+
+Insert › Page Break (or ⌘Enter) moves the cursor to the next page, so what you type next goes there. With formatting
+marks on, a page break shows as a dotted line with **Page Break** in the middle.
+
+<table>
+<tr>
+<td width="50%" valign="top"><img src="docs/images/khiankrub-page-break.png" alt="Two pages side by side: page 1 has the word One and a dotted Page Break line; page 2 starts with Two, typed after the break, with the cursor" width="100%"><p align="center"><sub>"One", the break, then "Two" typed on page 2.</sub></p></td>
+<td width="50%" valign="top"><img src="docs/images/khiankrub-break-label.png" alt="A Thai document with formatting marks on: a dotted line across the page with the words Page Break in the middle" width="100%"><p align="center"><sub>The "Page Break" mark, as in Word.</sub></p></td>
+</tr>
+</table>
+
+#### Hanging indent, as in Word
+
+The Paragraph dialog has **Special: (none) / First line / Hanging** and **By**, instead of a negative first-line indent.
+
+<p align="center">
+  <img src="docs/images/khiankrub-hanging-indent.png" alt="The Paragraph dialog with Indentation Left 0.89 inches and Special set to Hanging, By 0.89 inches" width="50%">
+</p>
+
+#### Pictures in the menus
+
+The Layout tab's Text Direction, Orientation, Columns, Breaks and Line Numbers menus, and Insert's Table and Page
+Number menus, show a small picture of each choice. The Insert Table grid is compact, as in Word.
+
+<p align="center">
+  <img src="docs/images/khiankrub-layout-menus.png" alt="Five Layout menus side by side, each choice with a small picture: Text Direction (Horizontal, Rotate 90 and 270 degrees), Orientation (Portrait, Landscape), Columns (One, Two, Three, Left, Right, More Columns), Breaks (Page, Column, Text Wrapping and the four section breaks) and Line Numbers (None, Continuous, Restart Each Page, Restart Each Section, options)" width="100%">
+</p>
+<p align="center">
+  <img src="docs/images/khiankrub-insert-menus.png" alt="Insert, Table menu with a compact 10 by 8 grid and icons for Insert Table, Draw Table and Convert Text to Table; and Insert, Page Number menu with pictures for Top of Page, Bottom of Page, Page X of Y, Current Position, Format Page Numbers and Page Number Position" width="80%">
+</p>
 
 ## Build it yourself
 
