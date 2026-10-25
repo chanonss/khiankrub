@@ -982,7 +982,7 @@ fn date_time(s: &mut Session, v: &Value) -> CmdResult {
 
 /// Format today's date with a Word picture (`M/d/yyyy`, `MMMM d, yyyy`, `yyyy-MM-dd`, `dddd`…).
 pub fn format_date(fmt: &str) -> String {
-    let iso = super::now_iso();
+    let iso = super::now_local_iso();
     let y: i64 = iso.get(0..4).and_then(|x| x.parse().ok()).unwrap_or(2026);
     let m: usize = iso.get(5..7).and_then(|x| x.parse().ok()).unwrap_or(1);
     let d: u32 = iso.get(8..10).and_then(|x| x.parse().ok()).unwrap_or(1);

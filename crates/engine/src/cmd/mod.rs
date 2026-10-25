@@ -432,6 +432,29 @@ pub fn now_iso() -> String {
     iso_from_unix_secs(now_unix())
 }
 
+/// The computer's offset from UTC now, seconds (east positive: +25200 in Thailand). 0 when the
+/// time zone can't be read.
+pub fn local_utc_offset() -> i64 {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        i64::from(jiff::Zoned::now().offset().seconds())
+    }
+    // The browser gives minutes west of UTC.
+    #[cfg(target_arch = "wasm32")]
+    {
+        let m = js_sys::Date::new_0().get_timezone_offset();
+        if m.is_finite() { -(m as i64) * 60 } else { 0 }
+    }
+}
+
+/// The local date and time now, ISO-8601 without a zone (`2026-10-25T19:05:00`): what a person
+/// reads on their clock, for dates typed into documents and the time of day.
+pub fn now_local_iso() -> String {
+    let secs = now_unix().saturating_add_signed(local_utc_offset());
+    let iso = iso_from_unix_secs(secs);
+    iso.trim_end_matches('Z').to_string()
+}
+
 /// Days since 1970-01-01 → (year, month, day) (Howard Hinnant's algorithm).
 pub fn civil_from_days(z: i64) -> (i64, u32, u32) {
     let z = z + 719_468;
@@ -484,5 +507,24 @@ mod iso_tests {
         assert_eq!(iso_from_unix_secs(1_709_164_800), "2024-02-29T00:00:00Z");
         assert_eq!(iso_from_unix_secs(951_782_400), "2000-02-29T00:00:00Z");
         assert_eq!(iso_from_unix_secs(1_735_689_599), "2024-12-31T23:59:59Z");
+    }
+}
+
+#[cfg(test)]
+mod local_time_tests {
+    /// The local clock is the UTC clock moved by the computer's offset, without a zone letter, and
+    /// the offset is a real one (within ±14 hours).
+    #[test]
+    fn local_time_is_utc_moved_by_the_offset() {
+        let off = super::local_utc_offset();
+        assert!(off.abs() <= 14 * 3600, "{off}");
+        let local = super::now_local_iso();
+        assert!(!local.ends_with('Z') && local.len() == 19, "{local}");
+        let utc = super::now_iso();
+        let hour = |s: &str| s.get(11..13).and_then(|h| h.parse::<i64>().ok()).unwrap_or(-1);
+        let moved = (hour(&utc) * 3600 + off).rem_euclid(86_400) / 3600;
+        // The two clocks are read a moment apart: allow the hour to have just turned.
+        assert!([moved, (moved + 1) % 24].contains(&hour(&local)), "utc {utc}, offset {off}, local {local}");
+        eprintln!("utc {utc}, offset {off}, local {local}");
     }
 }

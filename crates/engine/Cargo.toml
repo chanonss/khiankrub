@@ -34,6 +34,10 @@ js-sys = "0.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 getrandom = { workspace = true }
+# The computer's time zone for local dates and times (`now_local_iso`): Insert › Date & Time,
+# DATE fields, the File page's greeting. The system's zone database on macOS and Linux, a
+# bundled copy on Windows.
+jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-platform"] }
 
 [dev-dependencies]
 encoding_rs = { workspace = true }

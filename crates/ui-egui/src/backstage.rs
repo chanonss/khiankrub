@@ -311,7 +311,7 @@ fn matching_templates(query: &str) -> Vec<(&'static str, &'static str)> {
 /// Home: a greeting, Blank plus a short row of templates with a link to New, then Recent.
 fn home_page(app: &mut WordApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
-    let hour = wordcraft_engine::cmd::now_iso().get(11..13).and_then(|h| h.parse::<u32>().ok()).unwrap_or(9);
+    let hour = wordcraft_engine::cmd::now_local_iso().get(11..13).and_then(|h| h.parse::<u32>().ok()).unwrap_or(9);
     heading(
         ui,
         if hour < 12 {
@@ -361,23 +361,78 @@ fn new_page(app: &mut WordApp, ui: &mut Ui) {
     });
 }
 
+/// Recent documents: click one to open it. Each row has an ✕ (shown while pointed at) and a
+/// right-click menu to take it off the list; Clear all empties the list. None of these touch the
+/// files themselves.
 fn open_list(app: &mut WordApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
-    ui.label(egui::RichText::new(tl!("Recent")).font(semibold(16.0)));
+    let width = ui.available_width().min(700.0);
+    ui.allocate_ui_with_layout(vec2(width, 24.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
+        ui.label(egui::RichText::new(tl!("Recent")).font(semibold(16.0)));
+        if !app.ui.recent.is_empty() && app.ui.recent_shown() > 0 {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button(tl!("Clear all")).on_hover_text(tl!("Take every document off this list. The files stay where they are.")).clicked() {
+                    let _ = app.run("ui.recentClear", json!({}));
+                }
+            });
+        }
+    });
     ui.add_space(6.0);
+    if !app.ui.remember_recent {
+        ui.label(
+            egui::RichText::new(tl!("KhianKrub doesn't remember the documents you open. Turn it on in File › Options › Advanced.")).color(t.text_dim),
+        );
+        return;
+    }
     if app.ui.recent.is_empty() {
         ui.label(egui::RichText::new(tl!("Documents you open will show up here.")).color(t.text_dim));
     }
     for p in app.ui.recent.iter().take(app.ui.recent_shown()).cloned().collect::<Vec<_>>() {
         let name = std::path::Path::new(&p).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or(p.clone());
-        let (r, resp) = ui.allocate_exact_size(vec2(ui.available_width().min(700.0), 40.0), Sense::click());
-        if resp.hovered() {
+        let (r, resp) = ui.allocate_exact_size(vec2(width, 40.0), Sense::click());
+        resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &name));
+        // The ✕ at the row's end, while the row is pointed at.
+        let x_rect = Rect::from_center_size(pos2(r.max.x - 20.0, r.center().y), vec2(26.0, 26.0));
+        let hovered = ui.rect_contains_pointer(r);
+        let x_resp = hovered.then(|| {
+            let x = ui.interact(x_rect, resp.id.with("remove"), Sense::click());
+            x.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("Remove from list")));
+            x.on_hover_text(tl!("Remove from list"))
+        });
+        if hovered {
             ui.painter().rect_filled(r, 4.0, t.hover);
         }
         icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 18.0, r.center().y), vec2(22.0, 22.0)), "printLayout", t.icon, t.accent);
         ui.painter().text(pos2(r.min.x + 40.0, r.min.y + 13.0), Align2::LEFT_CENTER, &name, medium(13.0), t.text);
         ui.painter().text(pos2(r.min.x + 40.0, r.min.y + 29.0), Align2::LEFT_CENTER, &p, regular(11.0), t.text_dim);
-        if resp.clicked() {
+        let mut remove = false;
+        if let Some(x) = &x_resp {
+            if x.hovered() {
+                ui.painter().rect_filled(x_rect, 4.0, t.pressed);
+            }
+            icons::paint(ui.painter(), x_rect.shrink(6.0), "close", t.icon, t.accent);
+            remove = x.clicked();
+        }
+        resp.context_menu(|ui| {
+            if ui.button(tl!("Open")).clicked() {
+                let _ = app.run("file.open", json!({"path": p}));
+                app.ui.backstage = false;
+                app.canvas.want_focus = true;
+                ui.close();
+            }
+            if ui.button(tl!("Remove from list")).clicked() {
+                let _ = app.run("ui.recentRemove", json!({"path": p}));
+                ui.close();
+            }
+            ui.separator();
+            if ui.button(tl!("Clear all")).clicked() {
+                let _ = app.run("ui.recentClear", json!({}));
+                ui.close();
+            }
+        });
+        if remove {
+            let _ = app.run("ui.recentRemove", json!({"path": p}));
+        } else if resp.clicked() {
             let _ = app.run("file.open", json!({"path": p}));
             app.ui.backstage = false;
             app.canvas.want_focus = true;

@@ -462,6 +462,14 @@ fn advanced(app: &mut WordApp, ui: &mut Ui) {
     }
     ui.add_space(8.0);
     section(ui, "Display");
+    let mut remember = app.ui.remember_recent;
+    if ui
+        .checkbox(&mut remember, tl!("Remember recently opened documents"))
+        .on_hover_text(tl!("Off, File › Home and Open list no documents, and the list is cleared."))
+        .changed()
+    {
+        let _ = app.run("ui.rememberRecent", json!({"value": remember}));
+    }
     egui::Grid::new("options_display").num_columns(2).spacing(vec2(8.0, 6.0)).show(ui, |ui| {
         ui.label(tl!("Recent documents to show:"));
         let mut n = app.ui.recent_shown();

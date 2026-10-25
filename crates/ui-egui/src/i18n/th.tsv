@@ -530,3 +530,9 @@ template	Studio handbook (sample)	คู่มือสตูดิโอ (ต�
 	Interface language:	ภาษาของหน้าจอ:
 	Automatic ({language})	อัตโนมัติ ({language})
 	Automatic follows your system's language. Menus and commands change; your documents don't.	อัตโนมัติจะใช้ภาษาของระบบ เมนูและคำสั่งจะเปลี่ยนไป แต่เอกสารของคุณไม่เปลี่ยน
+	Clear all	ล้างทั้งหมด
+	Take every document off this list. The files stay where they are.	นำเอกสารทั้งหมดออกจากรายการนี้ ตัวไฟล์ยังอยู่ที่เดิม
+	KhianKrub doesn't remember the documents you open. Turn it on in File › Options › Advanced.	เขียนครับไม่ได้จดจำเอกสารที่คุณเปิด เปิดใช้ได้ที่ ไฟล์ › ตัวเลือก › ขั้นสูง
+	Remove from list	นำออกจากรายการ
+	Remember recently opened documents	จดจำเอกสารที่เปิดล่าสุด
+	Off, File › Home and Open list no documents, and the list is cleared.	เมื่อปิด หน้าแรกและหน้าเปิดในเมนูไฟล์จะไม่แสดงเอกสาร และรายการจะถูกล้าง

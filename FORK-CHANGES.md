@@ -7,6 +7,18 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Local time; a recent list you can manage
+- **The File page's greeting follows the clock.** It read the time in UTC, so in Thailand (UTC+7) it said Good
+  morning until 7 p.m. It now uses the computer's time zone (`cmd::now_local_iso`, with the `jiff` crate on the
+  desktop and the browser's offset on the web). **Insert › Date & Time** and DATE fields use local time too; they
+  inserted yesterday's date before 7 a.m. Test: `local_time_is_utc_moved_by_the_offset`.
+- **Recent documents** on File › Home and Open: pointing at one shows an ✕ that takes it off the list, a
+  right-click offers Open, Remove from list and Clear all, and **Clear all** sits beside the Recent heading. The
+  files themselves are never touched. File › Options › Advanced has **Remember recently opened documents** (on by
+  default); off, the list is cleared and nothing is added. Commands `ui.recentRemove`, `ui.recentClear`,
+  `ui.rememberRecent`. Tests: `the_recent_list_can_drop_one_clear_all_or_stop_remembering`,
+  `file_home_removes_a_recent_document_and_clears_all`.
+
 ### The selection covers the whole ¶
 - A selection that runs past a paragraph's end highlights its whole paragraph mark (¶), as in Word, so you can see
   the mark (and the paragraph formatting it carries) is selected. The highlight was a fixed 5 pt, narrower than

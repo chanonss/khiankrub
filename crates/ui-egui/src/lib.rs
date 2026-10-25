@@ -319,6 +319,9 @@ pub struct UiState {
     pub options_pane: String,
     /// File › Options › Advanced: how many recent documents File › Home and Open list (0–50).
     pub recent_count: usize,
+    /// File › Options › Advanced: remember the documents opened and saved, for File › Home and
+    /// Open (on by default). Off, the list is empty and nothing is added to it.
+    pub remember_recent: bool,
     /// File › Options › General: show the mini toolbar over a selection.
     pub mini_toolbar: bool,
     /// File › Options › Advanced › Editing: moving a picture or shape snaps it to alignment
@@ -383,6 +386,7 @@ impl Default for UiState {
             initials: String::new(),
             options_pane: "general".into(),
             recent_count: 12,
+            remember_recent: true,
             mini_toolbar: true,
             alignment_guides: true,
             start_screen: true,
@@ -1254,6 +1258,7 @@ impl WordApp {
             self.handle_request(&req);
         }
         if let Some(p) = self.session.path.as_ref().map(|p| p.to_string_lossy().to_string())
+            && self.ui.remember_recent
             && self.ui.recent.first() != Some(&p)
         {
             self.ui.recent.retain(|r| *r != p);
@@ -1572,6 +1577,33 @@ impl WordApp {
                     Some(_) => return Some(Err("`value` must be true or false".into())),
                 }
                 json!({"caretAnimation": self.ui.caret_animation})
+            }
+            "ui.recentRemove" => {
+                // File › Home and Open: take one document (`path`) off the recent list. The file
+                // itself is untouched.
+                let Some(path) = s("path") else { return Some(Err("`path` (string) is required".into())) };
+                self.ui.recent.retain(|r| r != path);
+                json!({"recent": self.ui.recent})
+            }
+            "ui.recentClear" => {
+                // File › Home and Open › Clear all: empty the recent list; no file is touched.
+                self.ui.recent.clear();
+                json!({"recent": self.ui.recent})
+            }
+            "ui.rememberRecent" => {
+                // File › Options › Advanced: `value` true or false; false also clears the list.
+                // No value reads it.
+                match p.get("value") {
+                    None => {}
+                    Some(Value::Bool(on)) => {
+                        self.ui.remember_recent = *on;
+                        if !on {
+                            self.ui.recent.clear();
+                        }
+                    }
+                    Some(_) => return Some(Err("`value` must be true or false".into())),
+                }
+                json!({"rememberRecent": self.ui.remember_recent})
             }
             "ui.alignmentGuides" => {
                 // File › Options › Advanced › Editing: `value` true or false turns snapping to
@@ -2476,6 +2508,9 @@ pub(crate) fn works_without_document(id: &str) -> bool {
             | "ui.makeDefaultApp"
             | "ui.caretAnimation"
             | "ui.startScreen"
+            | "ui.recentRemove"
+            | "ui.recentClear"
+            | "ui.rememberRecent"
     ) || id.starts_with("help.")
 }
 
@@ -2705,6 +2740,76 @@ mod tests {
         assert_eq!(h.state().ui.backstage_page, "options");
         assert_eq!(h.state().ui.options_pane, "general");
         assert!(h.query_by_label("User name:").is_some());
+    }
+
+    /// File › Home and Open's recent list: one document comes off, Clear all empties it, and with
+    /// Remember recently opened documents off the list is cleared and nothing new is added. The
+    /// setting is kept between runs; files are never touched.
+    #[test]
+    fn the_recent_list_can_drop_one_clear_all_or_stop_remembering() {
+        let mut a = app();
+        let opened = |a: &mut WordApp, path: &str| {
+            a.session.path = Some(std::path::PathBuf::from(path));
+            a.run("format.state", json!({})).unwrap();
+        };
+        for p in ["/docs/a.docx", "/docs/b.docx", "/docs/c.docx"] {
+            opened(&mut a, p);
+        }
+        assert_eq!(a.ui.recent, ["/docs/c.docx", "/docs/b.docx", "/docs/a.docx"]);
+        a.run("ui.recentRemove", json!({"path": "/docs/b.docx"})).unwrap();
+        assert_eq!(a.ui.recent, ["/docs/c.docx", "/docs/a.docx"]);
+        assert!(a.run("ui.recentRemove", json!({})).is_err(), "a path is needed");
+        a.run("ui.recentClear", json!({})).unwrap();
+        assert!(a.ui.recent.is_empty());
+        opened(&mut a, "/docs/d.docx");
+        assert_eq!(a.ui.recent, ["/docs/d.docx"]);
+        assert_eq!(a.run("ui.rememberRecent", json!({})).unwrap(), json!({"rememberRecent": true}), "on by default");
+        assert_eq!(a.run("ui.rememberRecent", json!({"value": false})).unwrap(), json!({"rememberRecent": false}));
+        assert!(a.ui.recent.is_empty(), "turning it off clears the list");
+        opened(&mut a, "/docs/e.docx");
+        assert!(a.ui.recent.is_empty(), "nothing is added while it's off");
+        assert!(a.run("ui.rememberRecent", json!({"value": "no"})).is_err());
+        let saved = serde_json::to_string(&a.prefs()).unwrap();
+        let mut b = app();
+        b.apply_prefs(serde_json::from_str(&saved).unwrap());
+        assert!(!b.ui.remember_recent);
+        let old: UiState = serde_json::from_str(r#"{"tab":"Insert"}"#).unwrap();
+        assert!(old.remember_recent, "settings saved before this remember documents");
+        for id in ["ui.recentRemove", "ui.recentClear", "ui.rememberRecent"] {
+            assert!(works_without_document(id), "{id}");
+        }
+    }
+
+    /// File › Home: pointing at a recent document shows its ✕, which takes it off the list, and
+    /// Clear all empties it. With remembering off, a note says where to turn it on.
+    #[test]
+    fn file_home_removes_a_recent_document_and_clears_all() {
+        use egui_kittest::kittest::Queryable;
+        let mut a = app();
+        a.ui.recent = vec!["/docs/one.docx".into(), "/docs/two.docx".into()];
+        a.run("ui.backstage", json!({"value": true, "page": "home"})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        assert!(h.query_by_label("Remove from list").is_none(), "the remove button shows only while pointed at");
+        h.get_by_label("one.docx").hover();
+        h.run_steps(2);
+        h.get_by_label("Remove from list").click();
+        h.run_steps(2);
+        assert_eq!(h.state().ui.recent, ["/docs/two.docx"]);
+        h.get_by_label("Clear all").click();
+        h.run_steps(2);
+        assert!(h.state().ui.recent.is_empty());
+        assert!(h.query_by_label("Clear all").is_none(), "nothing left to clear");
+        h.state_mut().run("ui.rememberRecent", json!({"value": false})).unwrap();
+        h.run_steps(2);
+        assert!(h.query_by_label_contains("doesn't remember the documents you open").is_some());
     }
 
     /// File › Options › Advanced › Editing: alignment guides are a UI command, on by default and
