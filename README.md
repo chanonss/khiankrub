@@ -152,7 +152,7 @@ On both, Thai text looks best with a Thai font installed, such as TH Sarabun New
 
 ## Code signing policy
 
-KhianKrub is applying to [SignPath Foundation](https://signpath.org) for free code signing of its Windows
+KhianKrub has applied to [SignPath Foundation](https://signpath.org) for free code signing of its Windows
 releases. Once the application is approved, Windows releases are signed under this policy: *Free code signing
 provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).*
 Until then the Windows installer is unsigned (see *Download and install*).
