@@ -759,6 +759,28 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
             pen.circle(10.0, 10.0, 6.0, c);
             pen.fill(&[(14.5, 3.0), (17.5, 6.0), (13.5, 7.0)], green);
         }
+        // Check for Updates: two arrows going round (a newer version), and a down arrow in the
+        // middle (getting it).
+        "checkUpdates" => {
+            let r = 7.5;
+            for (from, to) in [(1.12_f32, 1.88_f32), (0.12, 0.88)] {
+                let pts: Vec<Pos2> = (0..=16)
+                    .map(|i| {
+                        let t = std::f32::consts::PI * (from + (to - from) * i as f32 / 16.0);
+                        pen.pt(10.0 + r * t.cos(), 10.0 + r * t.sin())
+                    })
+                    .collect();
+                pen.p.add(Shape::line(pts, pen.stroke(c)));
+                // An arrowhead at the arc's end, along its turn.
+                let t = std::f32::consts::PI * to;
+                let (ex, ey) = (10.0 + r * t.cos(), 10.0 + r * t.sin());
+                let (dx, dy) = (-t.sin(), t.cos());
+                let (px, py) = (-dy, dx);
+                pen.fill(&[(ex + dx * 2.6, ey + dy * 2.6), (ex + px * 2.4, ey + py * 2.4), (ex - px * 2.4, ey - py * 2.4)], c);
+            }
+            pen.line_c(&[(10.0, 6.0), (10.0, 12.0)], a);
+            pen.fill(&[(7.2, 11.0), (12.8, 11.0), (10.0, 14.2)], a);
+        }
         "footnote" => {
             pen.text(6.5, 7.0, 10.0, "ab", c, false);
             pen.text(13.5, 4.5, 6.0, "1", a, true);

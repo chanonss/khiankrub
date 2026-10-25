@@ -2617,7 +2617,7 @@ fn help(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Help", None, app, |ui, app| {
         big(ui, app, "help", "Help", "ui.dialog", json!({"name": "about"}), false);
         if app.services.latest_release.is_some() {
-            big(ui, app, "update", "Check for\nUpdates", "ui.checkForUpdates", json!({}), false);
+            big(ui, app, "checkUpdates", "Check for\nUpdates", "ui.checkForUpdates", json!({}), false);
         }
     });
     group(ui, "Agents", None, app, |ui, app| {

@@ -180,6 +180,7 @@ fn app_menu() -> Vec<Option<Entry>> {
 fn help_menu() -> Vec<Option<Entry>> {
     vec![
         dialog("Commands", "commands"),
+        run("Check for Updates", "ui.checkForUpdates", json!({})),
         SEP,
         run("KhianKrub on GitHub", "ui.dialog", Value::Null)
             .map(|e| Entry { action: Some(Action::Open("https://github.com/chanonss/khiankrub")), ..e }),

@@ -14,6 +14,8 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
   close. Drafts, pre-releases and test tags are ignored. Nothing is downloaded or installed by the app; the
   request carries nothing but the app's version as its User-Agent.
 - **Help › Check for Updates** asks at once and says when the version is the latest (or why it couldn't ask).
+  Its button has its own icon, drawn in code: two arrows going round with a down arrow in the middle
+  (`checkUpdates`). On the Mac it is also in the menu bar's **Help** menu, under Commands.
   **File › Options › General › Check for updates when KhianKrub starts** turns the start-up check off.
 - The request is in the desktop app (`apps/wordcraft/src/update_check.rs`, with the `ureq` HTTPS client, MIT
   OR Apache-2.0); the interface reads the answer through `Services::latest_release` (`updates.rs`), so the
