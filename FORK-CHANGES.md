@@ -18,7 +18,8 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 - The README opens with the new look (Thai menus, navy and gold) and a "What's new" section with pictures: Thai
   menus beside the English ones, the dark theme, Modify Style, Thai captions, the Borders menu and Define New
   Multilevel List, then a list of smaller changes. The older sections are kept under "Earlier changes", after
-  Download and install. A short note in English and Thai asks for bug reports.
+  Download and install. A short note in English and Thai asks for bug reports. The README doesn't single out schools
+  or education, and the sample document in its screenshots is about Thai documents in general.
 - New screenshots in `docs/images` (`khiankrub-hero.png` replaced), each with an ATTRIBUTION.md row.
 
 ### Curved corners where the active tab meets the ribbon

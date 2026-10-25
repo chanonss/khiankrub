@@ -22,13 +22,12 @@
 
 KhianKrub is a fork of [WordCraft](https://github.com/storytold/wordcraft) by the ArtCraft team, adapted for Thai
 users by Chanon Sarasuk. It opens, edits and saves Word documents (`.docx`), with a ribbon laid out like Microsoft
-Word's, and adds what Thai writing needs. It is made with schools in mind: students and teachers who need a free
-program for reports, worksheets and theses in Thai. It is not affiliated with or endorsed by the ArtCraft team.
+Word's, and adds what Thai writing needs. It is not affiliated with or endorsed by the ArtCraft team.
 
 This is a one-person project and still young. If something doesn't work, please
 [open an issue](https://github.com/chanonss/khiankrub/issues); every report helps.
 
-โปรแกรมนี้ทำขึ้นเพื่อนักเรียน นักศึกษา และครู ที่ต้องการโปรแกรมพิมพ์เอกสารภาษาไทยที่ใช้ได้ฟรี ยังอยู่ระหว่างพัฒนา
+โปรแกรมพิมพ์เอกสารภาษาไทยที่ใช้ได้ฟรี ยังอยู่ระหว่างพัฒนา
 หากพบปัญหา แจ้งได้ที่หน้า [Issues](https://github.com/chanonss/khiankrub/issues) ขอบคุณทุกความคิดเห็นครับ
 
 ## What's new in 0.8.0
