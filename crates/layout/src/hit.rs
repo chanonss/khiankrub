@@ -684,7 +684,9 @@ impl DocLayout {
                         }
                         // Selection continuing past the paragraph end shows the paragraph mark.
                         if li + 1 == para.lines.len() && path != b.path {
-                            let ex = l.end_x();
+                            // Where the mark is drawn: the line's visual end, which differs from
+                            // its logical end when the last text runs the other way.
+                            let ex = l.visual_end_x();
                             let w = para.mark_width();
                             let x0 = if l.rtl { ex - w } else { ex };
                             put(Rect::new(x0, top, w, l.height));

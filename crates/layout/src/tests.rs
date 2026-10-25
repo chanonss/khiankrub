@@ -2247,10 +2247,18 @@ fn cache_keeps_one_layout_per_table_cell() {
 }
 
 /// A selection running past a paragraph's end covers its whole ¶, as drawn, as in Word: in a
-/// paragraph with text and in an empty one (the highlight was 5 pt, narrower than the mark).
+/// paragraph with text, in an empty one (the highlight was 5 pt, narrower than the mark), and in a
+/// left-to-right paragraph ending in Hebrew, whose mark is past the Hebrew rather than at its
+/// logical end.
 #[test]
 fn a_selection_past_a_paragraph_end_covers_its_mark() {
-    let d = Document::from_text("Hello\n\nNext");
+    for text in ["Hello\n\nNext", "Hello \u{5e9}\u{5dc}\u{5d5}\u{5dd}\n\nNext"] {
+        selection_covers_marks(text);
+    }
+}
+
+fn selection_covers_marks(text: &str) {
+    let d = Document::from_text(text);
     let l = lay(&d);
     let sel = l.selection_rects(&d, &Pos::body(0, 0), &Pos::body(2, 0), 0);
     let marks: Vec<(f32, f32, f32)> = display::page_display(&d, &l.pages[0], &display::DisplayOptions { marks: true, ..Default::default() })
@@ -2260,7 +2268,7 @@ fn a_selection_past_a_paragraph_end_covers_its_mark() {
     // The first two paragraphs' marks are in the selection; each lies inside a highlight.
     for (x, baseline, size) in marks.iter().take(2) {
         let covered = sel.iter().any(|(_, r)| r.y < *baseline && *baseline <= r.y + r.h && r.x <= *x && x + size * 0.6 <= r.x + r.w + 0.01);
-        assert!(covered, "¶ at {x} (size {size}) not covered by {sel:?}");
+        assert!(covered, "{text:?}: ¶ at {x} (size {size}) not covered by {sel:?}");
     }
 }
 
