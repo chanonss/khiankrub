@@ -7,6 +7,13 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Version 0.8.0
+- The app's version is 0.8.0 (was 0.7.3): a larger step than a fix release. It brings Thai menus, the navy and gold
+  look, the redesigned Modify Style with Apply, numbered headings linked to styles and My Lists, heading numbers in
+  the Navigation pane, table borders with diagonals, and pictures in more menus. It is the first release with one
+  Mac app for both Apple silicon and Intel Macs. Chosen over 1.0.0, which is kept for when the dialogs are in Thai
+  too and the app has been used in classes for a while.
+
 ### New README
 - The README opens with the new look (Thai menus, navy and gold) and a "What's new" section with pictures: Thai
   menus beside the English ones, the dark theme, Modify Style, Thai captions, the Borders menu and Define New

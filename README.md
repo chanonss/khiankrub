@@ -31,7 +31,7 @@ This is a one-person project and still young. If something doesn't work, please
 โปรแกรมนี้ทำขึ้นเพื่อนักเรียน นักศึกษา และครู ที่ต้องการโปรแกรมพิมพ์เอกสารภาษาไทยที่ใช้ได้ฟรี ยังอยู่ระหว่างพัฒนา
 หากพบปัญหา แจ้งได้ที่หน้า [Issues](https://github.com/chanonss/khiankrub/issues) ขอบคุณทุกความคิดเห็นครับ
 
-## What's new
+## What's new in 0.8.0
 
 ### Thai menus
 
@@ -88,8 +88,8 @@ same colours.
 - **Thai Distribution** on the floating formatting bar that appears over selected text.
 - **Several windows:** open more than one document at a time, each in its own window.
 - Opening a file goes straight to the document; the Recover panel no longer gets in the way.
-- **Windows and Mac downloads are built on GitHub.** The Mac download is one app for both Apple silicon and Intel
-  Macs, from the next release on.
+- **Windows and Mac downloads are built on GitHub.** From 0.8.0 the Mac download is one app for both Apple silicon
+  and Intel Macs.
 
 ## Made for Thai
 
@@ -118,7 +118,7 @@ Everything that differs from the original, newest first, is in [FORK-CHANGES.md]
 ### Mac
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
-   the Mac zip (under *Assets*): **KhianKrub-…-macos-universal.zip** in new releases,
+   the Mac zip (under *Assets*): **KhianKrub-…-macos-universal.zip** from 0.8.0 on,
    **KhianKrub-…-macos-apple-silicon.zip** in 0.7.3 and earlier.
 2. Double-click the zip to unzip it, then drag **KhianKrub** into your **Applications** folder.
 3. **First time only: right-click › Open.** The app is not signed by Apple, so macOS says it cannot verify the
@@ -129,7 +129,7 @@ Everything that differs from the original, newest first, is in [FORK-CHANGES.md]
 ดาวน์โหลดไฟล์ zip จากหน้า [Releases](https://github.com/chanonss/khiankrub/releases/latest) ดับเบิลคลิกเพื่อแตกไฟล์
 แล้วลาก KhianKrub ไปไว้ในโฟลเดอร์ Applications ครั้งแรกที่เปิดให้คลิกขวาที่แอป เลือก Open แล้วกด Open อีกครั้ง
 
-**Needs:** macOS 11 or later. After 0.7.3 the Mac download is one app for both Apple silicon (M1 or later) and
+**Needs:** macOS 11 or later. From 0.8.0 the Mac download is one app for both Apple silicon (M1 or later) and
 Intel Macs; 0.7.3 and earlier run on Apple silicon only.
 
 ### Windows
