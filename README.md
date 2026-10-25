@@ -42,7 +42,8 @@ Word's, and adds what Thai writing needs. It is not affiliated with or endorsed 
 - **Thai list numbers, letters and counting words** in lists and page numbers.
 - **Text boundaries:** a thin grey outline around the text area of each page (View › Show › Text Boundaries).
 - **View only** mode in the Editing menu: read a document without changing it by accident.
-- English menus; Thai text in documents, Thai fonts and Thai typing fully supported.
+- **Thai menus** (File › Options › Language): the ribbon, the File page and right-click menus in Thai; dialogs are
+  still in English. Thai text in documents, Thai fonts and Thai typing fully supported.
 
 Everything that differs from the original, newest first, is in [FORK-CHANGES.md](FORK-CHANGES.md).
 

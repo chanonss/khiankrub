@@ -51,9 +51,13 @@ pub struct LangInfo {
     catalog: OnceLock<Catalog>,
 }
 
-/// The registry: English only. English is the source language of every string, so it needs no catalog.
-pub static LANGUAGES: [LangInfo; 1] =
-    [LangInfo { code: "en", name: "English", source: "", prefer_hans: false, editing_lang: None, catalog: OnceLock::new() }];
+/// The registry: English, the source language of every string (so it needs no catalog), and Thai.
+pub static LANGUAGES: [LangInfo; 2] = [
+    LangInfo { code: "en", name: "English", source: "", prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
+    // Thai; `th`, `th-TH` and `th_TH.UTF-8` resolve here. The ribbon, the File page and the
+    // right-click menus are translated; the rest shows in English for now.
+    LangInfo { code: "th", name: "ไทย", source: include_str!("th.tsv"), prefer_hans: false, editing_lang: None, catalog: OnceLock::new() },
+];
 
 impl LangInfo {
     fn catalog(&self) -> &Catalog {
@@ -256,6 +260,8 @@ pub fn tc<'a>(context: &str, s: &'a str) -> &'a str {
 
 /// [`tc`] in a given language.
 pub fn trc<'a>(lang: Lang, context: &str, s: &'a str) -> &'a str {
+    #[cfg(test)]
+    record::note(context, s);
     lang.catalog().in_context(context, s).unwrap_or(s)
 }
 
@@ -280,6 +286,8 @@ pub fn lowercase(s: &str) -> String {
 
 /// `s` in `lang`; strings without a translation come back unchanged.
 pub fn tr(lang: Lang, s: &str) -> &str {
+    #[cfg(test)]
+    record::note("", s);
     lang.catalog().plain(s).unwrap_or(s)
 }
 
@@ -347,3 +355,8 @@ pub fn fmt(template: &str, args: &[(&str, &str)]) -> String {
     out.push_str(rest);
     out
 }
+
+#[cfg(test)]
+pub(crate) mod record;
+#[cfg(test)]
+mod thai;

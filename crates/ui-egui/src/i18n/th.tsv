@@ -1,0 +1,532 @@
+# Thai (th) interface catalog. Columns, separated by a TAB:
+#   context <TAB> English source <TAB> translation
+#   context    usually empty. `preview` words sample text inside rendered previews; `template` words
+#              a template's name on File › New. Both fall back to the plain entry.
+#   source     the English text exactly as in the code (tl!(...), ribbon labels, command labels)
+#   escapes    \n  \t  \\  inside a column. `{name}` placeholders must appear in both columns, and a
+#              trailing "…" in one needs one in the other.
+#   Lines starting with # and blank lines are ignored. A missing entry shows in English.
+#
+# Scope: the most-seen parts of the interface (the ribbon tabs, the File page, right-click menus).
+# The rest shows in English for now; `i18n::thai` lists what is covered.
+#
+# Clean room: every entry was written from the plain meaning of the English label in ordinary Thai
+# computing vocabulary. No Microsoft Word (or other product) localisation, string table or
+# translated UI was consulted or copied; add entries the same way.
+# Product, format and technology names (KhianKrub, PDF, Markdown, Word …) stay in Latin letters.
+
+	(no suggestions)	(ไม่มีคำแนะนำ)
+	About	เกี่ยวกับ
+	Accept	ยอมรับ
+	Accessibility	การช่วยการเข้าถึง
+	Account	บัญชี
+	Add\nNote	เพิ่ม\nบันทึก
+	Add\nPen	เพิ่ม\nปากกา
+	Add Pen	เพิ่มปากกา
+	Add Text	เพิ่มข้อความ
+	Add a Table	เพิ่มตาราง
+	Add to Dictionary	เพิ่มลงในพจนานุกรม
+	Add/Edit\nBibliography	เพิ่ม/แก้ไข\nบรรณานุกรม
+	Add/Edit\nCitation	เพิ่ม/แก้ไข\nการอ้างอิง
+	Address\nBlock	บล็อก\nที่อยู่
+	After:	หลัง:
+	Agents	เอเจนต์
+	Align	จัดแนว
+	Align Bottom Center	จัดล่างกึ่งกลาง
+	Align Bottom Left	จัดล่างซ้าย
+	Align Bottom Right	จัดล่างขวา
+	Align Center	จัดกึ่งกลาง
+	Align Center Left	จัดกึ่งกลางซ้าย
+	Align Center Right	จัดกึ่งกลางขวา
+	Align Left	จัดชิดซ้าย
+	Align Right	จัดชิดขวา
+	Align Top Center	จัดบนกึ่งกลาง
+	Align Top Left	จัดบนซ้าย
+	Align Top Right	จัดบนขวา
+	Alignment	การจัดแนว
+	All Markup	มาร์กอัปทั้งหมด
+	All pages	ทุกหน้า
+	All pages in the range	ทุกหน้าในช่วง
+	Anyone can open this document. Encrypt it with a password to keep it private.	ใครก็เปิดเอกสารนี้ได้ เข้ารหัสด้วยรหัสผ่านเพื่อเก็บเป็นส่วนตัว
+	Arrange	จัดเรียง
+	Arrange\nAll	จัดเรียง\nทั้งหมด
+	Author	ผู้เขียน
+	Auto orientation	แนวกระดาษอัตโนมัติ
+	AutoFit	ปรับพอดีอัตโนมัติ
+	AutoFit Contents	ปรับพอดีกับเนื้อหา
+	AutoFit Window	ปรับพอดีกับหน้าต่าง
+	AutoSave	บันทึกอัตโนมัติ
+	Back	ย้อนกลับ
+	Banded Columns	คอลัมน์แถบสี
+	Banded Rows	แถวแถบสี
+	Before:	ก่อน:
+	Behind Text	หลังข้อความ
+	Bibliography	บรรณานุกรม
+	Blank Page	หน้าว่าง
+	Block\nAuthors	บล็อก\nผู้เขียน
+	Body text in a short paragraph to show spacing.	ข้อความเนื้อหาในย่อหน้าสั้น ๆ เพื่อแสดงระยะห่าง
+	Bold	ตัวหนา
+	Book Title	ชื่อหนังสือ
+	Bookmark	ที่คั่นหน้า
+	Border\nPainter	ระบาย\nเส้นขอบ
+	Borders	เส้นขอบ
+	Bottom Margin	ระยะขอบล่าง
+	Breaks	ตัวแบ่ง
+	Bring Forward	นำไปข้างหน้า
+	Browse…	เรียกดู…
+	Building Block Gallery Content Control	ตัวควบคุมเนื้อหาแกลเลอรีชิ้นส่วนเอกสาร
+	Bullets	สัญลักษณ์แสดงหัวข้อย่อย
+	Captions	คำอธิบายภาพ
+	Category	ประเภท
+	Cell\nMargins	ระยะขอบ\nเซลล์
+	Cell Size	ขนาดเซลล์
+	Center	กึ่งกลาง
+	Change Case	เปลี่ยนตัวพิมพ์
+	Change Picture…	เปลี่ยนรูปภาพ…
+	Changes	การเปลี่ยนแปลง
+	Character Border	เส้นขอบอักขระ
+	Chart	แผนภูมิ
+	Check\nAccessibility	ตรวจสอบ\nการเข้าถึง
+	Check Box Content Control	ตัวควบคุมเนื้อหากล่องกาเครื่องหมาย
+	Check for Errors	ตรวจหาข้อผิดพลาด
+	Citation Style	รูปแบบการอ้างอิง
+	Citations	การอ้างอิง
+	Citations & Bibliography	การอ้างอิงและบรรณานุกรม
+	Clear All Formatting	ล้างการจัดรูปแบบทั้งหมด
+	Clipboard	คลิปบอร์ด
+	Close	ปิด
+	Color	สี
+	Colors	สี
+	Columns	คอลัมน์
+	Combo Box Content Control	ตัวควบคุมเนื้อหากล่องคอมโบ
+	Commands	คำสั่ง
+	Comment	ข้อคิดเห็น
+	Comments	ข้อคิดเห็น
+	Comments beside each page and tracked changes in PDFs, prints and images; a comment list at the end of web pages, Markdown and text.	ข้อคิดเห็นข้างแต่ละหน้าและการติดตามการเปลี่ยนแปลงใน PDF งานพิมพ์ และรูปภาพ ส่วนหน้าเว็บ Markdown และข้อความ จะมีรายการข้อคิดเห็นไว้ท้ายเอกสาร
+	Compare	เปรียบเทียบ
+	Continue without restoring	ทำต่อโดยไม่กู้คืน
+	Controls	ตัวควบคุม
+	Convert	แปลง
+	Convert to Text	แปลงเป็นข้อความ
+	Copies	จำนวนสำเนา
+	Copy	คัดลอก
+	Cover Page	หน้าปก
+	Create	สร้าง
+	Cross-reference	การอ้างอิงโยง
+	Customize Quick Access Toolbar	กำหนดแถบเครื่องมือด่วนเอง
+	Cut	ตัด
+	Dark Mode	โหมดมืด
+	Data	ข้อมูล
+	Date & Time	วันที่และเวลา
+	Date Picker Content Control	ตัวควบคุมเนื้อหาตัวเลือกวันที่
+	Decrease Font Size	ลดขนาดฟอนต์
+	Decrease Indent	ลดการเยื้อง
+	Delete	ลบ
+	Delete Cells	ลบเซลล์
+	Delete Columns	ลบคอลัมน์
+	Delete Comment	ลบข้อคิดเห็น
+	Delete Rows	ลบแถว
+	Delete Table	ลบตาราง
+	Design	ออกแบบ
+	Design Mode	โหมดออกแบบ
+	Developer	นักพัฒนา
+	Dictate	บอกให้พิมพ์
+	Display for Review	แสดงเพื่อตรวจทาน
+	Distribute Columns	กระจายคอลัมน์
+	Distribute Rows	กระจายแถว
+	Document	เอกสาร
+	Document\nPreferences	การตั้งค่า\nเอกสาร
+	Document Formatting	การจัดรูปแบบเอกสาร
+	Document1	เอกสาร1
+	Documents you open will show up here.	เอกสารที่คุณเปิดจะแสดงที่นี่
+	Draft	แบบร่าง
+	Draw	วาด
+	Draw\nTable	วาด\nตาราง
+	Drawing\nCanvas	พื้นที่\nวาดรูป
+	Drawing Tools	เครื่องมือวาด
+	Drop Cap	ตัวอักษรใหญ่ขึ้นต้น
+	Drop-Down List Content Control	ตัวควบคุมเนื้อหารายการดรอปดาวน์
+	Edit\nRecipient List	แก้ไข\nรายชื่อผู้รับ
+	Edit Field…	แก้ไขเขตข้อมูล…
+	Edited	แก้ไขแล้ว
+	Editing	การแก้ไข
+	Editor	ตัวช่วยตรวจ
+	Effects	เอฟเฟกต์
+	Emphasis	เน้น
+	Enclose Characters	ล้อมอักขระ
+	Encrypt with Password…	เข้ารหัสด้วยรหัสผ่าน…
+	English (United States)	อังกฤษ (สหรัฐอเมริกา)
+	Envelopes	ซองจดหมาย
+	Equation	สมการ
+	Eraser	ยางลบ
+	Export	ส่งออก
+	Export a copy to share (PDF, Word document)	ส่งออกสำเนาเพื่อแชร์ (PDF, เอกสาร Word)
+	File	ไฟล์
+	Find	ค้นหา
+	Find Recipient	ค้นหาผู้รับ
+	Finish	เสร็จสิ้น
+	Finish &\nMerge	เสร็จสิ้น\nและผสาน
+	First Column	คอลัมน์แรก
+	Fix Position on Page	ตรึงตำแหน่งบนหน้า
+	Fixed Column Width	ความกว้างคอลัมน์คงที่
+	Focus	โฟกัส
+	Font	ฟอนต์
+	Font Color	สีฟอนต์
+	Fonts	ฟอนต์
+	Font…	ฟอนต์…
+	Footer	ท้ายกระดาษ
+	Footnotes	เชิงอรรถ
+	Format	รูปแบบ
+	Format Painter	ตัวคัดวางรูปแบบ
+	Formula	สูตร
+	Full\nScreen	เต็ม\nหน้าจอ
+	Go To (⌘⌥G)	ไปที่ (⌘⌥G)
+	Good morning	สวัสดีตอนเช้า
+	Greeting\nLine	บรรทัด\nคำทักทาย
+	Grid Table 1 Light	ตารางเส้นตาราง 1 สีอ่อน
+	Grid Table 4 – Blue	ตารางเส้นตาราง 4 – น้ำเงิน
+	Grid Table 4 – Green	ตารางเส้นตาราง 4 – เขียว
+	Grid Table 4 – Orange	ตารางเส้นตาราง 4 – ส้ม
+	Grid Table 4 – Purple	ตารางเส้นตาราง 4 – ม่วง
+	Gridlines	เส้นตาราง
+	Group	จัดกลุ่ม
+	Header	หัวกระดาษ
+	Header & Footer	หัวกระดาษและท้ายกระดาษ
+	Header Row	แถวหัวตาราง
+	Heading 1	หัวเรื่อง 1
+	Heading 2	หัวเรื่อง 2
+	Heading 3	หัวเรื่อง 3
+	Heading {n}	หัวเรื่อง {n}
+	Height:	ความสูง:
+	Help	วิธีใช้
+	Hide\nInk	ซ่อน\nหมึก
+	Hide White Space	ซ่อนพื้นที่ว่าง
+	Highlight\nMerge Fields	เน้นสี\nเขตข้อมูลผสาน
+	Highlighter	ปากกาเน้นข้อความ
+	Home	หน้าแรก
+	Hyphenation	การตัดคำ
+	Icons	ไอคอน
+	Ignore All	ละเว้นทั้งหมด
+	Illustrations	ภาพประกอบ
+	Immersive	อ่านแบบเต็มตา
+	Immersive\nReader	ตัวอ่าน\nแบบเต็มตา
+	In Front of Text	หน้าข้อความ
+	In Line with Text	อยู่ในบรรทัดเดียวกับข้อความ
+	Increase Font Size	เพิ่มขนาดฟอนต์
+	Increase Indent	เพิ่มการเยื้อง
+	Indent	การเยื้อง
+	Index	ดัชนี
+	Info	ข้อมูล
+	Ink	หมึก
+	Ink\nReplay	เล่นซ้ำ\nหมึก
+	Ink to\nMath	หมึกเป็น\nคณิตศาสตร์
+	Ink to\nShape	หมึกเป็น\nรูปร่าง
+	Insert	แทรก
+	Insert\nAbove	แทรก\nด้านบน
+	Insert\nCaption	แทรก\nคำอธิบาย
+	Insert\nCitation	แทรก\nการอ้างอิง
+	Insert\nFootnote	แทรก\nเชิงอรรถ
+	Insert Below	แทรกด้านล่าง
+	Insert Caption…	แทรกคำอธิบาย…
+	Insert Citation	แทรกการอ้างอิง
+	Insert Columns to the Left	แทรกคอลัมน์ทางซ้าย
+	Insert Columns to the Right	แทรกคอลัมน์ทางขวา
+	Insert Endnote	แทรกอ้างอิงท้ายเรื่อง
+	Insert Index	แทรกดัชนี
+	Insert Left	แทรกทางซ้าย
+	Insert Merge\nField	แทรกเขต\nข้อมูลผสาน
+	Insert Right	แทรกทางขวา
+	Insert Rows Above	แทรกแถวด้านบน
+	Insert Rows Below	แทรกแถวด้านล่าง
+	Insert Table of Authorities	แทรกสารบัญแหล่งอ้างอิงทางกฎหมาย
+	Insert Table of Figures	แทรกสารบัญภาพ
+	Insert a new equation (Alt+=)	แทรกสมการใหม่ (Alt+=)
+	Intense Emphasis	เน้นมาก
+	Intense Quote	คำพูดเน้นมาก
+	Intense Reference	การอ้างอิงเน้นมาก
+	Interface\nTheme	ธีม\nหน้าจอ
+	Interface Theme	ธีมหน้าจอ
+	Italic	ตัวเอียง
+	Justify	จัดชิดขอบ
+	Keywords	คำสำคัญ
+	Labels	ป้ายชื่อ
+	Language	ภาษา
+	Lasso	บ่วงเลือก
+	Last Column	คอลัมน์สุดท้าย
+	Layout	เค้าโครง
+	Left	ซ้าย
+	Left Margin	ระยะขอบซ้าย
+	Left-to-Right Text Direction	ทิศทางข้อความจากซ้ายไปขวา
+	Left:	ซ้าย:
+	Line Numbers	หมายเลขบรรทัด
+	Line and Paragraph Spacing	ระยะห่างบรรทัดและย่อหน้า
+	Link	ลิงก์
+	Links	ลิงก์
+	Link…	ลิงก์…
+	List Paragraph	ย่อหน้ารายการ
+	List Table 3 – Blue	ตารางรายการ 3 – น้ำเงิน
+	List Table 3 – Green	ตารางรายการ 3 – เขียว
+	List Table 3 – Orange	ตารางรายการ 3 – ส้ม
+	List Table 3 – Purple	ตารางรายการ 3 – ม่วง
+	Local recovery is unavailable or still loading.	การกู้คืนในเครื่องใช้ไม่ได้ หรือยังโหลดอยู่
+	Location: {path}	ตำแหน่ง: {path}
+	Macros	แมโคร
+	Mailings	จดหมาย
+	Manage Sources	จัดการแหล่งข้อมูล
+	Margins	ระยะขอบ
+	Mark\nCitation	ทำเครื่องหมาย\nการอ้างอิง
+	Mark\nEntry	ทำเครื่องหมาย\nรายการ
+	Match Fields	จับคู่เขตข้อมูล
+	Merge	ผสาน
+	Merge Cells	ผสานเซลล์
+	More templates →	แม่แบบเพิ่มเติม →
+	Move Past\nCitation	ข้าม\nการอ้างอิง
+	Move with Text	ย้ายไปกับข้อความ
+	Multilevel List	รายการหลายระดับ
+	Multiple Pages	หลายหน้า
+	Navigation Pane	บานหน้าต่างนำทาง
+	New	สร้าง
+	New\nComment	ข้อคิดเห็น\nใหม่
+	New\nWindow	หน้าต่าง\nใหม่
+	New Comment	ข้อคิดเห็นใหม่
+	Next	ถัดไป
+	Next Change	การเปลี่ยนแปลงถัดไป
+	Next Comment	ข้อคิดเห็นถัดไป
+	Next Footnote	เชิงอรรถถัดไป
+	Next Page	หน้าถัดไป
+	Next Record	ระเบียนถัดไป
+	No Spacing	ไม่มีระยะห่าง
+	Normal	ปกติ
+	Not saved yet	ยังไม่ได้บันทึก
+	Numbering	ลำดับเลข
+	Object	วัตถุ
+	One Page	หน้าเดียว
+	Open	เปิด
+	OpenDocument Text (*.odt)	ข้อความ OpenDocument (*.odt)
+	Options	ตัวเลือก
+	Orientation	แนวกระดาษ
+	Outline	เค้าร่าง
+	PDF document (*.pdf)	เอกสาร PDF (*.pdf)
+	Page\nBorders	เส้นขอบ\nหน้า
+	Page\nColor	สี\nหน้า
+	Page\nNumber	หมายเลข\nหน้า
+	Page Background	พื้นหลังหน้า
+	Page Break	ตัวแบ่งหน้า
+	Page Color	สีหน้า
+	Page Movement	การเลื่อนหน้า
+	Page Number	หมายเลขหน้า
+	Page Setup	ตั้งค่าหน้ากระดาษ
+	Page Width	ความกว้างหน้า
+	Page image (*.png)	ภาพหน้า (*.png)
+	Page {page} of {pages}	หน้า {page} จาก {pages}
+	Pages	หน้า
+	Paragraph	ย่อหน้า
+	Paragraph Spacing	ระยะห่างย่อหน้า
+	Paragraphs	ย่อหน้า
+	Paragraph…	ย่อหน้า…
+	Paste	วาง
+	Paste (⌘V)	วาง (⌘V)
+	Pen	ปากกา
+	Pencil	ดินสอ
+	Pens	ปากกา
+	Phonetic Guide	คำอ่านออกเสียง
+	Picture Content Control	ตัวควบคุมเนื้อหารูปภาพ
+	Pictures	รูปภาพ
+	Plain Table 1	ตารางธรรมดา 1
+	Plain Text Content Control	ตัวควบคุมเนื้อหาข้อความธรรมดา
+	Plain text (*.txt)	ข้อความธรรมดา (*.txt)
+	Position	ตำแหน่ง
+	Preview\nResults	แสดงตัวอย่าง\nผลลัพธ์
+	Preview Results	แสดงตัวอย่างผลลัพธ์
+	Previous	ก่อนหน้า
+	Previous Change	การเปลี่ยนแปลงก่อนหน้า
+	Previous Comment	ข้อคิดเห็นก่อนหน้า
+	Previous Page	หน้าก่อนหน้า
+	Previous Record	ระเบียนก่อนหน้า
+	Print	พิมพ์
+	Print\nLayout	เค้าโครง\nเหมือนพิมพ์
+	Print Layout	เค้าโครงเหมือนพิมพ์
+	Print Markup	พิมพ์มาร์กอัป
+	Proofing	การพิสูจน์อักษร
+	Properties	คุณสมบัติ
+	Protect	ป้องกัน
+	Protect Document	ป้องกันเอกสาร
+	Quick Parts	ส่วนด่วน
+	Quote	คำพูด
+	Read\nAloud	อ่าน\nออกเสียง
+	Read\nMode	โหมด\nการอ่าน
+	Read Mode	โหมดการอ่าน
+	Recent	ล่าสุด
+	Recover	กู้คืน
+	Recover documents	กู้คืนเอกสาร
+	Redo	ทำซ้ำ
+	References	การอ้างอิง
+	Refresh	รีเฟรช
+	Reject	ปฏิเสธ
+	Rename Document	เปลี่ยนชื่อเอกสาร
+	Repeat Header Rows	ทำซ้ำแถวหัวตาราง
+	Repeating Section Content Control	ตัวควบคุมเนื้อหาส่วนที่ทำซ้ำ
+	Replace	แทนที่
+	Replay	เล่นซ้ำ
+	Research	ค้นคว้า
+	Researcher	ผู้ช่วยค้นคว้า
+	Reset Picture	รีเซ็ตรูปภาพ
+	Restore opens an unsaved copy. Your original file stays unchanged.	การกู้คืนจะเปิดสำเนาที่ยังไม่บันทึก ไฟล์ต้นฉบับของคุณไม่เปลี่ยนแปลง
+	Restrict\nEditing	จำกัด\nการแก้ไข
+	Review	ตรวจทาน
+	Reviewing Pane	บานหน้าต่างตรวจทาน
+	Rich Text Content Control	ตัวควบคุมเนื้อหาข้อความแบบมีรูปแบบ
+	Right Margin	ระยะขอบขวา
+	Right-to-Left Text Direction	ทิศทางข้อความจากขวาไปซ้าย
+	Right:	ขวา:
+	Rotate	หมุน
+	Rows & Columns	แถวและคอลัมน์
+	Ruler	ไม้บรรทัด
+	Rules	กฎ
+	Save	บันทึก
+	Save As	บันทึกเป็น
+	Save a copy in another format. Printing goes through a PDF you can print from any viewer.	บันทึกสำเนาเป็นรูปแบบอื่น การพิมพ์จะทำผ่าน PDF ที่สั่งพิมพ์ได้จากโปรแกรมดูใดก็ได้
+	Save the document to turn on AutoSave	บันทึกเอกสารเพื่อเปิดการบันทึกอัตโนมัติ
+	Save these pages as PDF…	บันทึกหน้าเหล่านี้เป็น PDF…
+	Scroll ribbon right	เลื่อนริบบอนไปทางขวา
+	Search	ค้นหา
+	Search commands and help	ค้นหาคำสั่งและวิธีใช้
+	Search for templates	ค้นหาแม่แบบ
+	Sections	ส่วน
+	Select	เลือก
+	Select\nRecipients	เลือก\nผู้รับ
+	Select Recipients	เลือกผู้รับ
+	Selection Pane	บานหน้าต่างการเลือก
+	Send Backward	ส่งไปข้างหลัง
+	Set as Default	ตั้งเป็นค่าเริ่มต้น
+	Shading	แรเงา
+	Shapes	รูปร่าง
+	Share	แชร์
+	Show	แสดง
+	Show\nComments	แสดง\nข้อคิดเห็น
+	Show Notes	แสดงบันทึกย่อ
+	Show/Hide ¶	แสดง/ซ่อน ¶
+	Side\nto Side	เลื่อน\nด้านข้าง
+	Signature Line	บรรทัดลายเซ็น
+	Size	ขนาด
+	Size and Crop…	ขนาดและการครอบตัด…
+	Sort	เรียงลำดับ
+	Spacing	ระยะห่าง
+	Speech	เสียงพูด
+	Spelling &\nGrammar	การสะกด\nและไวยากรณ์
+	Split	แยก
+	Split Cells	แยกเซลล์
+	Split Table	แยกตาราง
+	Square	สี่เหลี่ยม
+	Start Mail\nMerge	เริ่มจดหมาย\nเวียน
+	Start Mail Merge	เริ่มจดหมายเวียน
+	Statistics	สถิติ
+	Strikethrough	ขีดทับ
+	Strong	เข้ม
+	Style: APA	รูปแบบ: APA
+	Style: {style}	รูปแบบ: {style}
+	Styles	สไตล์
+	Subject	เรื่อง
+	Subscript	ตัวห้อย
+	Subtitle	ชื่อรอง
+	Subtle Emphasis	เน้นเล็กน้อย
+	Subtle Reference	การอ้างอิงแบบบาง
+	Superscript	ตัวยก
+	Switch\nModes	สลับ\nโหมด
+	Symbol	สัญลักษณ์
+	Symbols	สัญลักษณ์
+	Synonyms	คำพ้องความหมาย
+	Table	ตาราง
+	Table Column Width	ความกว้างคอลัมน์ตาราง
+	Table Design	ออกแบบตาราง
+	Table Grid	เส้นตาราง
+	Table Layout	เค้าโครงตาราง
+	Table Properties	คุณสมบัติตาราง
+	Table Properties…	คุณสมบัติตาราง…
+	Table Row Height	ความสูงแถวตาราง
+	Table Style Options	ตัวเลือกสไตล์ตาราง
+	Table Styles	สไตล์ตาราง
+	Table of\nContents	สารบัญ
+	Table of Authorities	สารบัญแหล่งอ้างอิงทางกฎหมาย
+	Table of Contents	สารบัญ
+	Tables	ตาราง
+	Tabs	แท็บ
+	Templates	แม่แบบ
+	Text	ข้อความ
+	Text\nBox	กล่อง\nข้อความ
+	Text\nDirection	ทิศทาง\nข้อความ
+	Text Boundaries	ขอบเขตข้อความ
+	Text Direction	ทิศทางข้อความ
+	Text Effects and Typography	เอฟเฟกต์ข้อความและการพิมพ์
+	Text Highlight Color	สีเน้นข้อความ
+	Thai Distribution	กระจายแบบไทย
+	Theme Colors	สีของธีม
+	Theme Fonts	ฟอนต์ของธีม
+	Themes	ธีม
+	Thesaurus	อรรถาภิธาน
+	Thickness	ความหนา
+	Through	ทะลุผ่าน
+	Tight	ชิด
+	Title	ชื่อเรื่อง
+	Toggle Field Codes	สลับรหัสเขตข้อมูล
+	Tools	เครื่องมือ
+	Top Margin	ระยะขอบบน
+	Top and Bottom	บนและล่าง
+	Total Row	แถวผลรวม
+	Track\nChanges	ติดตาม\nการเปลี่ยนแปลง
+	Tracking	การติดตาม
+	Translate	แปลภาษา
+	Underline	ขีดเส้นใต้
+	Undo History	ประวัติการเลิกทำ
+	Undo {action}	เลิกทำ {action}
+	Unlink\nCitations	ยกเลิกลิงก์\nการอ้างอิง
+	Update Field	อัปเดตเขตข้อมูล
+	Update Index	อัปเดตดัชนี
+	Update Table	อัปเดตตาราง
+	Update Table of Figures	อัปเดตสารบัญภาพ
+	Vertical	แนวตั้ง
+	View	มุมมอง
+	View Alt Text…	ดูข้อความแสดงแทน…
+	View Gridlines	ดูเส้นตาราง
+	Views	มุมมอง
+	Voice	เสียง
+	Watermark	ลายน้ำ
+	Web\nLayout	เค้าโครง\nเว็บ
+	Web Layout	เค้าโครงเว็บ
+	Web page (*.html)	หน้าเว็บ (*.html)
+	Width:	ความกว้าง:
+	Window	หน้าต่าง
+	Word 2003 XML Document (*.xml)	เอกสาร XML ของ Word 2003 (*.xml)
+	Word Count	นับคำ
+	Word XML Document (*.xml)	เอกสาร XML ของ Word (*.xml)
+	Word document (*.docx)	เอกสาร Word (*.docx)
+	Words	คำ
+	Wrap\nText	ตัด\nข้อความ
+	Wrap Text	ตัดข้อความ
+	Write & Insert Fields	เขียนและแทรกเขตข้อมูล
+	Zoom	ย่อ/ขยาย
+	Zoom In	ขยาย
+	Zoom Out	ย่อ
+	pt	พ.
+preview	Title	ชื่อเรื่อง
+template	Blank document	เอกสารเปล่า
+template	Letter	จดหมาย
+template	Report	รายงาน
+template	Résumé	ประวัติย่อ
+template	Studio handbook (sample)	คู่มือสตูดิโอ (ตัวอย่าง)
+	{count} of {total} pages will print	จะพิมพ์ {count} จาก {total} หน้า
+	{group} settings	การตั้งค่า{group}
+	{words} words	{words} คำ
+	{selected} of {words} words	{selected} จาก {words} คำ
+	Good afternoon	สวัสดีตอนบ่าย
+	Good evening	สวัสดีตอนเย็น
+	Saved	บันทึกแล้ว
+	Not saved	ยังไม่ได้บันทึก
+	General	ทั่วไป
+	Display	การแสดงผล
+	Advanced	ขั้นสูง
+	Proofing language	ภาษาที่ใช้พิสูจน์อักษร
+	Interface language	ภาษาของหน้าจอ
+	Interface language:	ภาษาของหน้าจอ:
+	Automatic ({language})	อัตโนมัติ ({language})
+	Automatic follows your system's language. Menus and commands change; your documents don't.	อัตโนมัติจะใช้ภาษาของระบบ เมนูและคำสั่งจะเปลี่ยนไป แต่เอกสารของคุณไม่เปลี่ยน

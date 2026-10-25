@@ -143,7 +143,7 @@ pub fn page(app: &mut WordApp, ui: &mut Ui) {
                 "display" => display(app, ui),
                 "proofing" => proofing(app, ui),
                 "save" => save(app, ui),
-                "language" => language(ui),
+                "language" => language(app, ui),
                 "accessibility" => accessibility(app, ui),
                 "advanced" => advanced(app, ui),
                 "agents" => agents(ui),
@@ -417,8 +417,9 @@ fn save(app: &mut WordApp, ui: &mut Ui) {
     note(ui, "The document you are editing keeps the names and dates; only the saved file leaves them out.");
 }
 
-fn language(ui: &mut Ui) {
-    // The interface is English only (this fork), so there is no interface language to pick.
+fn language(app: &mut WordApp, ui: &mut Ui) {
+    section(ui, "Interface language");
+    language_picker(app, ui);
     // #414 (detect the document's language) goes here.
     ui.add_space(8.0);
     section(ui, "Proofing language");
@@ -612,6 +613,28 @@ fn animations_picker(app: &mut WordApp, ui: &mut Ui) {
     }
 }
 
+/// Interface language: follow the system (the default) or pick one (#8).
+fn language_picker(app: &mut WordApp, ui: &mut Ui) {
+    use crate::i18n::{AUTO, Lang};
+    let system = crate::i18n::system_lang();
+    let auto_label = crate::i18n::fmt(tl!("Automatic ({language})"), &[("language", system.name())]);
+    let current = if app.ui.language == AUTO { auto_label.clone() } else { Lang::from_pref(&app.ui.language).name().to_string() };
+    ui.horizontal(|ui| {
+        ui.label(tl!("Interface language:"));
+        egui::ComboBox::from_id_salt("interface_language").selected_text(current).width(220.0).show_ui(ui, |ui| {
+            if ui.selectable_label(app.ui.language == AUTO, auto_label.as_str()).clicked() {
+                let _ = app.run("ui.language", json!({"value": AUTO}));
+            }
+            for lang in Lang::all() {
+                if ui.selectable_label(app.ui.language == lang.code(), lang.name()).clicked() {
+                    let _ = app.run("ui.language", json!({"value": lang.code()}));
+                }
+            }
+        });
+    });
+    ui.label(RichText::new(tl!("Automatic follows your system's language. Menus and commands change; your documents don't.")).small().weak());
+}
+
 /// Deserialize `input` over `T`'s defaults one setting at a time: a value of the wrong type is
 /// dropped (its default stays) instead of failing the whole read. Objects nest (`editing`).
 pub fn lenient<T: Serialize + DeserializeOwned + Default>(input: &Value) -> T {
@@ -710,9 +733,9 @@ mod tests {
         WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Services::default())
     }
 
-    /// The interface is English only, so the Language page has no "Interface language" section.
+    /// The Language page offers the interface language (English or Thai) above the proofing language.
     #[test]
-    fn language_page_has_no_interface_language_section() {
+    fn language_page_offers_the_interface_language() {
         let mut a = app();
         a.run("ui.backstage", json!({"value": true, "page": "options"})).unwrap();
         a.ui.options_pane = "language".into();
@@ -726,7 +749,7 @@ mod tests {
         );
         h.run_steps(4);
         assert!(h.query_by_label("Proofing language").is_some(), "the Language page is showing");
-        assert!(h.query_by_label("Interface language").is_none());
+        assert!(h.query_by_label("Interface language").is_some());
     }
 
     /// File › Options settings come back after a restart, and a `ui.json` with a wrong value in

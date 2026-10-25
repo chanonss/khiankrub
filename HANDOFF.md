@@ -88,9 +88,11 @@ run `codesign --verify --strict --deep`, and put the zip's SHA-256 in the releas
 2. **Update `FORK-CHANGES.md`** with a dated entry for every change. The original's own progress docs (`ROADMAP.md`,
    `docs/`) are not edited in this fork, even where they are now out of date (for example `docs/layout-parity.md` still
    says Thai list formats show decimal).
-3. **English-only interface.** Write new labels in English only (`tl!("...")`). Do not translate them, do not run or mention
-   language tests, and do not ask again about a Thai menu: settled. Thai support in documents (Thai text, Thai
-   Distribution, word breaking, Thai fonts, Thai list numbering) stays.
+3. **English and Thai interface.** Write labels in English (`tl!("...")`); Thai is a catalog
+   (`crates/ui-egui/src/i18n/th.tsv`, written from each label's meaning, never from Word's Thai version). Since
+   2026-10-25 the ribbon tabs, the File page and right-click menus are in Thai; dialogs and Options pages are still
+   English. A new ribbon button, File page text or right-click item needs a th.tsv row, or
+   `the_most_seen_parts_are_in_thai` fails and lists it. No other interface languages.
 4. **Credit the original, never use its brand.** Keep `LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`, the README note and the About
    screen credit ("Based on WordCraft by the ArtCraft team. Fork by Chanon Sarasuk."). The original's brand licence forbids
    ArtCraft logos and marks in published forks: plain-text credit only (`docs/brand/` was deleted on purpose).

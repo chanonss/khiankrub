@@ -7,6 +7,21 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Thai menus
+- **File › Options › Language › Interface language** offers ไทย (Thai) besides English. Automatic, the default,
+  follows the system: a Mac or PC set to Thai opens in Thai; others stay English.
+- In Thai: every ribbon tab and button (with the Table Design and Table Layout tabs), the title bar, the File page
+  (Home, New, Open, Info, Recover, Save, Save As, Print, Export, Close, About), the right-click menus with their
+  submenus, the built-in style names (ปกติ, หัวเรื่อง 1…) and the Options page list. Dialogs, tooltips, drop-down
+  menus and the Options pages themselves stay English for now; anything without a Thai entry shows in English.
+- The translations are in `crates/ui-egui/src/i18n/th.tsv` (515 entries), written from each label's plain meaning
+  in ordinary Thai computing words, not from any other product's Thai version. The interface draws Thai with the
+  system's Thai font (Thonburi on macOS, Leelawadee UI on Windows).
+- This brings back the language registry and the Options picker removed on 2026-10-21, for Thai only.
+- Tests (`i18n::thai`): the catalog has no bad lines; everything drawn on the tabs, the File page and the
+  right-click menus has a Thai entry (a new button fails the test until it is translated); choosing Thai shows the
+  tabs in Thai and leaves the document unchanged.
+
 ### Gold hover and selection; no Discord links
 - Buttons, menu rows and gallery tiles light up in tints of the icon's gold instead of grey and blue: pale gold
   on mouse hover (`#FDF3D2`), a gold tint with a gold outline when on or selected (`#FCEAB0`, outline
