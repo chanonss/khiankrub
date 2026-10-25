@@ -317,7 +317,9 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                                 // with a band-coloured circle cut out of its upper outer corner.
                                 const R: f32 = 8.0;
                                 ui.painter().rect_filled(tab_r, egui::CornerRadius { nw: R as u8, ne: R as u8, sw: 0, se: 0 }, t.ribbon);
-                                let bottom = tab_r.max.y;
+                                // The strip is cut off where the ribbon starts: curve up from there,
+                                // or the ribbon hides the curve's lower part and it looks tighter.
+                                let bottom = tab_r.max.y.min(ui.clip_rect().max.y);
                                 for (x, outer) in [(tab_r.min.x, tab_r.min.x - R), (tab_r.max.x, tab_r.max.x + R)] {
                                     let square = Rect::from_two_pos(pos2(x, bottom), pos2(outer, bottom - R));
                                     let p = ui.painter().with_clip_rect(square);
