@@ -39,6 +39,10 @@ getrandom = { workspace = true }
 # bundled copy on Windows.
 jiff = { version = "0.2", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-bundle-platform"] }
 
+[target.'cfg(unix)'.dependencies]
+# O_NONBLOCK, so a path swapped for a named pipe can't block `open` (#3666).
+libc = { workspace = true }
+
 [dev-dependencies]
 encoding_rs = { workspace = true }
 zip = { workspace = true }
