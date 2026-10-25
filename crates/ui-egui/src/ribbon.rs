@@ -366,7 +366,9 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
     egui::Panel::top("ribbon")
         .exact_size(CONTENT_H + LABEL_H + 10.0)
         .frame(
-            egui::Frame::NONE.fill(t.ribbon).inner_margin(egui::Margin { left: 8, right: 8, top: 4, bottom: 4 }).stroke(Stroke::new(1.0, t.border)),
+            // No outline: its top edge drew a grey line between the active tab and the ribbon. The
+            // panel's own divider still separates the ribbon from the ruler below.
+            egui::Frame::NONE.fill(t.ribbon).inner_margin(egui::Margin { left: 8, right: 8, top: 4, bottom: 4 }),
         )
         .show(ui, |ui| {
             // Right-click on the ribbon (outside a button): Customize Ribbon. Registered first, so
