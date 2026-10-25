@@ -7,6 +7,13 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### The selection covers the whole ¶
+- A selection that runs past a paragraph's end highlights its whole paragraph mark (¶), as in Word, so you can see
+  the mark (and the paragraph formatting it carries) is selected. The highlight was a fixed 5 pt, narrower than
+  the ¶ as drawn, so the mark stuck out of it, and an empty paragraph's ¶ was barely covered. It now matches the
+  drawn mark: the 1 pt gap and 0.6 × the mark's size (`ParaLayout::mark_width`). With formatting marks off, the
+  same box shows after the text. Test: `a_selection_past_a_paragraph_end_covers_its_mark`.
+
 ### Version 0.8.0
 - The app's version is 0.8.0 (was 0.7.3): a larger step than a fix release. It brings Thai menus, the navy and gold
   look, the redesigned Modify Style with Apply, numbered headings linked to styles and My Lists, heading numbers in

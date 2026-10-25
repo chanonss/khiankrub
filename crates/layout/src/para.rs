@@ -2527,6 +2527,19 @@ fn resolve_tab(pl: &mut ParaLayout, pending: &mut Option<(usize, TabStop, f32)>,
 }
 
 impl ParaLayout {
+    /// Size of the paragraph's mark (¶), points: its first run's size, as the mark is drawn.
+    pub fn mark_size(&self) -> f32 {
+        self.styles.first().map(|s| s.size).unwrap_or(11.0)
+    }
+    /// How much room the drawn ¶ takes after the text, points: the 1 pt gap before it and the
+    /// glyph, at least [`PARA_MARK_WIDTH`]. A selection running past the paragraph's end
+    /// highlights this much, so the highlight covers the whole mark, as in Word.
+    pub fn mark_width(&self) -> f32 {
+        (1.0 + self.mark_size() * 0.6).max(PARA_MARK_WIDTH)
+    }
+}
+
+impl ParaLayout {
     /// The line the list label is drawn on: the first, unless the paragraph opens with a page
     /// break, when Word draws it with the text on the next page.
     pub fn label_line(&self) -> usize {
