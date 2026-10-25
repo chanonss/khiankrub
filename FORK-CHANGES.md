@@ -7,6 +7,15 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Level numbers as grey chips in Define New Multilevel List
+- **Enter formatting for number** no longer shows the file format's `%1.%2.`: each level's number is a grey
+  chip with its sample number in that level's style (`1`, `a`, `๑`), as in Word, and the rest is plain text.
+  Typing adds text where the cursor is (but never `%`), Backspace and Delete take a whole chip at once, and
+  **Include level number from** puts a chip at the cursor rather than at the end. The form and the saved file
+  still use `%1.%2.`, so Word reads them as before. Screen readers hear the number it makes (`1.1.`).
+  `number_text.rs`. Tests: `text_with_level_numbers_round_trips`,
+  `editing_treats_a_level_number_as_one_piece`, `the_number_format_box_edits_level_numbers_as_chips`.
+
 ### Local time; a recent list you can manage
 - **The File page's greeting follows the clock.** It read the time in UTC, so in Thailand (UTC+7) it said Good
   morning until 7 p.m. It now uses the computer's time zone (`cmd::now_local_iso`, with the `jiff` crate on the

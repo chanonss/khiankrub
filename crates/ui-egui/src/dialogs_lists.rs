@@ -207,21 +207,23 @@ impl ListForm {
             _ => {}
         }
         let mut out = String::new();
-        let mut chars = l.text.chars().peekable();
-        while let Some(c) = chars.next() {
-            if c == '%'
-                && let Some(d) = chars.peek().and_then(|d| d.to_digit(10))
-            {
-                chars.next();
-                let j = (d as usize).saturating_sub(1).min(LEVELS - 1);
-                let lv = self.levels.get(j);
-                let fmt = if l.legal && j != k { NumFormat::Decimal } else { lv.map(|x| NumFormat::from_ooxml(&x.format)).unwrap_or_default() };
-                out.push_str(&fmt.format(lv.map(|x| x.start).unwrap_or(1).max(1)));
-            } else {
-                out.push(c);
+        for piece in crate::number_text::parse(&l.text) {
+            match piece {
+                crate::number_text::Piece::Level(d) => out.push_str(&self.level_number(k, usize::from(d) - 1)),
+                crate::number_text::Piece::Text(c) => out.push(c),
             }
         }
         out
+    }
+
+    /// Level `j`'s first number as level `k`'s text shows it: in `j`'s own style, or as a plain
+    /// digit under Legal style numbering. The label of its chip in the number format box.
+    pub fn level_number(&self, k: usize, j: usize) -> String {
+        let j = j.min(LEVELS - 1);
+        let legal = self.levels.get(k).is_some_and(|l| l.legal);
+        let lv = self.levels.get(j);
+        let fmt = if legal && j != k { NumFormat::Decimal } else { lv.map(|x| NumFormat::from_ooxml(&x.format)).unwrap_or_default() };
+        fmt.format(lv.map(|x| x.start).unwrap_or(1).max(1))
     }
 }
 
@@ -253,11 +255,17 @@ pub fn define_list(app: &mut WordApp, ui: &mut Ui, f: &mut ListForm) -> bool {
     let styles = f.styles.clone();
     let fams = app.previews.families();
     let font_preview = app.previews.font_preview_fn();
+    // Each level's number as this level shows it, for the grey chips in the number format box.
+    let chips: Vec<String> = (0..LEVELS).map(|j| f.level_number(i, j)).collect();
     let Some(l) = f.levels.get_mut(i) else { return true };
+    let text_id = egui::Id::new(("mll_number_text", i));
     heading(ui, "Number format");
     egui::Grid::new("mll_number").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
         ui.label(tl!("Enter formatting for number:"));
-        ui.text_edit_singleline(&mut l.text);
+        crate::number_text::show(ui, text_id, tl!("Number format"), &mut l.text, 260.0, |d| {
+            chips.get(usize::from(d) - 1).cloned().unwrap_or_default()
+        })
+        .on_hover_text(tl!("Grey boxes are level numbers; add one from Include level number from. Type anything around them, such as a dot or ข้อ."));
         ui.end_row();
         ui.label(tl!("Number style for this level:"));
         let current = STYLES.iter().find(|(k, _)| *k == l.format).map(|(_, s)| *s).unwrap_or("");
@@ -281,7 +289,7 @@ pub fn define_list(app: &mut WordApp, ui: &mut Ui, f: &mut ListForm) -> bool {
             egui::ComboBox::from_id_salt("mll_include").selected_text("").show_ui(ui, |ui| {
                 for k in 0..i {
                     if ui.steady_label(false, crate::i18n::fmt(tl!("Level {n}"), &[("n", &(k + 1).to_string())])).clicked() {
-                        l.text.push_str(&format!("%{}", k + 1));
+                        crate::number_text::insert_level_at_cursor(ui, text_id, &mut l.text, (k + 1) as u8);
                     }
                 }
             });
@@ -699,6 +707,75 @@ mod tests {
         let mut b = app();
         assert!(b.execute("list.define", json!({})).is_err());
         assert!(b.dialog.is_none());
+    }
+
+    /// The number format box shows level numbers as grey chips, not `%1`: Backspace takes a whole
+    /// chip, typing adds text but never `%`, and Include level number from puts a chip at the
+    /// cursor. The file format's `%1.%2.` is what the form keeps.
+    #[test]
+    fn the_number_format_box_edits_level_numbers_as_chips() {
+        use egui_kittest::kittest::Queryable;
+        let mut a = app();
+        a.run("text.insert", json!({"text": "Intro"})).unwrap();
+        a.run("list.define", json!({})).unwrap();
+        let Some(Dialog::DefineList { form }) = &mut a.dialog else { panic!("dialog") };
+        form.level = 1;
+        form.levels[1].text = "%1.%2.".into();
+        form.levels[1].format = "decimal".into();
+        form.levels[0].format = "thaiNumbers".into();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        let text = |h: &egui_kittest::Harness<WordApp>| match &h.state().dialog {
+            Some(Dialog::DefineList { form }) => form.levels[1].text.clone(),
+            _ => String::new(),
+        };
+        let level2 = |h: &egui_kittest::Harness<WordApp>| match &h.state().dialog {
+            Some(Dialog::DefineList { form }) => (form.level_number(1, 0), form.sample(1)),
+            _ => Default::default(),
+        };
+        assert_eq!(level2(&h), ("๑".to_string(), "๑.1.".to_string()), "a chip shows level 1's number in its own style");
+        // Click at the end of the box, then Backspace twice: the dot, then the whole level 2 number.
+        let field = h.get_by_role_and_label(egui::accesskit::Role::TextInput, "Number format").rect();
+        let at = egui::pos2(field.right() - 4.0, field.center().y);
+        h.event(egui::Event::PointerMoved(at));
+        h.run_steps(1);
+        for pressed in [true, false] {
+            h.event(egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() });
+            h.run_steps(1);
+        }
+        h.run_steps(1);
+        for _ in 0..2 {
+            h.key_press(egui::Key::Backspace);
+            h.run_steps(1);
+        }
+        assert_eq!(text(&h), "%1.");
+        h.event(egui::Event::Text("%-".into()));
+        h.run_steps(2);
+        assert_eq!(text(&h), "%1.-", "% isn't typed");
+        // Include level number from › Level 1 (the menu beside its label).
+        let row = h.get_by_label("Include level number from:").rect();
+        let combo = h
+            .query_all_by_role(egui::accesskit::Role::ComboBox)
+            .map(|n| n.rect())
+            .find(|r| (r.center().y - row.center().y).abs() < 6.0)
+            .expect("the menu beside Include level number from");
+        h.event(egui::Event::PointerMoved(combo.center()));
+        h.run_steps(1);
+        for pressed in [true, false] {
+            h.event(egui::Event::PointerButton { pos: combo.center(), button: egui::PointerButton::Primary, pressed, modifiers: Default::default() });
+            h.run_steps(1);
+        }
+        h.run_steps(2);
+        h.get_by_label("Level 1").click();
+        h.run_steps(2);
+        assert_eq!(text(&h), "%1.-%1", "the chip goes in at the cursor");
     }
 
     /// #328: the Tracking group's launcher opens Track Changes Options; OK changes the per-user

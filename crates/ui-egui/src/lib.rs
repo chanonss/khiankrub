@@ -63,6 +63,7 @@ pub mod ink;
 pub mod keys;
 pub mod keytips;
 pub mod mini_toolbar;
+pub mod number_text;
 pub mod numfield;
 pub mod objects;
 pub mod options;
