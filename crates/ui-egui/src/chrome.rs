@@ -8,7 +8,7 @@ use crate::theme::{Tokens, TypeRung, paint_text, regular, semibold, text_width};
 use crate::{WordApp, icons};
 
 fn qat_button(ui: &mut Ui, app: &mut WordApp, icon: &str, tip: &str, id: &str, enabled: bool) -> egui::Response {
-    let t = Tokens::get(ui.ctx());
+    let t = Tokens::of(ui);
     let (r, resp) = ui.allocate_exact_size(vec2(26.0, 24.0), Sense::click());
     if resp.hovered() && enabled {
         ui.painter().rect_filled(r, 4.0, t.hover);
@@ -62,7 +62,7 @@ fn quick_access(ui: &mut Ui, app: &mut WordApp) {
             undo_list_button(ui, app, enabled);
         }
     }
-    let t = Tokens::get(ui.ctx());
+    let t = Tokens::of(ui);
     let (r, _) = ui.allocate_exact_size(vec2(26.0, 24.0), Sense::hover());
     let resp = ui.interact(r, qat_menu_button_id(), Sense::click());
     if resp.hovered() {
@@ -102,7 +102,7 @@ pub(crate) fn undo_list_footer(n: usize) -> String {
 
 /// The small arrow beside Undo: opens the list of steps to undo several at once.
 fn undo_list_button(ui: &mut Ui, app: &mut WordApp, enabled: bool) {
-    let t = Tokens::get(ui.ctx());
+    let t = Tokens::of(ui);
     let (r, _) = ui.allocate_exact_size(vec2(12.0, 24.0), Sense::hover());
     let resp = ui.interact(r, undo_list_button_id(), if enabled { Sense::click() } else { Sense::hover() });
     if resp.hovered() && enabled {
@@ -119,7 +119,7 @@ fn undo_list_button(ui: &mut Ui, app: &mut WordApp, enabled: bool) {
 fn undo_list(ui: &mut Ui, app: &mut WordApp) {
     const W: f32 = 210.0;
     const ROW: f32 = 20.0;
-    let t = Tokens::get(ui.ctx());
+    let t = Tokens::of(ui);
     let rows = undo_list_rows(app);
     ui.set_width(W);
     let (mut hovered, mut clicked) = (None, None);
@@ -224,7 +224,8 @@ impl MacTitleBar {
 }
 
 pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
-    let t = Tokens::get(ui.ctx());
+    // The title bar is part of the navy band, with the tab strip below it.
+    let t = Tokens::get(ui.ctx()).band();
     // macOS: shorter, so the system's traffic lights are centred in it; the tallest controls
     // shrink to keep a margin above and below them.
     let mac = app.integrated_titlebar;
@@ -235,6 +236,7 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
         .exact_size(if mac { bar.height } else { 38.0 })
         .frame(egui::Frame::NONE.fill(t.title_bar).inner_margin(egui::Margin { left, right: 10, top: 0, bottom: 0 }))
         .show(ui, |ui| {
+            crate::theme::band_ui(ui);
             let full = ui.max_rect();
             // Drag the window by the title bar (integrated title bar on macOS).
             let drag = ui.interact(full, ui.id().with("title_drag"), Sense::click_and_drag());
@@ -379,7 +381,7 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
 }
 
 pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
-    let t = Tokens::get(ui.ctx());
+    let t = Tokens::of(ui);
     egui::Panel::bottom("status")
         .exact_size(26.0)
         .frame(
@@ -544,7 +546,7 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
 }
 
 fn small_icon(ui: &mut Ui, icon: &str, tip: &str) -> bool {
-    let t = Tokens::get(ui.ctx());
+    let t = Tokens::of(ui);
     let (r, resp) = ui.allocate_exact_size(vec2(18.0, 18.0), Sense::click());
     if resp.hovered() {
         ui.painter().rect_filled(r, 3.0, t.hover);

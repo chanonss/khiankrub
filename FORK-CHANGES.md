@@ -7,6 +7,18 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Navy title bar and tab strip
+- The title bar and tab strip are one band in KhianKrub's navy, the icon's background (`#1E3A8A`; a darker
+  `#162A63` in the dark theme), with white tab names, title and icons. The active tab is a white tab joined to the
+  ribbon below, its name in navy; the ribbon is white (was `#F9F9F9`). The idea is Office 2016's coloured band; the
+  colours are the app's own, from its icon.
+- On the band, the icon's gold (`#F2B705`) marks what is on or stands out: the AutoSave switch when on, the
+  initials circle, the Share button (navy text) and contextual tabs (Table Design, Table Layout…).
+- The band's colours reach everything drawn in it (`theme::band_ui`, `Tokens::of`), while a menu opened from it
+  keeps the normal menu colours.
+- Chosen by Chanon from a draft with four blues and a white or light-grey ribbon.
+- Test: `the_band_is_readable` (white, dimmed and gold text 4.5:1 on the navy in both themes).
+
 ### Modify Style: Apply; heading numbers in the Navigation pane
 - **Apply** in Modify Style (between OK and Cancel) changes the style at once and keeps the window open, starting
   again from the change, so a second Apply or OK sends only what changes after it

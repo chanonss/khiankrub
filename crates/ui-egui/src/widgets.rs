@@ -857,7 +857,7 @@ pub fn icon_text_menu_button(ui: &mut Ui, icon: &str, text: &str, font: egui::Fo
 }
 
 fn icon_text_button_with(ui: &mut Ui, icon: &str, text: &str, font: egui::FontId, marker: bool) -> Response {
-    let t = Tokens::get(ui.ctx());
+    let t = Tokens::of(ui);
     let galley = ui.painter().layout_no_wrap(text.to_string(), font, Color32::PLACEHOLDER);
     let pad = ui.spacing().button_padding;
     let icon_w = 16.0;

@@ -219,6 +219,10 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
         .exact_size(30.0)
         .frame(egui::Frame::NONE.fill(t.tab_strip).inner_margin(egui::Margin { left: 8, right: 10, top: 0, bottom: 0 }))
         .show(ui, |ui| {
+            // The navy band: white tab names; the active tab is a white tab joined to the ribbon
+            // below it, its name in navy.
+            crate::theme::band_ui(ui);
+            let band = t.band();
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing = vec2(2.0, 0.0);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -231,15 +235,15 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                     let share = tl!("Share");
                     let share_w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(share.to_string(), medium(12.0), t.text).size().x);
                     let (r, resp) = ui.allocate_exact_size(vec2((share_w + 36.0).max(74.0), 24.0), Sense::click());
-                    ui.painter().rect_filled(r, 4.0, if resp.hovered() { t.accent_text } else { t.accent });
+                    ui.painter().rect_filled(r, 4.0, if resp.hovered() { band.accent.gamma_multiply(0.85) } else { band.accent });
                     icons::paint(
                         ui.painter(),
                         Rect::from_center_size(pos2(r.min.x + 14.0, r.center().y), vec2(14.0, 14.0)),
                         "share",
-                        t.on_accent,
-                        t.on_accent,
+                        band.on_accent,
+                        band.on_accent,
                     );
-                    ui.painter().text(pos2(r.min.x + 26.0, r.center().y), Align2::LEFT_CENTER, share, medium(12.0), t.on_accent);
+                    ui.painter().text(pos2(r.min.x + 26.0, r.center().y), Align2::LEFT_CENTER, share, medium(12.0), band.on_accent);
                     if resp.on_hover_text(tl!("Export a copy to share (PDF, Word document)")).clicked() {
                         let _ = app.run("ui.backstage", json!({"value": true, "page": "export"}));
                     }
@@ -302,15 +306,24 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                             }
                             let active = app.ui.tab == tab && !app.ui.backstage;
                             resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, active, shown));
-                            if resp.hovered() && !active {
-                                ui.painter().rect_filled(r.shrink2(vec2(0.0, 4.0)), 4.0, t.hover);
-                            }
-                            let color = if contextual || active { t.accent_text } else { t.text };
-                            ui.painter().text(r.center(), Align2::CENTER_CENTER, shown, if active { semibold(12.5) } else { medium(12.5) }, color);
                             if active {
-                                let u = Rect::from_center_size(pos2(r.center().x, r.max.y - 2.0), vec2(w - 16.0, 3.0));
-                                ui.painter().rect_filled(u, 2.0, t.accent);
+                                // A tab of the ribbon's colour, from just below the strip's top
+                                // down into the ribbon, so the two read as one.
+                                let tab_r = Rect::from_min_max(pos2(r.min.x, r.min.y + 3.0), pos2(r.max.x, r.max.y + 1.0));
+                                ui.painter().rect_filled(tab_r, egui::CornerRadius { nw: 4, ne: 4, sw: 0, se: 0 }, t.ribbon);
+                            } else if resp.hovered() {
+                                ui.painter().rect_filled(r.shrink2(vec2(0.0, 4.0)), 4.0, band.hover);
                             }
+                            // The active tab's name in the app's navy (light blue in the dark theme); the
+                            // others white; contextual tabs (Table Design…) in the icon's gold.
+                            let color = if active {
+                                if t.dark { t.accent_text } else { crate::theme::BAND_NAVY }
+                            } else if contextual {
+                                band.accent_text
+                            } else {
+                                band.text
+                            };
+                            ui.painter().text(r.center(), Align2::CENTER_CENTER, shown, if active { semibold(12.5) } else { medium(12.5) }, color);
                             if resp.clicked() {
                                 let _ = app.run("ui.tab", json!({"tab": tab}));
                             }

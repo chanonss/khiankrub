@@ -2,10 +2,20 @@
 
 use std::sync::Arc;
 
-use egui::{Align2, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Rect, Stroke, Visuals};
+use egui::{Align2, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId, Rect, Stroke, Ui, Visuals};
 
 /// WordCraft's app colour (and its darker ink for text on light backgrounds).
 pub const APP_COLOR: Color32 = Color32::from_rgb(0x3B, 0x5B, 0xDB);
+/// KhianKrub's navy, the app icon's background: the title bar and tab strip (light theme).
+pub const BAND_NAVY: Color32 = Color32::from_rgb(0x1E, 0x3A, 0x8A);
+/// The band in the dark theme: the same navy, darker.
+pub const BAND_NAVY_DARK: Color32 = Color32::from_rgb(0x16, 0x2A, 0x63);
+/// The icon's gold: what stands out on the navy band (AutoSave on, Share, contextual tabs).
+pub const BAND_GOLD: Color32 = Color32::from_rgb(0xF2, 0xB7, 0x05);
+/// Marks a Ui as part of the band (its text colour override): [`Tokens::of`] then gives the
+/// band's colours to everything drawn in it, while a menu opened from it (its own layer, with
+/// the context's style) keeps the normal ones.
+const BAND_MARK: Color32 = Color32::from_rgb(0xFF, 0xFF, 0xFE);
 pub const APP_INK: Color32 = Color32::from_rgb(0x2B, 0x47, 0xB5);
 
 /// The interface theme setting (File › Options › General, View › Interface Theme): a fixed light or
@@ -282,9 +292,9 @@ impl Tokens {
     pub fn light() -> Self {
         Tokens {
             dark: false,
-            title_bar: Color32::from_rgb(0xF0, 0xF0, 0xF0),
-            ribbon: Color32::from_rgb(0xF9, 0xF9, 0xF9),
-            tab_strip: Color32::from_rgb(0xF0, 0xF0, 0xF0),
+            title_bar: BAND_NAVY,
+            ribbon: Color32::WHITE,
+            tab_strip: BAND_NAVY,
             canvas: Color32::from_rgb(0xE6, 0xE6, 0xE6),
             panel: Color32::from_rgb(0xFA, 0xFA, 0xFA),
             border: Color32::from_rgb(0xE1, 0xE1, 0xE1),
@@ -324,9 +334,9 @@ impl Tokens {
     pub fn dark() -> Self {
         Tokens {
             dark: true,
-            title_bar: Color32::from_rgb(0x1F, 0x1F, 0x1F),
+            title_bar: BAND_NAVY_DARK,
             ribbon: Color32::from_rgb(0x29, 0x29, 0x29),
-            tab_strip: Color32::from_rgb(0x1F, 0x1F, 0x1F),
+            tab_strip: BAND_NAVY_DARK,
             canvas: Color32::from_rgb(0x14, 0x14, 0x14),
             panel: Color32::from_rgb(0x26, 0x26, 0x26),
             border: Color32::from_rgb(0x3A, 0x3A, 0x3A),
@@ -368,7 +378,60 @@ impl Tokens {
     pub fn get(ctx: &egui::Context) -> Tokens {
         if ctx.global_style().visuals.dark_mode { Tokens::dark() } else { Tokens::light() }
     }
+
+    /// The colours for `ui`: the band's inside the title bar and tab strip ([`band_ui`]), else
+    /// [`Tokens::get`]'s.
+    pub fn of(ui: &Ui) -> Tokens {
+        let t = Tokens::get(ui.ctx());
+        if ui.visuals().override_text_color == Some(BAND_MARK) { t.band() } else { t }
+    }
+
+    /// The colours on the navy band: white text and icons, lighter navy for hover, the icon's
+    /// gold for what is on or stands out.
+    pub fn band(&self) -> Tokens {
+        let navy = self.title_bar;
+        let white = |a: u8| navy.lerp_to_gamma(Color32::WHITE, a as f32 / 255.0);
+        Tokens {
+            text: Color32::WHITE,
+            text_dim: white(0xD8),
+            text_disabled: white(0x80),
+            icon: Color32::WHITE,
+            hover: white(0x30),
+            pressed: white(0x48),
+            border: white(0x50),
+            border_strong: white(0x90),
+            input: white(0x28),
+            input_border: white(0xC0),
+            ribbon: white(0x18),
+            accent: BAND_GOLD,
+            accent_text: BAND_GOLD,
+            on_accent: BAND_NAVY,
+            ..*self
+        }
+    }
 }
+
+/// Make `ui` part of the navy band: white text, band hover colours, and [`Tokens::of`] giving the
+/// band's colours to what is drawn in it.
+pub fn band_ui(ui: &mut Ui) {
+    let b = Tokens::get(ui.ctx()).band();
+    let v = ui.visuals_mut();
+    v.override_text_color = Some(BAND_MARK);
+    for (w, fill) in [
+        (&mut v.widgets.noninteractive, Color32::TRANSPARENT),
+        (&mut v.widgets.inactive, Color32::TRANSPARENT),
+        (&mut v.widgets.hovered, b.hover),
+        (&mut v.widgets.active, b.pressed),
+        (&mut v.widgets.open, b.hover),
+    ] {
+        w.fg_stroke.color = Color32::WHITE;
+        w.weak_bg_fill = fill;
+        w.bg_fill = fill;
+        w.bg_stroke.color = if fill == Color32::TRANSPARENT { Color32::TRANSPARENT } else { b.border };
+    }
+}
+
+impl Tokens {}
 
 /// Install the UI fonts (Inter, JetBrains Mono) and the craft-fonts CJK interface faces if built
 /// in, Japanese first.
@@ -784,6 +847,23 @@ mod tests {
                 assert!(r >= 4.5, "dark={}: on_accent on {name} is {r:.2}:1", t.dark);
             }
         }
+    }
+
+    /// The navy band (title bar, tab strip) stays readable in both themes: white text and the
+    /// dimmer labels reach 4.5:1, the gold (Share, contextual tabs) 4.5:1 on the navy and its own
+    /// navy text on it too, and the active tab's navy name 4.5:1 on the white ribbon.
+    #[test]
+    fn the_band_is_readable() {
+        for t in [super::Tokens::light(), super::Tokens::dark()] {
+            let b = t.band();
+            for (name, fg) in [("text", b.text), ("text_dim", b.text_dim), ("gold", b.accent_text)] {
+                let r = contrast(fg, t.title_bar);
+                assert!(r >= 4.5, "dark={}: {name} on the band is {r:.2}:1", t.dark);
+            }
+            assert!(contrast(b.on_accent, b.accent) >= 4.5, "navy on gold");
+        }
+        let t = super::Tokens::light();
+        assert!(contrast(super::BAND_NAVY, t.ribbon) >= 4.5, "the active tab's name");
     }
 
     /// #657: text field and combo outlines reach 3:1 against the field and everything it sits on.
