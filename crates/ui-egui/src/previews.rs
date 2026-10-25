@@ -566,7 +566,7 @@ pub fn style_gallery(app: &mut WordApp, ui: &mut Ui, state: &Value) {
         let active = *id == current;
         resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, active, name));
         if active {
-            ui.painter().rect(r, 3.0, t.checked, Stroke::new(1.0, t.accent), egui::StrokeKind::Inside);
+            ui.painter().rect(r, 3.0, t.checked, Stroke::new(1.0, t.checked_border), egui::StrokeKind::Inside);
         } else if resp.hovered() {
             ui.painter().rect_filled(r, 3.0, t.hover);
         }

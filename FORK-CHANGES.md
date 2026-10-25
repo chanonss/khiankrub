@@ -7,6 +7,15 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Gold hover and selection; no Discord links
+- Buttons, menu rows and gallery tiles light up in tints of the icon's gold instead of grey and blue: pale gold
+  on mouse hover (`#FDF3D2`), a gold tint with a gold outline when on or selected (`#FCEAB0`, outline
+  `#E0A800`), a stronger gold while pressed (`#FAE39C`). The dark theme uses muted golds. New token
+  `Tokens::checked_border` for the outline.
+- The last Discord links are gone: File's "Discord community" item, the Help tab's Community Discord button, its
+  KeyTip, the `ui.discord` command and its icon. Test: `title_bar_has_no_discord_button` now also checks the
+  Help tab, File and the command.
+
 ### Navy title bar and tab strip
 - The title bar and tab strip are one band in KhianKrub's navy, the icon's background (`#1E3A8A`; a darker
   `#162A63` in the dark theme), with white tab names, title and icons. The active tab is a white tab joined to the

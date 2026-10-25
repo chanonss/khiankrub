@@ -124,7 +124,7 @@ pub(crate) fn bg(ui: &Ui, r: Rect, resp: &Response, checked: bool, t: &Tokens) {
     };
     ui.painter().rect_filled(r, CornerRadius::same(4), fill);
     if checked {
-        ui.painter().rect_stroke(r, CornerRadius::same(4), Stroke::new(1.0, t.accent.linear_multiply(0.5)), egui::StrokeKind::Inside);
+        ui.painter().rect_stroke(r, CornerRadius::same(4), Stroke::new(1.0, t.checked_border), egui::StrokeKind::Inside);
     }
 }
 
@@ -994,7 +994,13 @@ mod tests {
 
         // Hover fades in over a few frames rather than jumping, then settles on egui's hovered fill.
         let first = frame(vec![egui::Event::PointerMoved(framed.center())]).2;
-        let between = |c: Color32, a: Color32, b: Color32| a.r().min(b.r()) < c.r() && c.r() < a.r().max(b.r());
+        // Measured on the channel that changes most (the gold hover keeps red near white's).
+        let between = |c: Color32, a: Color32, b: Color32| {
+            let ch = |x: Color32| [x.r(), x.g(), x.b()];
+            let (c, a, b) = (ch(c), ch(a), ch(b));
+            let i = (0..3).max_by_key(|&i| a[i].abs_diff(b[i])).unwrap_or(0);
+            a[i].min(b[i]) < c[i] && c[i] < a[i].max(b[i])
+        };
         assert!(between(first, idle, w.hovered.weak_bg_fill), "hover should animate: {idle:?} → {first:?} → {:?}", w.hovered.weak_bg_fill);
         assert_eq!(settle().2, w.hovered.weak_bg_fill);
         // Held down: blends to the pressed (active) fill.

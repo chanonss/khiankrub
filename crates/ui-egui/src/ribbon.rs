@@ -2603,7 +2603,6 @@ fn outlining(app: &mut WordApp, ui: &mut Ui) {
 fn help(app: &mut WordApp, ui: &mut Ui) {
     group(ui, "Help", None, app, |ui, app| {
         big(ui, app, "help", "Help", "ui.dialog", json!({"name": "about"}), false);
-        big(ui, app, "discord", "Community\nDiscord", "ui.discord", json!({}), false);
     });
     group(ui, "Agents", None, app, |ui, app| {
         big(ui, app, "macros", "Commands", "ui.dialog", json!({"name": "commands"}), false);
@@ -3315,13 +3314,12 @@ mod tests {
         assert_eq!(text(&h), "Hello!");
     }
 
-    /// The title bar has no Discord community button (this fork removed it), even for a saved
-    /// preference that still has the old setting on.
+    /// The title bar has no Discord community button (this fork removed it), and no Discord link is
+    /// left anywhere: not on the Help tab, not in File, not as a command.
     #[test]
     fn title_bar_has_no_discord_button() {
         use egui_kittest::kittest::Queryable;
-        let mut app = WordApp::new(Session::new(wordcraft_doc::Document::new()), crate::Services::default());
-        app.ui.show_discord = true;
+        let app = WordApp::new(Session::new(wordcraft_doc::Document::new()), crate::Services::default());
         let mut h = egui_kittest::Harness::builder().with_size(vec2(1440.0, 300.0)).build_ui_state(
             |ui, app: &mut WordApp| {
                 let ctx = ui.ctx().clone();
@@ -3342,6 +3340,13 @@ mod tests {
             .max_by(|a, b| a.max.x.total_cmp(&b.max.x))
             .expect("the title bar has controls left of Account");
         assert!(next_to_account.width() > 200.0, "a button sits between the search box and Account: {next_to_account:?}");
+        h.state_mut().ui.tab = "Help".into();
+        h.run_steps(4);
+        assert!(h.query_by_label_contains("Discord").is_none(), "the Help tab has no Discord button");
+        h.state_mut().ui.backstage = true;
+        h.run_steps(4);
+        assert!(h.query_by_label_contains("Discord").is_none(), "File has no Discord item");
+        assert!(h.state_mut().run("ui.discord", json!({})).is_err(), "ui.discord is no longer a command");
     }
 
     /// The View tab's Show group has a Text Boundaries check box, on by default; clicking it turns the

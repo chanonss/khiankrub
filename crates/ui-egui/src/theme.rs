@@ -257,6 +257,8 @@ pub struct Tokens {
     pub hover: Color32,
     pub pressed: Color32,
     pub checked: Color32,
+    /// The outline of a checked (selected) button or tile.
+    pub checked_border: Color32,
     pub accent: Color32,
     pub accent_text: Color32,
     /// Text/icon colour drawn on top of `accent` (e.g. keytip badge letters).
@@ -303,9 +305,11 @@ impl Tokens {
             text_dim: Color32::from_rgb(0x61, 0x61, 0x61),
             text_disabled: Color32::from_rgb(0xA8, 0xA8, 0xA8),
             icon: Color32::from_rgb(0x42, 0x42, 0x42),
-            hover: Color32::from_rgb(0xE6, 0xE6, 0xE6),
-            pressed: Color32::from_rgb(0xD6, 0xD6, 0xD6),
-            checked: Color32::from_rgb(0xDD, 0xE3, 0xF8),
+            // Hover and selected in tints of the icon's gold.
+            hover: Color32::from_rgb(0xFD, 0xF3, 0xD2),
+            pressed: Color32::from_rgb(0xFA, 0xE3, 0x9C),
+            checked: Color32::from_rgb(0xFC, 0xEA, 0xB0),
+            checked_border: Color32::from_rgb(0xE0, 0xA8, 0x00),
             accent: APP_COLOR,
             accent_text: APP_INK,
             on_accent: Color32::WHITE,
@@ -345,9 +349,10 @@ impl Tokens {
             text_dim: Color32::from_rgb(0xC8, 0xC8, 0xC8),
             text_disabled: Color32::from_rgb(0x6A, 0x6A, 0x6A),
             icon: Color32::from_rgb(0xDD, 0xDD, 0xDD),
-            hover: Color32::from_rgb(0x3D, 0x3D, 0x3D),
-            pressed: Color32::from_rgb(0x4A, 0x4A, 0x4A),
-            checked: Color32::from_rgb(0x2E, 0x3A, 0x66),
+            hover: Color32::from_rgb(0x40, 0x3A, 0x28),
+            pressed: Color32::from_rgb(0x57, 0x4B, 0x24),
+            checked: Color32::from_rgb(0x4D, 0x42, 0x1C),
+            checked_border: Color32::from_rgb(0xC9, 0x96, 0x08),
             accent: Color32::from_rgb(0x7A, 0x93, 0xF0),
             accent_text: Color32::from_rgb(0x9C, 0xB0, 0xF5),
             // Dark text on the light dark-theme accent: white on #7a93f0 is only 2.9:1 (#655).
