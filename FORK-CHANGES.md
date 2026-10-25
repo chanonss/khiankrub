@@ -7,6 +7,20 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Update check
+- When KhianKrub starts (at most once a day), the desktop app asks GitHub's API for the latest release of
+  `chanonss/khiankrub`, in the background. If it is newer than the running version, a bar under the ribbon
+  says "KhianKrub 0.8.1 is available." with **Download** (opens the release page), **Skip this version** and
+  close. Drafts, pre-releases and test tags are ignored. Nothing is downloaded or installed by the app; the
+  request carries nothing but the app's version as its User-Agent.
+- **Help › Check for Updates** asks at once and says when the version is the latest (or why it couldn't ask).
+  **File › Options › General › Check for updates when KhianKrub starts** turns the start-up check off.
+- The request is in the desktop app (`apps/wordcraft/src/update_check.rs`, with the `ureq` HTTPS client, MIT
+  OR Apache-2.0); the interface reads the answer through `Services::latest_release` (`updates.rs`), so the
+  web version and tests never go online. Commands `ui.checkForUpdates`, `ui.update`, `ui.checkUpdates`.
+  Tests: `versions_compare_by_number`, `only_published_final_releases_count`,
+  `a_newer_release_shows_the_update_bar_once_a_day` (a fake GitHub answer).
+
 ### Level numbers as grey chips in Define New Multilevel List
 - **Enter formatting for number** no longer shows the file format's `%1.%2.`: each level's number is a grey
   chip with its sample number in that level's style (`1`, `a`, `๑`), as in Word, and the rest is plain text.

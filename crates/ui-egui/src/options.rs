@@ -204,6 +204,17 @@ fn general(app: &mut WordApp, ui: &mut Ui) {
     {
         let _ = app.run("ui.startScreen", json!({"value": start}));
     }
+    // Only builds that can ask (the desktop app) offer the update check.
+    if app.services.latest_release.is_some() {
+        let mut check = app.ui.check_updates;
+        if ui
+            .checkbox(&mut check, tl!("Check for updates when KhianKrub starts"))
+            .on_hover_text(tl!("Once a day, KhianKrub asks GitHub whether a newer version has been released, and offers the download. Nothing is sent but the request itself."))
+            .changed()
+        {
+            let _ = app.run("ui.checkUpdates", json!({"value": check}));
+        }
+    }
     ui.add_space(8.0);
     section(ui, "Personalize");
     egui::Grid::new("options_user").num_columns(2).spacing(vec2(8.0, 6.0)).show(ui, |ui| {

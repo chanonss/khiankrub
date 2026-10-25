@@ -23,6 +23,9 @@ eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit", "
 egui = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
+# The update check asks GitHub's API for the latest release over HTTPS (`update_check`): a small,
+# widely used pure-Rust client (MIT OR Apache-2.0) with rustls for TLS.
+ureq = { version = "2", default-features = false, features = ["tls"] }
 
 [build-dependencies]
 # Icon + VERSIONINFO for wordcraft.exe; build.rs only uses it when the target is Windows.

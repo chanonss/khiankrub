@@ -25,6 +25,7 @@ mod print;
 mod region;
 #[cfg(target_os = "macos")]
 mod traffic_lights;
+mod update_check;
 
 use wordcraft_engine::Session;
 use wordcraft_ui_egui::{
@@ -269,6 +270,7 @@ fn services(file_dialog: file_dialogs::Hook, ctx: &egui::Context) -> Services {
         clipboard_rtf: Some(Box::new(clipboard::rtf)),
         clipboard_formats: Some(Box::new(clipboard::formats)),
         new_window: Some(Box::new(new_window)),
+        latest_release: Some(Box::new(update_check::ask)),
         ..Default::default()
     }
 }

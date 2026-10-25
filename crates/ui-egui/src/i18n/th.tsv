@@ -536,3 +536,12 @@ template	Studio handbook (sample)	คู่มือสตูดิโอ (ต�
 	Remove from list	นำออกจากรายการ
 	Remember recently opened documents	จดจำเอกสารที่เปิดล่าสุด
 	Off, File › Home and Open list no documents, and the list is cleared.	เมื่อปิด หน้าแรกและหน้าเปิดในเมนูไฟล์จะไม่แสดงเอกสาร และรายการจะถูกล้าง
+	Check for\nUpdates	ตรวจหา\nการอัปเดต
+	KhianKrub {version} is available.	มี KhianKrub {version} ให้ดาวน์โหลดแล้ว
+	Download	ดาวน์โหลด
+	Skip this version	ข้ามเวอร์ชันนี้
+	Check for updates when KhianKrub starts	ตรวจหาการอัปเดตเมื่อเปิดเขียนครับ
+	Once a day, KhianKrub asks GitHub whether a newer version has been released, and offers the download. Nothing is sent but the request itself.	วันละครั้ง เขียนครับจะถาม GitHub ว่ามีเวอร์ชันใหม่หรือไม่ และเสนอให้ดาวน์โหลด โดยไม่ส่งข้อมูลอื่นนอกจากคำขอนี้
+	KhianKrub {version} is the latest version.	KhianKrub {version} เป็นเวอร์ชันล่าสุดแล้ว
+	Couldn't check for updates: {error}	ตรวจหาการอัปเดตไม่ได้: {error}
+	Checking for updates…	กำลังตรวจหาการอัปเดต…

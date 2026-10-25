@@ -82,6 +82,7 @@ pub mod table_pen;
 pub mod table_resize;
 pub mod table_ruler;
 pub mod theme;
+pub mod updates;
 pub mod widgets;
 pub mod window_geometry;
 pub mod wordart_menus;
@@ -138,6 +139,10 @@ pub struct Services {
     /// Desktop: the picture on the system clipboard, if any — egui's paste only carries text
     /// (#45). Read when Paste finds no text; see [`paste_picture`].
     pub clipboard_picture: Option<Box<dyn Fn() -> Option<paste_picture::ClipboardPicture>>>,
+    /// Desktop: ask GitHub for KhianKrub's latest release, in the background; the receiver gets
+    /// its JSON (or why it couldn't ask). Without the hook (the web, tests) there is no update
+    /// check ([`updates`]).
+    pub latest_release: Option<Box<dyn Fn() -> std::sync::mpsc::Receiver<updates::Answer>>>,
     /// Whether the system has animation effects on (Windows: Animation effects; macOS: Reduce
     /// motion; Linux and the BSDs: the desktop's setting; browsers: `prefers-reduced-motion`), or
     /// `None` when it doesn't say. What "Use system setting" follows ([`theme::Animations`]).
@@ -323,6 +328,13 @@ pub struct UiState {
     /// File › Options › Advanced: remember the documents opened and saved, for File › Home and
     /// Open (on by default). Off, the list is empty and nothing is added to it.
     pub remember_recent: bool,
+    /// File › Options › General: ask GitHub for a newer KhianKrub when it starts, at most once a
+    /// day (on by default).
+    pub check_updates: bool,
+    /// The local date of the last update check (`2026-10-25`).
+    pub update_checked_on: String,
+    /// A version whose update bar was turned away with Skip this version.
+    pub update_skipped: String,
     /// File › Options › General: show the mini toolbar over a selection.
     pub mini_toolbar: bool,
     /// File › Options › Advanced › Editing: moving a picture or shape snaps it to alignment
@@ -388,6 +400,9 @@ impl Default for UiState {
             options_pane: "general".into(),
             recent_count: 12,
             remember_recent: true,
+            check_updates: true,
+            update_checked_on: String::new(),
+            update_skipped: String::new(),
             mini_toolbar: true,
             alignment_guides: true,
             start_screen: true,
@@ -485,6 +500,10 @@ pub struct WordApp {
     /// CJK text is (about to be) on screen in a non-CJK interface, e.g. the language names in
     /// File ▸ Options: load the installed CJK fallback font if no embedded face covers it.
     pub(crate) want_system_cjk: bool,
+    /// The update check: in progress, and a newer release found ([`updates`]).
+    pub(crate) updates: updates::UpdateState,
+    /// Whether the start-up update check was considered yet.
+    pub(crate) update_started: bool,
     /// The document (id, revision) whose comment text [`WordApp::ensure_comment_fonts`] last
     /// looked at.
     comment_fonts_for: Option<(u64, u64)>,
@@ -618,6 +637,8 @@ impl WordApp {
             fonts_korean: false,
             fonts_system_cjk: false,
             want_system_cjk: false,
+            updates: updates::UpdateState::default(),
+            update_started: false,
             comment_fonts_for: None,
             fonts_frames: 0,
             applied_theme: None,
@@ -1579,6 +1600,24 @@ impl WordApp {
                 }
                 json!({"caretAnimation": self.ui.caret_animation})
             }
+            "ui.checkForUpdates" => {
+                // Help › Check for Updates: ask GitHub now; the answer shows the update bar or a
+                // status message.
+                return Some(updates::command(self, &json!({"action": "check"})));
+            }
+            "ui.update" => {
+                // The update bar's buttons: `action` download, skip or close (check asks now).
+                return Some(updates::command(self, p));
+            }
+            "ui.checkUpdates" => {
+                // File › Options › General: `value` true or false; no value reads it.
+                match p.get("value") {
+                    None => {}
+                    Some(Value::Bool(on)) => self.ui.check_updates = *on,
+                    Some(_) => return Some(Err("`value` must be true or false".into())),
+                }
+                json!({"checkUpdates": self.ui.check_updates})
+            }
             "ui.recentRemove" => {
                 // File › Home and Open: take one document (`path`) off the recent list. The file
                 // itself is untouched.
@@ -1943,6 +1982,11 @@ impl WordApp {
                 self.dialog = Some(dialogs::Dialog::MissingFont { dont_remind: false });
             }
         }
+        // A newer KhianKrub on GitHub: asked at start-up (once a day) or from Help.
+        updates::tick(self);
+        if self.updates.pending.is_some() {
+            ctx.request_repaint_after(std::time::Duration::from_millis(250));
+        }
         if let Some(wait) = self.session.recovery_wait() {
             ctx.request_repaint_after(wait);
         }
@@ -2121,12 +2165,14 @@ impl WordApp {
             // No document open (#1129): the ribbon greyed out but for Help, and no page.
             chrome::title_bar(self, ui);
             ribbon::show(self, ui);
+            updates::bar(self, ui);
             chrome::status_bar(self, ui);
             egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas)).show(ui, |_| {});
         } else {
             chrome::title_bar(self, ui);
             if !self.session.view.focus_mode {
                 ribbon::show(self, ui);
+                updates::bar(self, ui);
                 chrome::status_bar(self, ui);
                 panes::show(self, ui);
             }
@@ -2512,6 +2558,9 @@ pub(crate) fn works_without_document(id: &str) -> bool {
             | "ui.recentRemove"
             | "ui.recentClear"
             | "ui.rememberRecent"
+            | "ui.checkForUpdates"
+            | "ui.update"
+            | "ui.checkUpdates"
     ) || id.starts_with("help.")
 }
 
@@ -2741,6 +2790,88 @@ mod tests {
         assert_eq!(h.state().ui.backstage_page, "options");
         assert_eq!(h.state().ui.options_pane, "general");
         assert!(h.query_by_label("User name:").is_some());
+    }
+
+    /// An app whose update check answers with `answer` (a fake GitHub reply; nothing goes online),
+    /// counting how often it was asked.
+    fn app_with_release(answer: Value) -> (WordApp, std::rc::Rc<std::cell::Cell<u32>>) {
+        let asked = std::rc::Rc::new(std::cell::Cell::new(0));
+        let n = asked.clone();
+        let services = Services {
+            latest_release: Some(Box::new(move || {
+                n.set(n.get() + 1);
+                let (tx, rx) = std::sync::mpsc::channel();
+                let _ = tx.send(Ok(answer.clone()));
+                rx
+            })),
+            ..Services::default()
+        };
+        (WordApp::new(Session::new(wordcraft_doc::Document::new()), services), asked)
+    }
+
+    fn release_json(version: &str) -> Value {
+        json!({"tag_name": format!("v{version}"), "draft": false, "prerelease": false,
+            "html_url": format!("https://github.com/chanonss/khiankrub/releases/tag/v{version}")})
+    }
+
+    /// At start-up the app asks once a day; a newer release shows the update bar, whose Download
+    /// opens the release page and whose Skip this version keeps that version quiet at later starts
+    /// (but not when asked from Help). The same version, or no hook, shows nothing.
+    #[test]
+    fn a_newer_release_shows_the_update_bar_once_a_day() {
+        use egui_kittest::kittest::Queryable;
+        let (a, asked) = app_with_release(release_json("99.0.0"));
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        assert_eq!(asked.get(), 1);
+        assert!(h.query_by_label("KhianKrub 99.0.0 is available.").is_some(), "the bar shows");
+        h.get_by_label("Download").click();
+        h.run_steps(2);
+        assert_eq!(h.state_mut().canvas.open_url.take(), None, "taken by the frame");
+        assert!(h.query_by_label("KhianKrub 99.0.0 is available.").is_none(), "the bar goes once used");
+        // The next start the same day doesn't ask again.
+        let prefs = serde_json::to_value(h.state().prefs()).unwrap();
+        let (mut b, asked_b) = app_with_release(release_json("99.0.0"));
+        b.apply_prefs(serde_json::from_value(prefs).unwrap());
+        b.logic(&egui::Context::default());
+        assert_eq!(asked_b.get(), 0, "once a day");
+        // Skip this version: a later start says nothing about it; Help › Check for Updates still does.
+        let (mut c, _) = app_with_release(release_json("99.0.0"));
+        c.logic(&egui::Context::default());
+        c.logic(&egui::Context::default());
+        c.run("ui.update", json!({"action": "skip"})).unwrap();
+        assert_eq!(c.ui.update_skipped, "99.0.0");
+        c.ui.update_checked_on.clear();
+        c.update_started = false;
+        c.logic(&egui::Context::default());
+        c.logic(&egui::Context::default());
+        assert!(c.updates.found.is_none(), "a skipped version stays quiet");
+        c.run("ui.checkForUpdates", json!({})).unwrap();
+        c.logic(&egui::Context::default());
+        assert_eq!(c.updates.found.as_ref().map(|r| r.version.as_str()), Some("99.0.0"), "asked by hand, it shows");
+        // The current version: nothing at start-up, and "the latest version" when asked.
+        let (mut d, _) = app_with_release(release_json(updates::current()));
+        d.logic(&egui::Context::default());
+        d.logic(&egui::Context::default());
+        assert!(d.updates.found.is_none());
+        d.run("ui.checkForUpdates", json!({})).unwrap();
+        d.logic(&egui::Context::default());
+        assert!(d.status_msg.as_ref().is_some_and(|(m, _)| m.contains("is the latest version")), "{:?}", d.status_msg);
+        // Turned off: no question at start-up. And a build without the hook can't check.
+        let (mut e, asked_e) = app_with_release(release_json("99.0.0"));
+        e.run("ui.checkUpdates", json!({"value": false})).unwrap();
+        e.logic(&egui::Context::default());
+        assert_eq!(asked_e.get(), 0);
+        assert!(app().run("ui.checkForUpdates", json!({})).is_err());
+        assert!(e.run("ui.update", json!({"action": "nonsense"})).is_err());
+        assert!(e.run("ui.checkUpdates", json!({"value": "yes"})).is_err());
     }
 
     /// File › Home and Open's recent list: one document comes off, Clear all empties it, and with
