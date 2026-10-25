@@ -217,6 +217,8 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
     // Tab strip.
     egui::Panel::top("tabs")
         .exact_size(30.0)
+        // No line under the strip: the active tab runs on into the ribbon.
+        .show_separator_line(false)
         .frame(egui::Frame::NONE.fill(t.tab_strip).inner_margin(egui::Margin { left: 8, right: 10, top: 0, bottom: 0 }))
         .show(ui, |ui| {
             // The navy band: white tab names; the active tab is a white tab joined to the ribbon

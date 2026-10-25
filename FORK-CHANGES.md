@@ -17,6 +17,8 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 - The band's colours reach everything drawn in it (`theme::band_ui`, `Tokens::of`), while a menu opened from it
   keeps the normal menu colours.
 - Chosen by Chanon from a draft with four blues and a white or light-grey ribbon.
+- The File page's side panel is the same navy (was the brighter `#3B5BDB`), and the band has no dividing lines:
+  none between the title bar and the tab strip, none under the strip, so the active tab runs on into the ribbon.
 - Test: `the_band_is_readable` (white, dimmed and gold text 4.5:1 on the navy in both themes).
 
 ### Modify Style: Apply; heading numbers in the Navigation pane

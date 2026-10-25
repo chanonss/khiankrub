@@ -234,6 +234,8 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
     let control_h = if mac { 22.0 } else { 26.0 };
     egui::Panel::top("title_bar")
         .exact_size(if mac { bar.height } else { 38.0 })
+        // One navy band with the tab strip: no dividing line between them.
+        .show_separator_line(false)
         .frame(egui::Frame::NONE.fill(t.title_bar).inner_margin(egui::Margin { left, right: 10, top: 0, bottom: 0 }))
         .show(ui, |ui| {
             crate::theme::band_ui(ui);
