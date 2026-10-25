@@ -7,6 +7,10 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Curved corners where the active tab meets the ribbon
+- The active tab's bottom corners curve outward into the ribbon, with the same radius (4 pt) as its rounded top
+  corners, so the tab and the ribbon read as one shape. Light and dark themes alike.
+
 ### Thai menus
 - **File › Options › Language › Interface language** offers ไทย (Thai) besides English. Automatic, the default,
   follows the system: a Mac or PC set to Thai opens in Thai; others stay English.

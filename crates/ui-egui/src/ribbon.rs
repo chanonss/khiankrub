@@ -313,6 +313,17 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                                 // down into the ribbon, so the two read as one.
                                 let tab_r = Rect::from_min_max(pos2(r.min.x, r.min.y + 3.0), pos2(r.max.x, r.max.y + 1.0));
                                 ui.painter().rect_filled(tab_r, egui::CornerRadius { nw: 4, ne: 4, sw: 0, se: 0 }, t.ribbon);
+                                // The bottom corners curve out into the ribbon with the top corners'
+                                // radius: a ribbon-coloured square beside each, with a band-coloured
+                                // circle cut out of its upper outer corner.
+                                const R: f32 = 4.0;
+                                let bottom = tab_r.max.y;
+                                for (x, outer) in [(tab_r.min.x, tab_r.min.x - R), (tab_r.max.x, tab_r.max.x + R)] {
+                                    let square = Rect::from_two_pos(pos2(x, bottom), pos2(outer, bottom - R));
+                                    let p = ui.painter().with_clip_rect(square);
+                                    p.rect_filled(square, 0.0, t.ribbon);
+                                    p.circle_filled(pos2(outer, bottom - R), R, t.title_bar);
+                                }
                             } else if resp.hovered() {
                                 ui.painter().rect_filled(r.shrink2(vec2(0.0, 4.0)), 4.0, band.hover);
                             }
