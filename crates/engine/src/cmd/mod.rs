@@ -584,12 +584,16 @@ mod local_time_tests {
     fn local_time_is_utc_moved_by_the_offset() {
         let off = super::local_utc_offset();
         assert!(off.abs() <= 14 * 3600, "{off}");
+        // UTC read just before and just after the local clock, so an hour turning between the
+        // reads can't fail the test: the local hour is the one either UTC read gives.
+        let before = super::now_iso();
         let local = super::now_local_iso();
+        let after = super::now_iso();
         assert!(!local.ends_with('Z') && local.len() == 19, "{local}");
-        let utc = super::now_iso();
-        let hour = |s: &str| s.get(11..13).and_then(|h| h.parse::<i64>().ok()).unwrap_or(-1);
-        let moved = (hour(&utc) * 3600 + off).rem_euclid(86_400) / 3600;
-        // The two clocks are read a moment apart: allow the hour to have just turned.
-        assert!([moved, (moved + 1) % 24].contains(&hour(&local)), "utc {utc}, offset {off}, local {local}");
+        let part = |s: &str, at: std::ops::Range<usize>| s.get(at).and_then(|n| n.parse::<i64>().ok()).unwrap_or(-1);
+        // The hour of a UTC time moved by the offset, minutes included (an offset can be +5:30).
+        let moved = |utc: &str| (part(utc, 11..13) * 3600 + part(utc, 14..16) * 60 + part(utc, 17..19) + off).rem_euclid(86_400) / 3600;
+        let hour = part(&local, 11..13);
+        assert!([moved(&before), moved(&after)].contains(&hour), "utc {before}..{after}, offset {off}, local {local}");
     }
 }
