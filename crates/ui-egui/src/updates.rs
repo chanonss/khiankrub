@@ -102,7 +102,7 @@ pub fn start(app: &mut WordApp, manual: bool) -> bool {
 pub fn tick(app: &mut WordApp) {
     if !app.update_started {
         app.update_started = true;
-        if app.ui.check_updates && app.ui.update_checked_on != today() {
+        if app.ui.check_updates && app.ui.update_asked && app.ui.update_checked_on != today() {
             start(app, false);
         }
     }
@@ -142,6 +142,31 @@ pub fn take_answer(app: &mut WordApp, answer: Answer, manual: bool) {
 fn buttons<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> egui::InnerResponse<R> {
     let width = ui.available_width();
     ui.allocate_ui_with_layout(egui::vec2(width, ui.spacing().interact_size.y), egui::Layout::right_to_left(egui::Align::Center), add)
+}
+
+/// The one-time question at first start: may KhianKrub check for updates when it starts? Yes
+/// turns the start-up check on (and checks now); No leaves it off. Either way Help › Check for
+/// Updates works, and File › Options › General changes the answer. True when it closes.
+pub fn permission_box(app: &mut WordApp, ui: &mut Ui) -> bool {
+    ui.label(egui::RichText::new(tl!("Check for updates automatically?")).font(crate::theme::semibold(15.0)));
+    ui.label(tl!("KhianKrub can ask GitHub once a day, when it starts, whether a newer version has been released, and offer the download."));
+    ui.label(tl!("Only that request is sent: no documents, names or other information. You can change this in File › Options › General."));
+    ui.add_space(8.0);
+    let (yes, no) = buttons(ui, |ui| {
+        let no = ui.button(tl!("Don't Check")).clicked();
+        (ui.add(crate::widgets::primary_button(ui, tl!("Check Automatically"))).clicked(), no)
+    })
+    .inner;
+    let esc = ui.input(|i| i.key_pressed(egui::Key::Escape));
+    if yes || no || esc {
+        let _ = app.run("ui.checkUpdates", json!({"value": yes}));
+        // The start-up moment has passed: check now.
+        if yes {
+            start(app, false);
+        }
+        return true;
+    }
+    false
 }
 
 /// Help › Check for Updates' box. True when it closes.

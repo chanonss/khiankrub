@@ -135,8 +135,8 @@ Intel Macs; 0.7.3 and earlier run on Apple silicon only.
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
    **khiankrub-…-windows-x64.msi** (under *Assets*), then double-click it.
-2. **First time only: More info › Run anyway.** The installer is not signed, so Windows says "Windows protected your
-   PC". Click **More info**, then **Run anyway**, and click **Yes** when Windows asks for permission. KhianKrub is
+2. **First time only: More info › Run anyway.** The installer is not signed yet (see [Code signing policy](#code-signing-policy)), so
+   Windows says "Windows protected your PC". Click **More info**, then **Run anyway**, and click **Yes** when Windows asks for permission. KhianKrub is
    then in the Start menu.
 
 To use it without installing, download **khiankrub-…-windows-x64-portable.zip** instead, unzip it and double-click
@@ -149,6 +149,39 @@ To use it without installing, download **khiankrub-…-windows-x64-portable.zip*
 as on the Mac, except the menu bar at the top of the screen, which is a macOS feature.
 
 On both, Thai text looks best with a Thai font installed, such as TH Sarabun New.
+
+## Code signing policy
+
+KhianKrub has applied to [SignPath Foundation](https://signpath.org) for free code signing of its Windows
+releases. Once the application is approved, Windows releases are signed under this policy: *Free code signing
+provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).*
+Until then the Windows installer is unsigned (see *Download and install*).
+
+- **What is signed:** the Windows installer (`khiankrub-<version>-windows-x64.msi`) and the programs in it and in
+  the portable zip (`KhianKrub.exe`, `wordcraft-cli.exe`). They are built from this repository's source by
+  GitHub Actions ([`.github/workflows/release-files.yml`](.github/workflows/release-files.yml)) from a release
+  tag; nothing built elsewhere is signed.
+- **Team and roles:**
+  - Committers and reviewers: [Chanon Sarasuk](https://github.com/chanonss)
+  - Approvers (each release is approved by hand before it is signed): [Chanon Sarasuk](https://github.com/chanonss)
+- **Based on WordCraft:** KhianKrub is a fork of [storytold/wordcraft](https://github.com/storytold/wordcraft),
+  which publishes signed builds of its own.
+
+### Privacy
+
+This program will not transfer any information to other networked systems unless specifically requested by the
+user or the person installing or operating it.
+
+- **Update check (off unless you turn it on).** At its first start, the desktop app asks whether it may check for
+  updates. Only if you choose **Check Automatically** (or turn on *File › Options › General › Check for updates
+  when KhianKrub starts*) does it ask GitHub's API, at most once a day, for the latest release
+  (`api.github.com/repos/chanonss/khiankrub/releases/latest`). **Help › Check for Updates** asks only when you
+  click it. The request carries the app's version and nothing else from your computer: no documents, names or
+  settings. GitHub's handling of the request is covered by the
+  [GitHub Privacy Statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
+- **Everything else stays on your computer.** Zotero citations talk to Zotero on the same computer
+  (`127.0.0.1`), and the automation channel for scripts and AI agents only listens on `127.0.0.1` when it is
+  started on purpose.
 
 ## Earlier changes
 

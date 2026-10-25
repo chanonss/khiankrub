@@ -7,6 +7,17 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Update check opt-in; Code signing policy
+- The start-up update check is **off until the user agrees**. At the first start of the desktop app a small
+  window asks "Check for updates automatically?" (**Check Automatically** / **Don't Check**), saying that only
+  the request is sent. Yes checks at once and once a day after that; No never checks by itself. The question
+  isn't asked again; File › Options › General changes the answer, and Help › Check for Updates always works.
+  Test: `the_update_check_is_asked_once_and_off_until_allowed`.
+- The README has a **Code signing policy** section, as SignPath Foundation requires for free code signing:
+  what is signed, the team roles, the basis on WordCraft, and a **Privacy** statement (nothing is sent unless
+  asked; the opt-in update check described; Zotero and the automation channel stay on 127.0.0.1). The
+  application to SignPath is Chanon's to send.
+
 ### Update check
 - When KhianKrub starts (at most once a day), the desktop app asks GitHub's API for the latest release of
   `chanonss/khiankrub`, in the background. If it is newer than the running version, a bar under the ribbon

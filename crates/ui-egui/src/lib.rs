@@ -329,8 +329,11 @@ pub struct UiState {
     /// Open (on by default). Off, the list is empty and nothing is added to it.
     pub remember_recent: bool,
     /// File › Options › General: ask GitHub for a newer KhianKrub when it starts, at most once a
-    /// day (on by default).
+    /// day. Off until the user says yes: KhianKrub sends nothing anywhere unless asked to.
     pub check_updates: bool,
+    /// Whether the user was asked, once, if KhianKrub may check for updates at start-up
+    /// ([`dialogs::Dialog::UpdatePermission`]).
+    pub update_asked: bool,
     /// The local date of the last update check (`2026-10-25`).
     pub update_checked_on: String,
     /// A version whose update bar was turned away with Skip this version.
@@ -400,7 +403,8 @@ impl Default for UiState {
             options_pane: "general".into(),
             recent_count: 12,
             remember_recent: true,
-            check_updates: true,
+            check_updates: false,
+            update_asked: false,
             update_checked_on: String::new(),
             update_skipped: String::new(),
             mini_toolbar: true,
@@ -1613,7 +1617,11 @@ impl WordApp {
                 // File › Options › General: `value` true or false; no value reads it.
                 match p.get("value") {
                     None => {}
-                    Some(Value::Bool(on)) => self.ui.check_updates = *on,
+                    Some(Value::Bool(on)) => {
+                        self.ui.check_updates = *on;
+                        // A choice made here answers the one-time question too.
+                        self.ui.update_asked = true;
+                    }
                     Some(_) => return Some(Err("`value` must be true or false".into())),
                 }
                 json!({"checkUpdates": self.ui.check_updates})
@@ -1982,7 +1990,13 @@ impl WordApp {
                 self.dialog = Some(dialogs::Dialog::MissingFont { dont_remind: false });
             }
         }
-        // A newer KhianKrub on GitHub: asked at start-up (once a day) or from Help.
+        // May KhianKrub check for updates at start-up? Asked once, after anything else that
+        // opens at launch, and only where it can check (the desktop app).
+        if self.services.latest_release.is_some() && !self.ui.update_asked && self.dialog.is_none() {
+            self.ui.update_asked = true;
+            self.dialog = Some(dialogs::Dialog::UpdatePermission);
+        }
+        // A newer KhianKrub on GitHub: asked at start-up (once a day, when allowed) or from Help.
         updates::tick(self);
         if self.updates.pending.is_some() {
             ctx.request_repaint_after(std::time::Duration::from_millis(250));
@@ -2806,7 +2820,46 @@ mod tests {
             })),
             ..Services::default()
         };
-        (WordApp::new(Session::new(wordcraft_doc::Document::new()), services), asked)
+        let mut a = WordApp::new(Session::new(wordcraft_doc::Document::new()), services);
+        // A user who said yes to checking at start-up.
+        (a.ui.update_asked, a.ui.check_updates) = (true, true);
+        (a, asked)
+    }
+
+    /// The start-up check is opt-in: the first start asks once, and nothing is asked of GitHub
+    /// until the user says yes. Yes checks at once and at later starts; No never checks by itself,
+    /// and the question doesn't come back. Builds that can't check (the web, tests) don't ask.
+    #[test]
+    fn the_update_check_is_asked_once_and_off_until_allowed() {
+        use egui_kittest::kittest::Queryable;
+        for (answer, checks) in [("Check Automatically", 1), ("Don't Check", 0)] {
+            let (mut a, asked) = app_with_release(release_json(updates::current()));
+            (a.ui.update_asked, a.ui.check_updates) = (false, false);
+            let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+                |ui, app: &mut WordApp| {
+                    let ctx = ui.ctx().clone();
+                    app.logic(&ctx);
+                    app.ui(ui);
+                },
+                a,
+            );
+            h.run_steps(4);
+            assert!(matches!(h.state().dialog, Some(dialogs::Dialog::UpdatePermission)), "asked at the first start");
+            assert_eq!(asked.get(), 0, "nothing sent before the answer");
+            h.get_by_label(answer).click();
+            h.run_steps(3);
+            assert_eq!((h.state().ui.check_updates, h.state().ui.update_asked), (checks == 1, true), "{answer}");
+            assert_eq!(asked.get(), checks, "{answer}");
+            // Not asked again at the next start.
+            let prefs = serde_json::to_value(h.state().prefs()).unwrap();
+            let (mut b, _) = app_with_release(release_json(updates::current()));
+            b.apply_prefs(serde_json::from_value(prefs).unwrap());
+            b.logic(&egui::Context::default());
+            assert!(!matches!(b.dialog, Some(dialogs::Dialog::UpdatePermission)));
+        }
+        let mut web = app();
+        web.logic(&egui::Context::default());
+        assert!(web.dialog.is_none(), "no question where nothing can be checked");
     }
 
     fn release_json(version: &str) -> Value {

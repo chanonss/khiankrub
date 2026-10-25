@@ -553,3 +553,9 @@ template	Studio handbook (sample)	คู่มือสตูดิโอ (ต�
 	Later	ไว้ทีหลัง
 	OK	ตกลง
 	Cancel	ยกเลิก
+	Updates	การอัปเดต
+	Check for updates automatically?	ตรวจหาการอัปเดตโดยอัตโนมัติไหม
+	KhianKrub can ask GitHub once a day, when it starts, whether a newer version has been released, and offer the download.	เขียนครับถาม GitHub ได้วันละครั้งตอนเปิดโปรแกรม ว่ามีเวอร์ชันใหม่ออกมาหรือไม่ และเสนอให้ดาวน์โหลด
+	Only that request is sent: no documents, names or other information. You can change this in File › Options › General.	ส่งเพียงคำขอนั้นเท่านั้น ไม่มีเอกสาร ชื่อ หรือข้อมูลอื่น เปลี่ยนการตั้งค่านี้ได้ที่ ไฟล์ › ตัวเลือก › ทั่วไป
+	Don't Check	ไม่ตรวจหา
+	Check Automatically	ตรวจหาอัตโนมัติ
