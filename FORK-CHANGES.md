@@ -13,7 +13,10 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
   says "KhianKrub 0.8.1 is available." with **Download** (opens the release page), **Skip this version** and
   close. Drafts, pre-releases and test tags are ignored. Nothing is downloaded or installed by the app; the
   request carries nothing but the app's version as its User-Agent.
-- **Help › Check for Updates** asks at once and says when the version is the latest (or why it couldn't ask).
+- **Help › Check for Updates** asks at once and answers in a small window (the status bar was easy to miss):
+  "Checking for updates…" with Cancel, then **You're up to date** with OK, **KhianKrub 0.8.1 is available**
+  with Download and Later, or **Couldn't check for updates** with the reason and OK. Cancelled before the
+  answer, a newer version still shows the bar.
   Its button has its own icon, drawn in code: two arrows going round with a down arrow in the middle
   (`checkUpdates`). On the Mac it is also in the menu bar's **Help** menu, under Commands.
   **File › Options › General › Check for updates when KhianKrub starts** turns the start-up check off.

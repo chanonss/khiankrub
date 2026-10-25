@@ -545,3 +545,11 @@ template	Studio handbook (sample)	คู่มือสตูดิโอ (ต�
 	KhianKrub {version} is the latest version.	KhianKrub {version} เป็นเวอร์ชันล่าสุดแล้ว
 	Couldn't check for updates: {error}	ตรวจหาการอัปเดตไม่ได้: {error}
 	Checking for updates…	กำลังตรวจหาการอัปเดต…
+	Check for Updates	ตรวจหาการอัปเดต
+	You're up to date	ไม่มีการอัปเดตใหม่
+	Couldn't check for updates	ตรวจหาการอัปเดตไม่ได้
+	Check the internet connection, then try again from Help › Check for Updates.	ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต แล้วลองอีกครั้งที่ วิธีใช้ › ตรวจหาการอัปเดต
+	You have {version}. The download page has what's new and how to install it.	เวอร์ชันที่คุณใช้อยู่คือ {version} หน้าดาวน์โหลดมีรายละเอียดสิ่งที่เปลี่ยนแปลงและวิธีติดตั้ง
+	Later	ไว้ทีหลัง
+	OK	ตกลง
+	Cancel	ยกเลิก

@@ -10,7 +10,7 @@ use crate::WordApp;
 use crate::theme::Tokens;
 
 /// A newer release: its version (`0.8.1`) and its page.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Release {
     pub version: String,
     pub url: String,
@@ -18,6 +18,20 @@ pub struct Release {
 
 /// An answer the host gives: GitHub's latest release (its JSON), or why it couldn't ask.
 pub type Answer = Result<Value, String>;
+
+/// What Help › Check for Updates' box says.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Status {
+    /// Asking GitHub.
+    Checking,
+    /// The running version is the latest.
+    Latest,
+    /// A newer version, to download.
+    Available(Release),
+    /// GitHub couldn't be asked, and why.
+    Failed(String),
+}
 
 /// The check in progress and what it found.
 #[derive(Default)]
@@ -99,20 +113,83 @@ pub fn tick(app: &mut WordApp) {
     take_answer(app, answer, manual);
 }
 
-/// What an answer means: a newer release shows the bar (unless it was skipped and this check
-/// wasn't asked for); otherwise a manual check says the version is the latest, or why it failed.
+/// What an answer means. Asked from Help with its box still open: the box says it (up to date,
+/// a newer version, or why it couldn't ask). Otherwise a newer release shows the bar, unless it
+/// was skipped and the check wasn't asked for.
 pub fn take_answer(app: &mut WordApp, answer: Answer, manual: bool) {
-    match answer.map(|v| release(&v)) {
-        Ok(Some(r)) if is_newer(&r.version, current()) && (manual || app.ui.update_skipped != r.version) => app.updates.found = Some(r),
-        Ok(_) if manual => {
-            let msg = crate::i18n::fmt(tl!("KhianKrub {version} is the latest version."), &[("version", current())]);
-            app.status(msg);
+    let newer = match &answer {
+        Ok(v) => release(v).filter(|r| is_newer(&r.version, current())),
+        Err(_) => None,
+    };
+    if manual && matches!(app.dialog, Some(crate::dialogs::Dialog::UpdateStatus { .. })) {
+        let status = match (answer, newer) {
+            (_, Some(r)) => Status::Available(r),
+            (Ok(_), None) => Status::Latest,
+            (Err(e), None) => Status::Failed(e),
+        };
+        app.dialog = Some(crate::dialogs::Dialog::UpdateStatus { status });
+        return;
+    }
+    if let Some(r) = newer
+        && (manual || app.ui.update_skipped != r.version)
+    {
+        app.updates.found = Some(r);
+    }
+}
+
+/// A row of buttons from the right, only as tall as they are (a right-to-left layout on its own
+/// takes all the height it is given).
+fn buttons<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> egui::InnerResponse<R> {
+    let width = ui.available_width();
+    ui.allocate_ui_with_layout(egui::vec2(width, ui.spacing().interact_size.y), egui::Layout::right_to_left(egui::Align::Center), add)
+}
+
+/// Help › Check for Updates' box. True when it closes.
+pub fn status_box(app: &mut WordApp, ui: &mut Ui, status: &mut Status) -> bool {
+    let heading = |ui: &mut Ui, text: String| {
+        ui.label(egui::RichText::new(text).font(crate::theme::semibold(15.0)));
+    };
+    let esc = ui.input(|i| i.key_pressed(egui::Key::Escape));
+    match status.clone() {
+        Status::Checking => {
+            ui.horizontal(|ui| {
+                ui.add(egui::Spinner::new());
+                ui.label(tl!("Checking for updates…"));
+            });
+            ui.add_space(8.0);
+            buttons(ui, |ui| ui.button(tl!("Cancel")).clicked()).inner || esc
         }
-        Err(e) if manual => {
-            let msg = crate::i18n::fmt(tl!("Couldn't check for updates: {error}"), &[("error", &e)]);
-            app.status(msg);
+        Status::Latest => {
+            heading(ui, tl!("You're up to date").to_string());
+            ui.label(crate::i18n::fmt(tl!("KhianKrub {version} is the latest version."), &[("version", current())]));
+            ui.add_space(8.0);
+            buttons(ui, |ui| ui.add(crate::widgets::primary_button(ui, tl!("OK"))).clicked()).inner
+                || esc
+                || ui.input(|i| i.key_pressed(egui::Key::Enter))
         }
-        _ => {}
+        Status::Failed(why) => {
+            heading(ui, tl!("Couldn't check for updates").to_string());
+            ui.label(why);
+            ui.label(tl!("Check the internet connection, then try again from Help › Check for Updates."));
+            ui.add_space(8.0);
+            buttons(ui, |ui| ui.add(crate::widgets::primary_button(ui, tl!("OK"))).clicked()).inner
+                || esc
+                || ui.input(|i| i.key_pressed(egui::Key::Enter))
+        }
+        Status::Available(r) => {
+            heading(ui, crate::i18n::fmt(tl!("KhianKrub {version} is available."), &[("version", &r.version)]));
+            ui.label(crate::i18n::fmt(tl!("You have {version}. The download page has what's new and how to install it."), &[("version", current())]));
+            ui.add_space(8.0);
+            let (download, later) = buttons(ui, |ui| {
+                let later = ui.button(tl!("Later")).clicked();
+                (ui.add(crate::widgets::primary_button(ui, tl!("Download"))).clicked(), later)
+            })
+            .inner;
+            if download {
+                app.canvas.open_url = Some(r.url);
+            }
+            download || later || esc
+        }
     }
 }
 
@@ -126,7 +203,9 @@ pub fn command(app: &mut WordApp, p: &Value) -> Result<Value, String> {
             if !start(app, true) {
                 return Err("this version of KhianKrub can't check for updates".into());
             }
-            app.status(tl!("Checking for updates…").to_string());
+            // The box says what the check finds; the bar isn't needed alongside it.
+            app.updates.found = None;
+            app.dialog = Some(crate::dialogs::Dialog::UpdateStatus { status: Status::Checking });
         }
         Some("download") => {
             if let Some(r) = app.updates.found.take() {
@@ -175,7 +254,7 @@ pub fn bar(app: &mut WordApp, ui: &mut Ui) {
                 if ui.button(tl!("Skip this version")).clicked() {
                     let _ = app.run("ui.update", json!({"action": "skip"}));
                 }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                buttons(ui, |ui| {
                     if crate::widgets::icon_button(ui, "close", tl!("Close")).clicked() {
                         let _ = app.run("ui.update", json!({"action": "close"}));
                     }

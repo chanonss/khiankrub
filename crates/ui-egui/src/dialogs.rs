@@ -386,6 +386,11 @@ pub enum Dialog {
     MissingFont {
         dont_remind: bool,
     },
+    /// Help › Check for Updates: checking, then the answer (up to date, a newer version to
+    /// download, or why it couldn't ask), each with a button to close it.
+    UpdateStatus {
+        status: crate::updates::Status,
+    },
     /// Confirm before deleting a recovery copy.
     DiscardRecovery {
         id: String,
@@ -828,6 +833,7 @@ impl Dialog {
             Dialog::SaveChanges { .. } => "saveChanges",
             Dialog::DiscardRecovery { .. } => "discardRecovery",
             Dialog::MissingFont { .. } => "missingFont",
+            Dialog::UpdateStatus { .. } => "updateStatus",
             Dialog::RecipientList { .. } => "recipientList",
             Dialog::SelectTable { .. } => "selectTable",
             Dialog::InsertMergeField { .. } => "insertMergeField",
@@ -1254,6 +1260,7 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
         Dialog::SaveChanges { .. } => "KhianKrub",
         Dialog::DiscardRecovery { .. } => "Discard recovery copy",
         Dialog::MissingFont { .. } => "Font Not Installed",
+        Dialog::UpdateStatus { .. } => "Check for Updates",
         Dialog::RecipientList { .. } => "Recipient List",
         Dialog::SelectTable { .. } => "Select Table",
         Dialog::InsertMergeField { .. } => "Insert Merge Field",
@@ -2477,6 +2484,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             }
             false
         }
+        Dialog::UpdateStatus { status } => crate::updates::status_box(app, ui, status),
         Dialog::SaveChanges { name, message, .. } => {
             ui.label(egui::RichText::new(crate::i18n::fmt(tl!("Do you want to save changes to {name}?"), &[("name", name)])).font(semibold(15.0)));
             ui.label(tl!("Your changes will be lost if you don't save them."));

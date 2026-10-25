@@ -2854,8 +2854,18 @@ mod tests {
         c.logic(&egui::Context::default());
         assert!(c.updates.found.is_none(), "a skipped version stays quiet");
         c.run("ui.checkForUpdates", json!({})).unwrap();
+        assert!(matches!(&c.dialog, Some(dialogs::Dialog::UpdateStatus { status: updates::Status::Checking })), "the box says it's checking");
         c.logic(&egui::Context::default());
-        assert_eq!(c.updates.found.as_ref().map(|r| r.version.as_str()), Some("99.0.0"), "asked by hand, it shows");
+        assert!(
+            matches!(&c.dialog, Some(dialogs::Dialog::UpdateStatus { status: updates::Status::Available(r) }) if r.version == "99.0.0"),
+            "asked by hand, the box offers it"
+        );
+        // The box closed before the answer (Cancel): a newer version falls back to the bar.
+        c.dialog = None;
+        c.run("ui.checkForUpdates", json!({})).unwrap();
+        c.dialog = None;
+        c.logic(&egui::Context::default());
+        assert_eq!(c.updates.found.as_ref().map(|r| r.version.as_str()), Some("99.0.0"));
         // The current version: nothing at start-up, and "the latest version" when asked.
         let (mut d, _) = app_with_release(release_json(updates::current()));
         d.logic(&egui::Context::default());
@@ -2863,7 +2873,23 @@ mod tests {
         assert!(d.updates.found.is_none());
         d.run("ui.checkForUpdates", json!({})).unwrap();
         d.logic(&egui::Context::default());
-        assert!(d.status_msg.as_ref().is_some_and(|(m, _)| m.contains("is the latest version")), "{:?}", d.status_msg);
+        assert!(matches!(&d.dialog, Some(dialogs::Dialog::UpdateStatus { status: updates::Status::Latest })), "the box says it's the latest");
+        // GitHub can't be reached: the box says so.
+        let mut f = WordApp::new(
+            Session::new(wordcraft_doc::Document::new()),
+            Services {
+                latest_release: Some(Box::new(|| {
+                    let (tx, rx) = std::sync::mpsc::channel();
+                    let _ = tx.send(Err("no connection".into()));
+                    rx
+                })),
+                ..Services::default()
+            },
+        );
+        f.ui.check_updates = false;
+        f.run("ui.checkForUpdates", json!({})).unwrap();
+        f.logic(&egui::Context::default());
+        assert!(matches!(&f.dialog, Some(dialogs::Dialog::UpdateStatus { status: updates::Status::Failed(e) }) if e == "no connection"));
         // Turned off: no question at start-up. And a build without the hook can't check.
         let (mut e, asked_e) = app_with_release(release_json("99.0.0"));
         e.run("ui.checkUpdates", json!({"value": false})).unwrap();
