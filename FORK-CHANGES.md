@@ -8,8 +8,9 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 ## 2026-10-25
 
 ### Curved corners where the active tab meets the ribbon
-- The active tab's bottom corners curve outward into the ribbon, with the same radius (4 pt) as its rounded top
-  corners, so the tab and the ribbon read as one shape. Light and dark themes alike.
+- The active tab's bottom corners curve outward into the ribbon, with the same radius as its rounded top
+  corners, so the tab and the ribbon read as one shape. Light and dark themes alike. All four corners are 8 pt
+  (the top ones were 4 pt; at 4 pt the bottom curve was too small to notice).
 
 ### Thai menus
 - **File › Options › Language › Interface language** offers ไทย (Thai) besides English. Automatic, the default,
