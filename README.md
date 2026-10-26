@@ -32,19 +32,35 @@ This is a one-person project and still young. If something doesn't work, please
 
 ## What's new in 0.9.0
 
-- **Top band colour and Thai motifs.** In File › Options › General, choose the colour of the band at the top (navy,
-  teal, forest green, plum, maroon or graphite) and, if you like, a faint Thai motif on it: ประจำยาม, กระจัง,
-  ก้านขด, ดอกพิกุล or ผ้าขาวม้า.
-- **Click a list number to format the numbers.** As in Word, the number turns grey and so do the others at the same
-  level; Bold, the font, its size and colour then change the numbers, not the text.
-- **Facing-page thumbnails.** With mirror margins, the page thumbnails in the Navigation pane are shown in pairs, as
-  in a book. The Navigation pane is in Thai too.
+### Choose the top band's colour, with Thai motifs
+
+The band at the top (title bar and tabs) can be navy, teal, forest green, plum, maroon or graphite, with a faint Thai
+motif on it if you like: ประจำยาม, กระจัง, ก้านขด, ดอกพิกุล or ผ้าขาวม้า. Choose them in File › Options › General ›
+**Top band colour** and **Background**. The motifs are drawn by KhianKrub itself, and white text and the gold buttons
+stay easy to read on every colour.
+
+<p align="center">
+  <img src="docs/images/khiankrub-band-colours.png" alt="The KhianKrub title bar and Thai tabs five times: navy with ประจำยาม, teal with กระจัง, forest green with ก้านขด, plum with ดอกพิกุล and maroon with ผ้าขาวม้า" width="100%">
+</p>
+
+<table>
+<tr>
+<td width="68%" valign="top"><img src="docs/images/khiankrub-list-numbers.png" alt="A Thai multilevel list at 200% zoom: the number 1.1. is selected in dark grey, 1.2. and 1.3. are light grey, and all three are bold and red while their text is unchanged" width="100%"><p align="center"><sub><b>Click a list number</b> to select it, as in Word: the numbers at the same level turn grey. Bold, the font, its size and colour then change those numbers, not the text.</sub></p></td>
+<td width="32%" valign="top"><img src="docs/images/khiankrub-facing-pages.png" alt="The Navigation pane in Thai (การนำทาง) with the หน้า tab: page 1 alone on the right, then pages 2 and 3, and 4 and 5, side by side" width="100%"><p align="center"><sub><b>Facing pages.</b> With mirror margins, the page thumbnails are shown in pairs, as in a book. The Navigation pane is in Thai too.</sub></p></td>
+</tr>
+</table>
+
+### Also new
+
 - **Check for Updates.** KhianKrub asks once whether to look for a newer version on GitHub when it starts; you can
   also check from the Help tab. Nothing else is sent.
-- **Smaller changes:** the greeting follows the time of day; recent documents can be removed one by one or all at
-  once; selecting text covers the whole ¶ mark; list numbers in Define New Multilevel List show as grey chips; a run
-  in a missing Thai font is drawn in one Thai font; the table Shading button is clearer; and 16 fixes from WordCraft
-  for stability, security and lists.
+- The greeting on the File page follows the time of day, and recent documents can be removed one by one or all at
+  once.
+- Selecting text covers the whole ¶ mark, and list numbers in Define New Multilevel List show as grey chips.
+- A run in a missing Thai font (Angsana New, Cordia New…) is drawn in one Thai font, English letters and digits
+  included.
+- The table Shading button has a label and shows the last colour used.
+- 16 fixes from WordCraft for stability, security and lists.
 
 ## What's new in 0.8.0
 

@@ -11,7 +11,8 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 - The app's version is 0.9.0 (was 0.8.0). It brings the top band colour and Thai motifs, selecting and formatting
   list numbers as in Word, facing-page thumbnails, an opt-in update check, local time for the greeting, managing
   recent documents, a Thai navigation pane, and 16 fixes taken from WordCraft. The README has a "What's new in
-  0.9.0" section.
+  0.9.0" section with pictures of the band colours and Thai motifs, a
+  selected list number, and the facing-page thumbnails.
 
 ### Top band colour and Thai motifs
 File › Options › General has two new pickers for the band at the top (title bar and tab strip):
