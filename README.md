@@ -30,6 +30,22 @@ This is a one-person project and still young. If something doesn't work, please
 โปรแกรมพิมพ์เอกสารภาษาไทยที่ใช้ได้ฟรี ยังอยู่ระหว่างพัฒนา
 หากพบปัญหา แจ้งได้ที่หน้า [Issues](https://github.com/chanonss/khiankrub/issues) ขอบคุณทุกความคิดเห็นครับ
 
+## What's new in 0.9.0
+
+- **Top band colour and Thai motifs.** In File › Options › General, choose the colour of the band at the top (navy,
+  teal, forest green, plum, maroon or graphite) and, if you like, a faint Thai motif on it: ประจำยาม, กระจัง,
+  ก้านขด, ดอกพิกุล or ผ้าขาวม้า.
+- **Click a list number to format the numbers.** As in Word, the number turns grey and so do the others at the same
+  level; Bold, the font, its size and colour then change the numbers, not the text.
+- **Facing-page thumbnails.** With mirror margins, the page thumbnails in the Navigation pane are shown in pairs, as
+  in a book. The Navigation pane is in Thai too.
+- **Check for Updates.** KhianKrub asks once whether to look for a newer version on GitHub when it starts; you can
+  also check from the Help tab. Nothing else is sent.
+- **Smaller changes:** the greeting follows the time of day; recent documents can be removed one by one or all at
+  once; selecting text covers the whole ¶ mark; list numbers in Define New Multilevel List show as grey chips; a run
+  in a missing Thai font is drawn in one Thai font; the table Shading button is clearer; and 16 fixes from WordCraft
+  for stability, security and lists.
+
 ## What's new in 0.8.0
 
 ### Thai menus
