@@ -24,6 +24,8 @@ tone marks and stacked vowels, word breaking under each alignment (Thai Distribu
 underline and other character formats, line spacing and indents, Thai lists (ก ข ค, ๑ ๒ ๓, หนึ่ง สอง),
 multilevel numbering linked to headings, a table with a shaded header, a yellow-shaded code paragraph in a
 table cell with cell margins, ภาพที่/ตารางที่ captions, a Thai footnote and a page-number footer.
+It is marked as made by current Word (compatibility mode 15), so Word and KhianKrub put a table's border on
+the page margins, as for most documents people make today.
 
 ### Fixes taken from WordCraft
 WordCraft (the original) gained over 1,000 changes in the 11 days after this fork. These 16 were picked for
