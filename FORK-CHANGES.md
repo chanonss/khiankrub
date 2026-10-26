@@ -5,6 +5,29 @@ Thai-speaking audience. This file lists what differs from the original, newest f
 progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each entry matches a commit on the
 `my-changes` branch.
 
+## 2026-10-26
+
+### Fixes taken from WordCraft
+WordCraft (the original) gained over 1,000 changes in the 11 days after this fork. These 16 were picked for
+KhianKrub and applied with `git cherry-pick -x` (each commit names its original). WordCraft's progress docs
+(ROADMAP.md, docs/) are left as they are.
+- **Crashes, hangs and security:** a pipe or device path can't hang the app or use up memory when opened
+  (bounded, regular-file reads); bounded file reads for Read Aloud and a safer macOS signing temp file;
+  encrypted .docx files must pass their data integrity check; measurements and numbers that overflow are
+  refused; a tiny picture-sharpen value doesn't crash; a huge table cell span from a .json file doesn't
+  overflow; negative page margins are clamped; downloads in the packaging scripts insist on HTTPS.
+- **Thai text:** a Word file's complex-script font hint no longer replaces the Latin font; a run in a missing
+  Thai font (TH Sarabun New, Angsana New, the UPC fonts…) is drawn in one Thai face, Latin letters and
+  digits included, from Thai-aware substitutes (Thonburi on macOS, Leelawadee UI or Cordia New on Windows);
+  a Thai run with Latin finds one installed font covering both; theme fonts for complex scripts follow the
+  theme's language.
+- **Lists:** Enter on an empty nested item numbered by its style moves it up a level; Increase Indent and
+  Demote stop at the last list level instead of overflowing.
+- **Adapted:** the Thai font search leaves out WordCraft's full-name catalog (not in KhianKrub yet), and two
+  tests were rewritten where WordCraft's extended tests KhianKrub doesn't have.
+- **Not taken:** "a table row fits on a page only with room for its bottom border" needs WordCraft's newer
+  table layout (kept rows), a larger change.
+
 ## 2026-10-25
 
 ### Selecting list numbers; the keep-with-next square
