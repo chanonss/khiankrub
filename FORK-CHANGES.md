@@ -14,7 +14,8 @@ File › Options › General has two new pickers for the band at the top (title 
   name stay readable on every one (teal and forest green were darkened slightly to pass).
 - **Background (พื้นหลัง):** none, or a faint Thai motif drawn in code on the band's right part, fading in so
   the tabs stay on plain colour: ประจำยาม, กระจัง, ก้านขด, ดอกพิกุล or ผ้าขาวม้า.
-Both are remembered, and scripts can set them with `ui.bandColor` and `ui.bandMotif`. The active tab's
+Both are remembered, and scripts can set them with `ui.bandColor` and `ui.bandMotif`. The navigation pane's
+heading, search box, tabs and page labels (หน้า 1, หน้า 2…) are now in Thai too. The active tab's
 curved corners are now drawn so the motif shows around them.
 
 ### Shading button in Table Design
