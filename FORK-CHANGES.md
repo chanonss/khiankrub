@@ -7,6 +7,14 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-26
 
+### A Thai test document
+`examples/thai-format-test.docx` is a five-page Thai document to open after every change. Each section has a
+grey note saying what to look at: Thai fonts (including ones that may be missing, such as Angsana New),
+tone marks and stacked vowels, word breaking under each alignment (Thai Distributed too), bold, italic,
+underline and other character formats, line spacing and indents, Thai lists (ก ข ค, ๑ ๒ ๓, หนึ่ง สอง),
+multilevel numbering linked to headings, a table with a shaded header, a yellow-shaded code paragraph in a
+table cell with cell margins, ภาพที่/ตารางที่ captions, a Thai footnote and a page-number footer.
+
 ### Fixes taken from WordCraft
 WordCraft (the original) gained over 1,000 changes in the 11 days after this fork. These 16 were picked for
 KhianKrub and applied with `git cherry-pick -x` (each commit names its original). WordCraft's progress docs
