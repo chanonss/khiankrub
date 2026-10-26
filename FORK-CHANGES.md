@@ -7,6 +7,10 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-26
 
+### HANDOFF.md brought up to date
+`HANDOFF.md` describes the state after the 0.9.0 release: releases, what is waiting (SignPath, the WordCraft pull
+requests), where the side folders live (OneDrive › KhianKrub), the release steps, and the working rules as they are now.
+
 ### Version 0.9.0
 - The app's version is 0.9.0 (was 0.8.0). It brings the top band colour and Thai motifs, selecting and formatting
   list numbers as in Word, facing-page thumbnails, an opt-in update check, local time for the greeting, managing

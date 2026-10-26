@@ -1,60 +1,80 @@
-# Handoff: continuing KhianKrub on another Mac
+# Handoff: continuing KhianKrub on another machine
 
-Written 2026-10-21 for Chanon Sarasuk, updated 2026-10-22 on the second Mac. It lets a new Claude Code session (or you)
-pick up exactly where the last one stopped. Nothing here is secret: no passwords or tokens.
+Written 2026-10-21 for Chanon Sarasuk, last brought up to date on 2026-10-26 (after the 0.9.0 release). It lets a new
+Claude Code session (or you) pick up where the last one stopped, on any Mac or PC. Nothing here is secret: no
+passwords or tokens.
 
-**A new session should read this file and [`FORK-CHANGES.md`](FORK-CHANGES.md) first.** Claude Code's memory does not
-travel between Macs (see section 10).
+**A new session should read this file and [`FORK-CHANGES.md`](FORK-CHANGES.md) first.** Claude Code's memory and
+session history do not travel between machines (section 10).
 
 ## 1. Where things stand
 
-- **App:** KhianKrub (เขียนครับ), Chanon's fork of [storytold/wordcraft](https://github.com/storytold/wordcraft) for Thai users
-  (Rust, egui). Fork: <https://github.com/chanonss/khiankrub>, branch **`my-changes`** (the default branch).
-  The repo was renamed from `chanonss/wordcraft` on 2026-10-23; GitHub redirects the old address (web, releases,
-  git). **Never create a new repo named `wordcraft` under chanonss**: that would break the redirect.
-- **Done, in order:** Thai Distribution and Thai word breaking, View only mode, English-only interface (22 other
-  languages deleted), hover-jump fix, plain number fields, Thai space-dot centring, ArtCraft logos removed, rename to
-  KhianKrub with the gold ข icon on blue (traced from Sarabun Bold, OFL), and on 2026-10-22 **Thai list numbering**
-  (`thaiNumbers` ๑ ๒ ๓, `thaiLetters` ก ข ค, `thaiCounting` หนึ่ง สอง สาม, checked against Word's own labels), then
-  **ribbon icons sized and centred like Word's**, and the name written as one word, **KhianKrub**. Every
-  change is listed, newest first, in [`FORK-CHANGES.md`](FORK-CHANGES.md).
-- **Published:** release `v0.7.1` (2026-10-23, tag on `06b64e40`, the latest; plain version numbers from here on),
-  `v0.7.0-thai.4` (tag on `4d4013e`), `v0.7.0-thai.3` (tag on `e893820`,
-  the first as KhianKrub) and the older
-  `v0.7.0-thai.2` (tag on `13f20be`, old WordCraft name and icon), kept on purpose.
-- **Everything is on GitHub** (pushed 2026-10-23). Later local commits, if any, show with
+- **App:** KhianKrub (เขียนครับ), Chanon's fork of [storytold/wordcraft](https://github.com/storytold/wordcraft) for Thai
+  users (Rust, egui). Fork: <https://github.com/chanonss/khiankrub>, branch **`my-changes`** (the default branch).
+  The repo was renamed from `chanonss/wordcraft` on 2026-10-23; GitHub redirects the old address. **Never create a new
+  repo named `wordcraft` under chanonss**: that would break the redirect.
+- **Latest release: `v0.9.0`** (2026-10-26, tag on `0f2fe2f3`), published and marked Latest, with
+  `KhianKrub-0.9.0-macos-universal.zip`, `khiankrub-0.9.0-windows-x64.msi` and `-windows-x64-portable.zip`.
+  Before it: `v0.8.0` (2026-10-25), `v0.7.3`, `v0.7.2`, `v0.7.1` and the `v0.7.0-thai.*` pre-releases, all kept.
+- **What 0.8 and 0.9 brought** (details in `FORK-CHANGES.md` and the README's "What's new" sections): Thai menus
+  (ribbon, File page, right-click menus, Navigation pane), the navy and gold look, Modify Style redesigned, numbered
+  headings and My Lists, Word-like table borders, Mac and Windows builds on GitHub Actions; then top band colour with
+  five Thai motifs (Options › General), selecting list numbers as in Word, facing-page thumbnails, an opt-in Check for
+  Updates (asks once at first start), local time for the greeting, managing recent documents, number chips in Define
+  New Multilevel List, and 16 fixes cherry-picked from WordCraft.
+- **Everything is on GitHub** (pushed 2026-10-26, `9ed21057`). Later local commits show with
   `git log --oneline origin/my-changes..HEAD`. Chanon decides when to push (rule 1).
-- **Untracked scratch files in `repo`, not to be committed:** `issue-draft.md`, `thai-test.txt`.
-- **Outside the repo, in the project folder** (`~/Documents/Codex/WordCraft/` on the second Mac):
-  - `thai-test.docx`: a Word test document covering Thai word breaking, the five alignments including Thai
-    Distributed, tone marks, mixed Thai/English, Thai digits, character formats, six Thai fonts, three Thai list types
-    and a poem.
-  - `make_thai_docx.py`: regenerates it (`python3 make_thai_docx.py thai-test.docx`; plain Python, no libraries).
+- **Test document:** `examples/thai-format-test.docx` (five pages: Thai fonts including missing ones, tone marks, word
+  breaking under every alignment, character and paragraph formats, Thai lists, tables, captions, a footnote). Each
+  section has a grey note saying what to look at; open it after every change. It is marked as made by current Word
+  (compatibility mode 15). Do not save over it from the app; it is regenerated by `make_thai_format_test.py`
+  (section 2, side folders). The older `examples/thai-test.docx` is used by a layout test.
+- **Waiting on others:**
+  - **SignPath Foundation** (free Windows code signing): applied 2026-10-25, they reply within a few business days.
+    If approved, connect `release-files.yml` to SignPath with the project and policy names they give, and change the
+    README's Code signing policy wording. Notes: `khiankrub-signing/signpath-application.md` (side folders).
+  - **WordCraft (the original):** two pull requests and an issue Chanon opened on 2026-10-25,
+    storytold/wordcraft#4274 (local time for the greeting and dates), #4275 (selection covers the whole ¶ mark) and
+    issue #4276 (Thai support). CodeRabbit's review fixes were pushed. Wait for the maintainers. The PR branches
+    `pr/local-time` and `pr/para-mark-selection` live in a second checkout, `~/dev/wordcraft-upstream` (a git worktree
+    of this repo; remote `upstream` = storytold/wordcraft). Texts: `wordcraft-contrib/` (side folders).
+- **Known, not fixed:** paragraph shading inside a table cell with cell margins (the yellow code block in
+  `thai-format-test.docx`, page 4) may not fill like Word's; waiting for a screenshot of Word to compare.
 
-## 2. Set up another Mac
+## 2. Set up another machine
 
-**Where the code lives (since 2026-10-24):** a git clone at `~/dev/khiankrub` on each Mac (`C:\Users\csara\dev\khiankrub`
-on the PC), synced through GitHub: pull before starting on a machine, commit and push before leaving it. Never keep the
-repo in Google Drive (Drive drops executable bits and can half-sync `.git`). The Drive folder `My Apps/KhianKrub/` holds
-only non-code: `facebook/`, `release/`, `thai-test.docx`, `make_thai_docx.py`.
+**Where things live:**
+
+| What | Where | How it travels |
+|---|---|---|
+| The code | a git clone at `~/dev/khiankrub` (`C:\Users\csara\dev\khiankrub` on the PC) | GitHub: pull before starting, commit and push before leaving |
+| Posters, Facebook texts, test-document script, SignPath notes, WordCraft PR texts (the **side folders**) | `~/dev/khiankrub-announce`, `khiankrub-testdocs`, `khiankrub-signing`, `wordcraft-contrib` on the Mac that made them | copied to **OneDrive (rmutk.ac.th) › `KhianKrub/`** on 2026-10-26; copy them back to `~/dev/` on a new machine, and copy changes up again |
+| Claude's memory and session history | `~/.claude/` on each machine | does not travel: this file is the bridge |
+
+Never keep the repo or `~/dev` in OneDrive, Google Drive, iCloud or on an external drive: cloud sync drops executable
+bits and can half-sync `.git`, and the build folders (`target/`, tens of GB) must stay local. The Time Machine drive
+("Mac mini 2014") is for backups only. An older note put the side files in Google Drive (`My Apps/KhianKrub/`);
+OneDrive is the place now.
 
 ```bash
 xcode-select --install                                   # compiler tools, if missing
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # Rust (rustup)
 rustup target add wasm32-unknown-unknown                 # needed by `cargo xtask ci` (the wasm step)
+rustup target add x86_64-apple-darwin                    # only for a local universal Mac build
 git clone https://github.com/chanonss/khiankrub.git && cd khiankrub && git checkout my-changes
+git remote add upstream https://github.com/storytold/wordcraft.git   # only to look at or pick WordCraft's changes
 cargo install resvg --locked                             # only needed to regenerate the icon files
 ```
 
-- **Do not skip the wasm target.** On the second Mac the first `cargo xtask ci` failed at the last step with
-  "can't find crate for `core`" until it was added.
-- Apple silicon Mac for the app build. Release zips are universal (Apple silicon and Intel, macOS 11 or later) from
-  0.7.4 on: `rustup target add x86_64-apple-darwin`, then build both targets and run `local-app.sh --universal` (see
-  its header). The Intel half can be tried here through Rosetta: `arch -x86_64 …/KhianKrub --version`.
-- First build takes several minutes. `cargo build --release -p wordcraft` is about 3 to 4 minutes.
-- GitHub: Chanon signs in themself (never ask for or type a password). `git push` over HTTPS needs a GitHub login or
-  token on that Mac; on the first Mac `GIT_TERMINAL_PROMPT=0 git push origin my-changes` worked because credentials were
-  already stored. Pushing has not been tried from the second Mac.
+- **Do not skip the wasm target**, or the first `cargo xtask ci` fails at the last step ("can't find crate for `core`").
+- Install **TH Sarabun New** for new documents to look right (not bundled).
+- First build takes several minutes; after changing the version in `Cargo.toml` every crate rebuilds and
+  `cargo xtask ci` can take over 10 minutes (run it in the background).
+- `target/` grows past 70 GB. When the disk is full, `cargo clean --profile dev` frees the debug part and keeps the
+  release build.
+- GitHub: Chanon signs in themself (never ask for or type a password). `git push` over HTTPS works on the main Mac
+  with stored credentials. There is no `gh` CLI; the GitHub API is read with `curl`, and releases are edited in the
+  built-in browser pane, where Chanon is signed in.
 - Commit identity is passed per commit, not stored in git config:
   `git -c user.name="Chanon Sarasuk" -c user.email="chanon.s@rmutk.ac.th" commit ...`, with the message ending in a
   `Co-Authored-By: Claude … <noreply@anthropic.com>` line naming the Claude model in use.
@@ -65,143 +85,109 @@ cargo install resvg --locked                             # only needed to regene
 |---|---|
 | Full check before every commit | `cargo xtask ci` (fmt, clippy -D warnings, tests, assets, layers, wasm) |
 | Format | `cargo fmt --all` |
-| Build the release binary | `cargo build --release -p wordcraft` |
-| Make the Mac app | `packaging/macos/local-app.sh` → `~/Applications/KhianKrub.app` (ad-hoc signed, this Mac only) |
-| Render a document to PDF with KhianKrub | `cargo build --release -p wordcraft-cli` then `target/release/wordcraft-cli convert in.docx out.pdf` |
-| Regenerate all icon files | `packaging/icons.sh` (needs `resvg`; uses `assets/app-icon/wordcraft.svg`) |
+| Build and install the local Mac app | `cargo build --release -p wordcraft && packaging/macos/local-app.sh` → `~/Applications/KhianKrub.app` |
+| Render a document to PDF | `cargo build --release -p wordcraft-cli` then `target/release/wordcraft-cli convert in.docx out.pdf` |
+| Headless screenshots of the window | `cargo run -q --release -p wordcraft-ui-egui --example ui_shot -- script.jsonl` (JSON lines: `{"empty":true}`, `{"method":"engine.execute","params":{"command":…}}`, `{"steps":n}`, `{"shot":"/abs/out.png"}`; tabs by English name, e.g. `ui.tab` `{"tab":"Table Design"}`) |
+| Regenerate all icon files | `packaging/icons.sh` (needs `resvg`) |
+| Regenerate the Thai test document | `python3 make_thai_format_test.py examples/thai-format-test.docx` (script in the side folder `khiankrub-testdocs`) |
 
-**Chain them so a failure stops everything.** Twice, a piped or chained command hid a failed check and an old build was
-packaged. Use `set -euo pipefail`, no `| tail` on the checking command itself:
+**Run the check on its own, then commit.** A `;` or a pipe after `cargo xtask ci` hides a failure: on 2026-10-26 a
+commit went through after CI failed. Use `cargo xtask ci && git commit …`, never `cargo xtask ci; git commit …`.
 
-```bash
-cargo xtask ci && cargo build --release -p wordcraft && packaging/macos/local-app.sh
-```
-
-The zip for a release is made with `ditto -c -k --keepParent --norsrc --noextattr "KhianKrub.app" <name>.zip`. Unzip a copy,
-run `codesign --verify --strict --deep`, and put the zip's SHA-256 in the release notes.
+**Releases** (section 8): set `version` in the root `Cargo.toml`, run `cargo update -w`, add a FORK-CHANGES entry and a
+README "What's new in x.y.z" section with pictures, push, then push the tag `vX.Y.Z`. GitHub Actions builds a draft
+with the three files; write the notes (copy the last release's layout: what's new, install on Mac and Windows,
+limits, code signing policy, licence, SHA-256 from the asset details) and publish only when Chanon says so.
+WordCraft has its own tags with the same names (`v0.8.0`, `v0.9.0`, `v0.10.0`…); if `git tag` says the name exists,
+it is WordCraft's tag fetched from `upstream`: delete it locally and tag ours (it was never on `origin`).
 
 ## 4. Working rules Chanon has set (keep following them)
 
-1. **Push only when told.** Make small changes, commit locally after each (check passes first), rebuild the local app so
-   Chanon can try it, say how many commits are waiting, and push everything in one go when Chanon says so.
-   Do **not** create, replace or delete a GitHub release without asking first ("tell me before you delete the old release").
+1. **Push only when told.** Make small changes, commit locally after each (check passes first), rebuild the local app
+   so Chanon can try it, say how many commits are waiting, and push everything in one go when Chanon says so. Do **not**
+   create, replace, publish or delete a GitHub release, or push a tag, without asking first.
 2. **Update `FORK-CHANGES.md`** with a dated entry for every change. The original's own progress docs (`ROADMAP.md`,
-   `docs/`) are not edited in this fork, even where they are now out of date (for example `docs/layout-parity.md` still
-   says Thai list formats show decimal).
-3. **English and Thai interface.** Write labels in English (`tl!("...")`); Thai is a catalog
-   (`crates/ui-egui/src/i18n/th.tsv`, written from each label's meaning, never from Word's Thai version). Since
-   2026-10-25 the ribbon tabs, the File page and right-click menus are in Thai; dialogs and Options pages are still
-   English. A new ribbon button, File page text or right-click item needs a th.tsv row, or
+   `docs/` except `docs/images/khiankrub-*`) are not edited in this fork. Changes cherry-picked from WordCraft use
+   `git cherry-pick -x`; reset their edits to `ROADMAP.md` and `docs/` to ours.
+3. **English and Thai interface.** Write labels in English (`tl!("...")`); Thai lives in
+   `crates/ui-egui/src/i18n/th.tsv` (`context<TAB>English<TAB>Thai`), written from each label's meaning, never from
+   Word's Thai version. The ribbon, File page, right-click menus and Navigation pane are in Thai; dialogs and most
+   Options pages are still English. A new ribbon button, File page text or right-click item needs a th.tsv row, or
    `the_most_seen_parts_are_in_thai` fails and lists it. No other interface languages.
-4. **Credit the original, never use its brand.** Keep `LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`, the README note and the About
-   screen credit ("Based on WordCraft by the ArtCraft team. Fork by Chanon Sarasuk."). The original's brand licence forbids
-   ArtCraft logos and marks in published forks: plain-text credit only (`docs/brand/` was deleted on purpose).
-5. **Every asset file needs a row in `ATTRIBUTION.md`** (`cargo xtask assets` fails otherwise); new third-party material also
-   needs a `NOTICE` entry. The app ships its licences inside (`local-app.sh` copies them into Contents/Resources).
-6. **Never put a password, token or key into any page.** Chanon signs in to GitHub in the built-in browser themself; there is
-   no `gh` CLI. Chanon attaches the release zip in the file picker.
-7. Chanon writes in English. Replies in Thai only when Chanon asks. Facebook posts for the Thai group are written in Thai,
-   without first-person pronouns.
+4. **Credit the original, never use its brand.** Keep `LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`, the README note and the
+   About screen credit ("Based on WordCraft by the ArtCraft team. Fork by Chanon Sarasuk."). Plain-text credit only:
+   no ArtCraft logos or marks.
+5. **Every asset file needs a row in `ATTRIBUTION.md`** (`cargo xtask assets` fails otherwise; it covers `assets/`,
+   `docs/images/` and `examples/`); new third-party material also needs a `NOTICE` entry.
+6. **Never put a password, token or key into any page.** Chanon signs in to GitHub in the built-in browser themself.
+7. Chanon writes in English; reply in English unless asked. Facebook posts for the Thai group are in Thai, humble in
+   tone (a beginner who keeps improving it), not aimed at schools or education. Chanon edits and posts them.
 8. Never use Microsoft, Adobe or similar assets (see `CLAUDE.md`). Never write panics in non-test code. Word may be
    observed black-box with synthetic documents (CLAUDE.md, "Clean room"); files Word produces are never committed.
+9. **Show a visual draft first** for a new look or feature when Chanon asks for one, and wait for the go-ahead.
+10. **Privacy:** nothing is sent anywhere unless the user turned it on (the update check is opt-in); this is also a
+    SignPath requirement. Describe any new network use in the README's Privacy section.
 
 ## 5. The icon and the name
 
-- **Name:** KhianKrub (one word, since 2026-10-22; it was "Khian Krub" before) in English letters for files and bundle ids, เขียนครับ as the Thai display name (Finder on a Thai Mac,
-  via `th.lproj/InfoPlist.strings` written by `local-app.sh`). Bundle id `io.github.chanonss.khiankrub`, executable `KhianKrub`.
-  "ครับ" is the male polite ending; Chanon knows and accepted it. A web search found no clash for "Khian Krub" (searched with the space; software names
-  only, not trademark registers).
-- **Icon:** the letter ข in gold `#F2B705` on a deep blue `#1E3A8A` rounded square (rx 112 in a 512 view box). The outline is
-  traced from **Sarabun Bold** (Cadson Demak, SIL OFL 1.1, no reserved font name), chosen over TH Sarabun New (GPL) and
-  Thonburi (Apple's). The path is stored in `assets/app-icon/wordcraft.svg`, nudged `translate(-11 -7)` so the visual weight is
-  centred ("B2 balanced"). The licence text is `assets/app-icon/OFL-Sarabun.txt`. To redo the trace: get `Sarabun-Bold.ttf`
-  from <https://github.com/cadsondemak/Sarabun>, read the outline of U+0E02 with CoreText (a short Swift script that
-  walks `CTFontCreatePathForGlyph`), scale to 300 units tall inside the 512 box, and write the path as an even-odd fill.
-- File names `wordcraft.svg`, `wordcraft.icns`, `wordcraft.ico`, `ai.storyteller.wordcraft.*` were **kept** so no code path
-  changes.
-- **Not yet confirmed by Chanon:** the second Mac's app was built and opened, but Chanon has not yet given feedback on
-  the icon and name.
+- **Name:** KhianKrub (one word) in English letters for files and bundle ids, เขียนครับ as the Thai display name.
+  Bundle id `io.github.chanonss.khiankrub`, executable `KhianKrub`.
+- **Icon:** the letter ข in gold `#F2B705` on a deep blue `#1E3A8A` rounded square, traced from **Sarabun Bold**
+  (SIL OFL 1.1; `assets/app-icon/OFL-Sarabun.txt`), stored in `assets/app-icon/wordcraft.svg`. The navy `#1E3A8A`
+  and gold are also the interface's default band colours (`theme.rs`: `BAND_NAVY`, `BAND_GOLD`).
+- File names `wordcraft.svg`, `wordcraft.icns`, `wordcraft.ico`, `ai.storyteller.wordcraft.*` were **kept** so no code
+  path changes.
 
 ## 6. Deliberately left as the original (do not "fix")
 
 - Crate names `wordcraft-*`, the internal app id passed to `eframe::run_native("WordCraft", ...)`, icon file names.
 - Settings folder `~/Library/Application Support/WordCraft` (existing settings survive the rename).
 - Info.plist keys `WordCraftVersion` and `WordCraftBuildCommit`.
-- `packaging/macos/package.sh` and the DMG background: the original's release tooling. `package.sh` only follows the new
-  executable and icon names; the DMG still shows the old icon and name. Not used for Chanon's zip releases.
-- The Windows installer files (`packaging/windows/package.ps1`, `wordcraft.wxs`) and the `.msi`/`.zip` names still say
-  WordCraft. The `.exe`'s own file properties (product name, icon, copyright) already say KhianKrub (`apps/wordcraft/build.rs`).
-- The sample document's link to getartcraft.com. (The README was rewritten for KhianKrub on 2026-10-23.)
-- The File menu's "Discord community" and the Help tab's community button still exist (only the title-bar button was removed).
-- Merging the original's later changes will conflict on `crates/ui-egui/src/i18n/` (deleted here).
+- `packaging/macos/package.sh` and the DMG background: the original's release tooling, not used for KhianKrub's zips.
+- The Windows installer source is still `packaging/windows/wordcraft.wxs`, but it installs "KhianKrub" and the files
+  are named `khiankrub-…`.
+- The sample document's link to getartcraft.com.
 
 ## 7. Technical gotchas learned
 
-- egui 0.36: a hovered, unframed selectable label grows by 2 px because the frame stroke counts. All such labels go through
-  `SteadyUi` (`steady_label`, `steady_value`, `steady_toggle`, `steady_scope` in `crates/ui-egui/src/widgets.rs`). Use them for
-  new tab strips or lists. `hover_stability.rs` sweeps every dialog (the full sweep is `--ignored`).
-- Number fields use `NumField` (`numfield.rs`), not `DragValue` (no drag, no resize cursor).
-- UI tests read the AccessKit tree: a text box exposes a `TextInput` node and a `TextRun` child with the same value; pick the
-  `TextInput`.
-- A stale widget id refocused while the canvas is undrawn crashes AccessKit; `refocus_after_chrome_click` guards it.
-- Thai in the interface: the embedded UI fonts have no Thai; `thai_ui_faces` (theme.rs) adds an installed Thai font
-  (Thonburi on macOS) as a fallback, so Thai headings and names draw. The menus stay English (rule 3).
+- egui 0.36: a hovered, unframed selectable label grows by 2 px because the frame stroke counts. Use `SteadyUi`
+  (`steady_label` and friends in `widgets.rs`) for tab strips and lists.
+- Number fields use `NumField` (`numfield.rs`), not `DragValue`.
+- `ui.horizontal` makes a row a little taller than its contents (interact size); in the mini toolbar that broke
+  `every_control_fits_inside_the_bar`. Use `allocate_ui_with_layout` with an exact size for button rows.
+- UI tests read the AccessKit tree: a text box exposes a `TextInput` node and a `TextRun` child with the same value.
+- Thai in the interface comes from an installed Thai font (`thai_ui_faces`: Thonburi on macOS, Leelawadee UI on
+  Windows); the embedded UI fonts have no Thai.
+- Colours come from `theme::Tokens`; `Tokens::get(ctx)` already applies the chosen band colour. The band motifs are
+  drawn in `band_motifs.rs`; `the_band_is_readable` checks white text, gold and the active tab's name on every colour.
 - A release zip must be made with `ditto ... --norsrc --noextattr`; `codesign --strict` rejects extended attributes.
-- **List and page number formats** are drawn by `NumFormat::format` in `crates/doc/src/section.rs`. Every Word format is kept
-  on save; the ones not drawn yet (Hebrew, Arabic, Hindi, Vietnamese, `bahtText`, `dollarText`) show decimal. Word itself
-  shows `bahtText` as decimal in a list.
-- **Checking how a document looks:** headless LibreOffice on these Macs only sees its own bundled fonts (no Thai), so its
-  renders are useless for Thai. Use `wordcraft-cli convert in.docx out.pdf` instead (it uses the installed fonts).
-  To turn PDF pages into images without Poppler, a short Swift script with PDFKit works (`page.thumbnail(of:for:)`).
-- **Observing Word from the command line:** Word's PDF export only writes inside its sandbox
-  (`~/Library/Containers/com.microsoft.Word/Data/`), which macOS will not let other programs read. To read Word's list
-  labels instead, use AppleScript: `list string of list format of (text object of paragraph i of document "x.docx")`
-  (asking `paragraph i` directly returns `missing value`).
-- No `node`, `pandoc` or `pdftoppm` on the second Mac; the system `python3` is too old for `match` statements.
+- **Checking how a document looks:** headless LibreOffice sees no Thai fonts here; use `wordcraft-cli convert` and turn
+  PDF pages into PNGs with a short Swift PDFKit script. Screenshots of a click (for example a selected list number)
+  need a temporary `#[cfg(test)]` harness with `.wgpu()` and `h.render()`; remove it afterwards.
+- **Word compatibility mode** matters: without `compatibilityMode` 15 a table's border sits one cell margin outside the
+  page margin (Word 2007 behaviour), and KhianKrub copies that.
+- No `node`, `pandoc`, `pdftoppm` or `gh`; the system `python3` is too old for `match` statements.
 
-## 8. Building for Windows
+## 8. Builds and releases on GitHub Actions
 
-Chanon asked how to make a Windows version. Three ways; nothing has been tried yet.
-
-1. **Cross-compile on the Mac** (quickest test): `rustup target add x86_64-pc-windows-gnu`, `brew install mingw-w64`, then
-   `cargo build --release -p wordcraft --target x86_64-pc-windows-gnu` → `target/x86_64-pc-windows-gnu/release/wordcraft.exe`.
-   Zip it with `LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`, `ATTRIBUTION.md` and copy it to the PC. It is unsigned, so Windows
-   shows "Windows protected your PC" (More info → Run anyway). The original builds with Microsoft's toolchain on
-   Windows, so this route is untested and may need fixes. x64 PCs only; an ARM PC needs another target.
-2. **Build on the PC**: install Rust (rustup.rs) and Visual Studio Build Tools ("Desktop development with C++"), clone,
-   `git checkout my-changes`, `cargo build --release -p wordcraft`. `packaging/windows/package.ps1` also makes a portable zip
-   and an `.msi` (needs WiX v5; see the script's header). Needs the local commits pushed first, or the `repo` folder copied.
-3. **GitHub Actions** (since 2026-10-24, the way releases are built): `.github/workflows/release-files.yml` runs
-   when a `v*` tag is pushed. A first job makes a **draft** release when the tag has none; then the Windows job
-   (WiX 5.0.2, `packaging\windows\package.ps1 -Arch x64`) and the macOS job (`local-app.sh`, `ditto` zip, strict
-   `codesign` check of the unzipped copy) build in parallel and attach `khiankrub-<version>-windows-x64.msi`,
-   `-portable.zip` and `KhianKrub-<version>-macos-universal.zip` (Apple silicon and Intel; `-apple-silicon.zip`
-   up to 0.7.3), listing each SHA-256 in the run's summary.
-   The tag must be `v<version>` or `v<version>-something` for the version in `Cargo.toml`. Started by hand from the
-   Actions tab (Run workflow), it takes a tag and `both`, `windows` or `mac`. Notes and publishing stay manual.
-   Pushing a tag needs Chanon's OK (rule 1). Uploading a release zip in the browser failed twice on the Mac (it
-   stalls partway at any network speed), which is why the Mac zip is built there too. The original's `release.yml`,
-   `freebsd.yml`, `windows-arm64.yml` and `packaging-lint.yml` were removed: they need storytold's secrets and
-   shared workflows.
-
-A public Windows release would also need the installer files renamed to KhianKrub (section 6), with a FORK-CHANGES entry.
-The PC needs a Thai font for documents; Windows has Leelawadee UI and Tahoma, TH Sarabun New only if installed.
+`.github/workflows/release-files.yml` runs when a `v*` tag is pushed. A first job makes a **draft** release (notes say
+"Built by GitHub Actions. Add the notes, then publish." and link the Code signing policy); then the Windows job (WiX
+5.0.2, `packaging\windows\package.ps1 -Arch x64`) and the macOS job (universal app, `ditto` zip, strict `codesign`
+check) attach `khiankrub-<version>-windows-x64.msi`, `-portable.zip` and `KhianKrub-<version>-macos-universal.zip`.
+The tag must match the version in `Cargo.toml`. The 0.9.0 run took about 17 minutes. The draft's checksums are shown under
+each asset on the releases page (`sha256:…`). Notes and publishing stay manual (rule 1). Windows files are unsigned
+until SignPath answers (section 1).
 
 ## 9. What is next (nothing is forced)
 
-- Try the new app (`~/Applications/KhianKrub.app`), open `thai-test.docx` in it, and give feedback on the icon and name.
-- Optional: a Windows test build (section 8).
-- Optional: offer the Thai list formats in the list numbering dialog (`crates/ui-egui/src/dialogs_lists.rs`); today they
-  only come from opened documents.
-- Next public build: a new release (for example `v0.7.2`; set `version` in the root `Cargo.toml` to match) named like
-  `KhianKrub-0.7.1-macos-apple-silicon.zip`; the browser pane may need a GitHub sign-in again (Claude in Chrome also works);
-  ask before replacing or deleting an older release. The Thai Facebook post for thai.3 and its before/after picture are
-  in `~/Documents/Codex/WordCraft/facebook/`; the release notes in `.../release/`.
-- The old `~/Applications/WordCraft.app` on the first Mac can be moved to the Bin.
-- A Thai interface is **not** wanted; wait for what Chanon raises next.
+- Wait for SignPath's answer and the WordCraft maintainers (section 1).
+- The table cell shading case (section 1, "Known").
+- More of the interface in Thai: dialogs, tooltips and the Options pages are still English.
+- Pick more of WordCraft's fixes when useful (it changes daily; `git log upstream/main`), cherry-picked with `-x`.
 
 ## 10. Notes that do not travel with the repo
 
-Claude Code's own memory lives in `~/.claude/projects/.../memory/` on each Mac separately. The first Mac's memory holds
-the same content as sections 4 and 5. The second Mac's session did not save any memory. On a new Mac, tell the session to
-read this file and `FORK-CHANGES.md` first.
+Claude Code's memory lives in `~/.claude/projects/.../memory/` on each machine separately, and session history is per
+machine too. On a new machine, tell the session to read this file and `FORK-CHANGES.md` first, and copy the side
+folders back from OneDrive › `KhianKrub/` if the work needs them (posters, test-document script, PR texts, SignPath
+notes).
