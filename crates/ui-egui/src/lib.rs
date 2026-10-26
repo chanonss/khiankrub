@@ -25,6 +25,7 @@ pub mod a11y_pane;
 pub mod async_saves;
 pub mod autoscroll;
 pub mod backstage;
+pub mod band_motifs;
 pub mod canvas;
 pub mod caret_glide;
 pub mod chrome;
@@ -253,6 +254,10 @@ pub struct UiState {
     pub recent_colors: Vec<String>,
     /// Interface theme: light, dark, or follow the OS appearance (#115).
     pub theme: theme::Appearance,
+    /// The band's colour at the top (title bar and tab strip): navy or one of five others.
+    pub band_color: theme::BandColor,
+    /// A faint Thai motif on the band, or none.
+    pub band_motif: theme::BandMotif,
     /// Interface size (#475, #822): Auto (the display scale the system reports) or an absolute
     /// size in percent. Junk saved values read as Auto; out-of-range ones are clamped to 50–300 %.
     #[serde(rename = "uiScale")]
@@ -376,6 +381,8 @@ impl Default for UiState {
             recent_symbols: Vec::new(),
             recent_colors: Vec::new(),
             theme: theme::Appearance::default(),
+            band_color: theme::BandColor::default(),
+            band_motif: theme::BandMotif::default(),
             interface_size: theme::InterfaceSize::default(),
             legacy_interface_size: None,
             animations: theme::Animations::default(),
@@ -1479,6 +1486,27 @@ impl WordApp {
                 }
                 json!({"theme": self.ui.theme.code(), "dark": self.ui_is_dark()})
             }
+            "ui.bandColor" => {
+                // The band's colour: navy, teal, forest, plum, maroon or graphite; no value reads it.
+                if let Some(v) = s("value") {
+                    match theme::BandColor::from_code(v) {
+                        Some(c) => self.ui.band_color = c,
+                        None => return Some(Err(format!("unknown band colour {v:?}; use navy, teal, forest, plum, maroon or graphite"))),
+                    }
+                }
+                json!({"color": self.ui.band_color.code()})
+            }
+            "ui.bandMotif" => {
+                // The band's Thai motif: none, prajamYam, krajang, kanKhod, pikul or phaKhaoMa; no
+                // value reads it.
+                if let Some(v) = s("value") {
+                    match theme::BandMotif::from_code(v) {
+                        Some(m) => self.ui.band_motif = m,
+                        None => return Some(Err(format!("unknown motif {v:?}; use none, prajamYam, krajang, kanKhod, pikul or phaKhaoMa"))),
+                    }
+                }
+                json!({"motif": self.ui.band_motif.code()})
+            }
             "ui.interfaceSize" => {
                 // `auto` (the display scale the system reports) or an absolute size in percent,
                 // 50–300 (clamped); no value reads it. `percent` in the result is the size the
@@ -1930,6 +1958,8 @@ impl WordApp {
             theme::apply(ctx, effective);
             self.applied_theme = Some(effective);
         }
+        // The band's colour and motif, read by `Tokens::get` and the band's painters.
+        theme::set_band(ctx, self.ui.band_color, self.ui.band_motif);
         // Interface size (#475, #822): egui's zoom factor multiplies the display scale the system
         // reports (native pixels per point). Auto keeps that scale; a chosen size divides it back
         // out, so "100%" is one screen pixel per point even where the system's scale is a guess.
@@ -2565,6 +2595,8 @@ pub(crate) fn works_without_document(id: &str) -> bool {
             | "ui.keytips"
             | "ui.dark"
             | "ui.theme"
+            | "ui.bandColor"
+            | "ui.bandMotif"
             | "ui.interfaceSize"
             | "ui.animations"
             | "ui.language"
@@ -6308,6 +6340,26 @@ mod tests {
             assert_eq!((InterfaceSize::AUTO.zoom_factor(native), InterfaceSize::AUTO.drawn_percent(native)), (1.0, 100), "{native}");
         }
         assert_eq!(InterfaceSize::AUTO.drawn_percent(f32::MAX), u16::MAX);
+    }
+
+    /// The band's colour and Thai motif: set and read by command, refused when unknown, saved in
+    /// `ui.json`, and given to the theme for drawing.
+    #[test]
+    fn band_colour_and_motif_are_settings() {
+        let mut a = app();
+        assert_eq!(a.run("ui.bandColor", json!({})).unwrap()["color"], "navy");
+        assert_eq!(a.run("ui.bandMotif", json!({})).unwrap()["motif"], "none");
+        assert!(a.run("ui.bandColor", json!({"value": "pink"})).is_err());
+        assert!(a.run("ui.bandMotif", json!({"value": "dragons"})).is_err());
+        assert_eq!(a.run("ui.bandColor", json!({"value": "Maroon"})).unwrap()["color"], "maroon");
+        assert_eq!(a.run("ui.bandMotif", json!({"value": "prajamYam"})).unwrap()["motif"], "prajamYam");
+        let saved = serde_json::to_value(&a.ui).unwrap();
+        assert_eq!((&saved["bandColor"], &saved["bandMotif"]), (&json!("maroon"), &json!("prajamYam")));
+        let back: UiState = serde_json::from_value(json!({"bandColor": "plum", "bandMotif": "junk"})).unwrap();
+        assert_eq!((back.band_color, back.band_motif), (theme::BandColor::Plum, theme::BandMotif::None));
+        let ctx = egui::Context::default();
+        a.logic(&ctx);
+        assert_eq!(theme::band(&ctx), (theme::BandColor::Maroon, theme::BandMotif::PrajamYam));
     }
 
     /// #115: System follows the OS appearance (light when unknown); the manual choices ignore it.

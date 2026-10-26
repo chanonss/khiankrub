@@ -7,6 +7,16 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-26
 
+### Top band colour and Thai motifs
+File › Options › General has two new pickers for the band at the top (title bar and tab strip):
+- **Top band colour (สีแถบด้านบน):** navy (as before), teal, forest green, plum, maroon or graphite, each with
+  a darker shade in the dark theme. A test checks that white text, the gold accent and the active tab's
+  name stay readable on every one (teal and forest green were darkened slightly to pass).
+- **Background (พื้นหลัง):** none, or a faint Thai motif drawn in code on the band's right part, fading in so
+  the tabs stay on plain colour: ประจำยาม, กระจัง, ก้านขด, ดอกพิกุล or ผ้าขาวม้า.
+Both are remembered, and scripts can set them with `ui.bandColor` and `ui.bandMotif`. The active tab's
+curved corners are now drawn so the motif shows around them.
+
 ### Shading button in Table Design
 Table Design's Shading button had its arrow wrapped under the icon and no label. It now reads
 "Shading ▾" on one row, like Styles above it. The shading icon is redrawn as a tipped paint bucket, and its

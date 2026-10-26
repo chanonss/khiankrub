@@ -181,6 +181,7 @@ fn flag(app: &mut WordApp, ui: &mut Ui, label: &str, key: &str, value: bool) {
 fn general(app: &mut WordApp, ui: &mut Ui) {
     section(ui, "Interface");
     theme_picker(app, ui);
+    band_pickers(app, ui);
     interface_size_picker(app, ui);
     ui.checkbox(&mut app.ui.mini_toolbar, tl!("Show the mini toolbar when text is selected"));
     let mut dark_page = app.session.view.dark_mode;
@@ -571,6 +572,53 @@ fn theme_picker(app: &mut WordApp, ui: &mut Ui) {
             for a in Appearance::ALL {
                 if ui.steady_label(app.ui.theme == a, tl!(a.label())).clicked() {
                     let _ = app.run("ui.theme", json!({"value": a.code()}));
+                }
+            }
+        });
+    });
+}
+
+/// The band at the top: its colour and a faint Thai motif, each item shown with a sample.
+fn band_pickers(app: &mut WordApp, ui: &mut Ui) {
+    use crate::theme::{BandColor, BandMotif};
+    let dark = crate::theme::Tokens::get(ui.ctx()).dark;
+    let color = app.ui.band_color;
+    let shade = |c: BandColor| if dark { c.dark() } else { c.light() };
+    // A small band-coloured tile before a picker item's name, with the motif on it.
+    let sample = |ui: &mut Ui, c: BandColor, m: BandMotif| {
+        let (r, _) = ui.allocate_exact_size(vec2(44.0, 18.0), egui::Sense::hover());
+        ui.painter().rect_filled(r, 3.0, shade(c));
+        crate::band_motifs::paint_sample(&ui.painter().with_clip_rect(r), r, m);
+    };
+    ui.horizontal(|ui| {
+        ui.label(tl!("Top band colour:"));
+        egui::ComboBox::from_id_salt("band_color").selected_text(tl!(color.label())).width(220.0).show_ui(ui, |ui| {
+            for c in BandColor::ALL {
+                let resp = ui
+                    .horizontal(|ui| {
+                        sample(ui, c, BandMotif::None);
+                        ui.steady_label(color == c, tl!(c.label()))
+                    })
+                    .inner;
+                if resp.clicked() {
+                    let _ = app.run("ui.bandColor", json!({"value": c.code()}));
+                }
+            }
+        });
+    });
+    let motif = app.ui.band_motif;
+    ui.horizontal(|ui| {
+        ui.label(tl!("Background:"));
+        egui::ComboBox::from_id_salt("band_motif").selected_text(tl!(motif.label())).width(220.0).show_ui(ui, |ui| {
+            for m in BandMotif::ALL {
+                let resp = ui
+                    .horizontal(|ui| {
+                        sample(ui, color, m);
+                        ui.steady_label(motif == m, tl!(m.label()))
+                    })
+                    .inner;
+                if resp.clicked() {
+                    let _ = app.run("ui.bandMotif", json!({"value": m.code()}));
                 }
             }
         });

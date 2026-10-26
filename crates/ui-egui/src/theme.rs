@@ -89,6 +89,171 @@ impl From<Appearance> for String {
     }
 }
 
+/// The colour of the band at the top (title bar and tab strip), File › Options › General
+/// (`ui.bandColor`): KhianKrub's navy or one of five other deep colours, each with a darker shade
+/// for the dark theme. All keep white text and the gold accent readable.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(from = "String", into = "String")]
+pub enum BandColor {
+    #[default]
+    Navy,
+    Teal,
+    Forest,
+    Plum,
+    Maroon,
+    Graphite,
+}
+
+impl BandColor {
+    /// In menu order.
+    pub const ALL: [BandColor; 6] = [BandColor::Navy, BandColor::Teal, BandColor::Forest, BandColor::Plum, BandColor::Maroon, BandColor::Graphite];
+
+    /// The value used in `ui.json` and by `ui.bandColor`.
+    pub fn code(self) -> &'static str {
+        match self {
+            BandColor::Navy => "navy",
+            BandColor::Teal => "teal",
+            BandColor::Forest => "forest",
+            BandColor::Plum => "plum",
+            BandColor::Maroon => "maroon",
+            BandColor::Graphite => "graphite",
+        }
+    }
+
+    pub fn from_code(code: &str) -> Option<BandColor> {
+        BandColor::ALL.into_iter().find(|c| c.code().eq_ignore_ascii_case(code.trim()))
+    }
+
+    /// The English label (translated with `tl!` where shown).
+    pub fn label(self) -> &'static str {
+        match self {
+            BandColor::Navy => "Navy",
+            BandColor::Teal => "Teal",
+            BandColor::Forest => "Forest green",
+            BandColor::Plum => "Plum",
+            BandColor::Maroon => "Maroon",
+            BandColor::Graphite => "Graphite",
+        }
+    }
+
+    /// The band in the light theme.
+    pub fn light(self) -> Color32 {
+        match self {
+            BandColor::Navy => BAND_NAVY,
+            BandColor::Teal => Color32::from_rgb(0x0B, 0x4F, 0x54),
+            BandColor::Forest => Color32::from_rgb(0x1A, 0x52, 0x34),
+            BandColor::Plum => Color32::from_rgb(0x5B, 0x2A, 0x6E),
+            BandColor::Maroon => Color32::from_rgb(0x7A, 0x1F, 0x2B),
+            BandColor::Graphite => Color32::from_rgb(0x2F, 0x34, 0x37),
+        }
+    }
+
+    /// The band in the dark theme: the same colour, darker.
+    pub fn dark(self) -> Color32 {
+        match self {
+            BandColor::Navy => BAND_NAVY_DARK,
+            BandColor::Teal => Color32::from_rgb(0x08, 0x3A, 0x3E),
+            BandColor::Forest => Color32::from_rgb(0x16, 0x42, 0x2A),
+            BandColor::Plum => Color32::from_rgb(0x42, 0x1F, 0x50),
+            BandColor::Maroon => Color32::from_rgb(0x59, 0x17, 0x1F),
+            BandColor::Graphite => Color32::from_rgb(0x23, 0x27, 0x29),
+        }
+    }
+}
+
+impl From<String> for BandColor {
+    fn from(s: String) -> Self {
+        BandColor::from_code(&s).unwrap_or_default()
+    }
+}
+
+impl From<BandColor> for String {
+    fn from(c: BandColor) -> Self {
+        c.code().to_string()
+    }
+}
+
+/// A faint Thai motif on the band's right part, File › Options › General (`ui.bandMotif`); drawn
+/// in code ([`crate::band_motifs`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(from = "String", into = "String")]
+pub enum BandMotif {
+    #[default]
+    None,
+    /// ประจำยาม: a four-petal flower in a diamond, in a staggered grid.
+    PrajamYam,
+    /// กระจัง: a row of leaf-and-flame points along the band's bottom.
+    Krajang,
+    /// ก้านขด: a wavy stem with curling tendrils.
+    KanKhod,
+    /// ดอกพิกุล: small eight-petal flowers.
+    Pikul,
+    /// ผ้าขาวม้า: the woven check of the cloth.
+    PhaKhaoMa,
+}
+
+impl BandMotif {
+    /// In menu order.
+    pub const ALL: [BandMotif; 6] =
+        [BandMotif::None, BandMotif::PrajamYam, BandMotif::Krajang, BandMotif::KanKhod, BandMotif::Pikul, BandMotif::PhaKhaoMa];
+
+    /// The value used in `ui.json` and by `ui.bandMotif`.
+    pub fn code(self) -> &'static str {
+        match self {
+            BandMotif::None => "none",
+            BandMotif::PrajamYam => "prajamYam",
+            BandMotif::Krajang => "krajang",
+            BandMotif::KanKhod => "kanKhod",
+            BandMotif::Pikul => "pikul",
+            BandMotif::PhaKhaoMa => "phaKhaoMa",
+        }
+    }
+
+    pub fn from_code(code: &str) -> Option<BandMotif> {
+        BandMotif::ALL.into_iter().find(|m| m.code().eq_ignore_ascii_case(code.trim()))
+    }
+
+    /// The English label (translated with `tl!` where shown).
+    pub fn label(self) -> &'static str {
+        match self {
+            BandMotif::None => "None",
+            BandMotif::PrajamYam => "Prajam Yam",
+            BandMotif::Krajang => "Krajang",
+            BandMotif::KanKhod => "Kan Khod",
+            BandMotif::Pikul => "Pikul flowers",
+            BandMotif::PhaKhaoMa => "Pha khao ma",
+        }
+    }
+}
+
+impl From<String> for BandMotif {
+    fn from(s: String) -> Self {
+        BandMotif::from_code(&s).unwrap_or_default()
+    }
+}
+
+impl From<BandMotif> for String {
+    fn from(m: BandMotif) -> Self {
+        m.code().to_string()
+    }
+}
+
+/// Where the band's colour and motif are kept in the egui context, for [`Tokens::get`] and the
+/// band's painters.
+fn band_id() -> egui::Id {
+    egui::Id::new("khiankrub_band")
+}
+
+/// Install the band's colour and motif: [`Tokens::get`] gives them from the next call.
+pub fn set_band(ctx: &egui::Context, color: BandColor, motif: BandMotif) {
+    ctx.data_mut(|d| d.insert_temp(band_id(), (color, motif)));
+}
+
+/// The band's colour and motif ([`set_band`]); navy and none until set.
+pub fn band(ctx: &egui::Context) -> (BandColor, BandMotif) {
+    ctx.data(|d| d.get_temp(band_id())).unwrap_or_default()
+}
+
 /// Interface size (File › Options › General, `ui.interfaceSize`): how large the ribbon, menus, panes
 /// and dialogs are drawn, through egui's zoom factor. Document zoom (View › Zoom) is a separate
 /// setting and never changes with it.
@@ -244,6 +409,8 @@ impl From<Animations> for String {
 pub struct Tokens {
     pub dark: bool,
     pub title_bar: Color32,
+    /// The band's colour in the light theme: text on the gold accent and on the white active tab.
+    pub band_ink: Color32,
     pub ribbon: Color32,
     pub tab_strip: Color32,
     pub canvas: Color32,
@@ -295,6 +462,7 @@ impl Tokens {
         Tokens {
             dark: false,
             title_bar: BAND_NAVY,
+            band_ink: BAND_NAVY,
             ribbon: Color32::WHITE,
             tab_strip: BAND_NAVY,
             canvas: Color32::from_rgb(0xE6, 0xE6, 0xE6),
@@ -339,6 +507,7 @@ impl Tokens {
         Tokens {
             dark: true,
             title_bar: BAND_NAVY_DARK,
+            band_ink: BAND_NAVY,
             ribbon: Color32::from_rgb(0x29, 0x29, 0x29),
             tab_strip: BAND_NAVY_DARK,
             canvas: Color32::from_rgb(0x14, 0x14, 0x14),
@@ -381,7 +550,14 @@ impl Tokens {
         }
     }
     pub fn get(ctx: &egui::Context) -> Tokens {
-        if ctx.global_style().visuals.dark_mode { Tokens::dark() } else { Tokens::light() }
+        let t = if ctx.global_style().visuals.dark_mode { Tokens::dark() } else { Tokens::light() };
+        t.with_band(band(ctx).0)
+    }
+
+    /// These tokens with the band in `color` (title bar, tab strip and the ink on gold).
+    pub fn with_band(self, color: BandColor) -> Tokens {
+        let band = if self.dark { color.dark() } else { color.light() };
+        Tokens { title_bar: band, tab_strip: band, band_ink: color.light(), ..self }
     }
 
     /// The colours for `ui`: the band's inside the title bar and tab strip ([`band_ui`]), else
@@ -410,7 +586,7 @@ impl Tokens {
             ribbon: white(0x18),
             accent: BAND_GOLD,
             accent_text: BAND_GOLD,
-            on_accent: BAND_NAVY,
+            on_accent: self.band_ink,
             ..*self
         }
     }
@@ -859,16 +1035,44 @@ mod tests {
     /// navy text on it too, and the active tab's navy name 4.5:1 on the white ribbon.
     #[test]
     fn the_band_is_readable() {
-        for t in [super::Tokens::light(), super::Tokens::dark()] {
-            let b = t.band();
-            for (name, fg) in [("text", b.text), ("text_dim", b.text_dim), ("gold", b.accent_text)] {
-                let r = contrast(fg, t.title_bar);
-                assert!(r >= 4.5, "dark={}: {name} on the band is {r:.2}:1", t.dark);
+        for color in super::BandColor::ALL {
+            for t in [super::Tokens::light(), super::Tokens::dark()] {
+                let t = t.with_band(color);
+                let b = t.band();
+                for (name, fg) in [("text", b.text), ("text_dim", b.text_dim), ("gold", b.accent_text)] {
+                    let r = contrast(fg, t.title_bar);
+                    assert!(r >= 4.5, "{color:?} dark={}: {name} on the band is {r:.2}:1", t.dark);
+                }
+                assert!(contrast(b.on_accent, b.accent) >= 4.5, "{color:?}: the band's colour on gold");
+                if !t.dark {
+                    assert!(contrast(t.band_ink, t.ribbon) >= 4.5, "{color:?}: the active tab's name");
+                }
             }
-            assert!(contrast(b.on_accent, b.accent) >= 4.5, "navy on gold");
         }
-        let t = super::Tokens::light();
-        assert!(contrast(super::BAND_NAVY, t.ribbon) >= 4.5, "the active tab's name");
+    }
+
+    /// The band's colour and motif settings: codes round-trip, unknown ones read as the default.
+    #[test]
+    fn band_settings_round_trip() {
+        for c in super::BandColor::ALL {
+            assert_eq!(super::BandColor::from(String::from(c)), c);
+        }
+        for m in super::BandMotif::ALL {
+            assert_eq!(super::BandMotif::from(String::from(m)), m);
+        }
+        assert_eq!(super::BandColor::from("pink".to_string()), super::BandColor::Navy);
+        assert_eq!(super::BandMotif::from_code(" PIKUL "), Some(super::BandMotif::Pikul));
+        let ctx = egui::Context::default();
+        let shade = |t: super::Tokens, c: super::BandColor| if t.dark { c.dark() } else { c.light() };
+        let t = super::Tokens::get(&ctx);
+        assert_eq!(t.title_bar, shade(t, super::BandColor::Navy), "navy until set");
+        super::set_band(&ctx, super::BandColor::Maroon, super::BandMotif::Krajang);
+        let t = super::Tokens::get(&ctx);
+        assert_eq!(
+            (t.title_bar, t.tab_strip, t.band_ink),
+            (shade(t, super::BandColor::Maroon), shade(t, super::BandColor::Maroon), super::BandColor::Maroon.light())
+        );
+        assert_eq!(super::band(&ctx), (super::BandColor::Maroon, super::BandMotif::Krajang));
     }
 
     /// #657: text field and combo outlines reach 3:1 against the field and everything it sits on.

@@ -225,6 +225,11 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             // below it, its name in navy.
             crate::theme::band_ui(ui);
             let band = t.band();
+            // The band's motif, carried on from the title bar.
+            let (_, motif) = crate::theme::band(ui.ctx());
+            let strip = ui.clip_rect();
+            let motif_band = crate::band_motifs::band_rect(ui.ctx()).unwrap_or(strip);
+            crate::band_motifs::paint(ui.painter(), motif_band, motif, t.dark);
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing = vec2(2.0, 0.0);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -320,11 +325,23 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                                 // The strip is cut off where the ribbon starts: curve up from there,
                                 // or the ribbon hides the curve's lower part and it looks tighter.
                                 let bottom = tab_r.max.y.min(ui.clip_rect().max.y);
+                                // Each is a fan of triangles from the tab's foot to the quarter
+                                // circle, so the band (and its motif) shows above the curve.
                                 for (x, outer) in [(tab_r.min.x, tab_r.min.x - R), (tab_r.max.x, tab_r.max.x + R)] {
-                                    let square = Rect::from_two_pos(pos2(x, bottom), pos2(outer, bottom - R));
-                                    let p = ui.painter().with_clip_rect(square);
-                                    p.rect_filled(square, 0.0, t.ribbon);
-                                    p.circle_filled(pos2(outer, bottom - R), R, t.title_bar);
+                                    let centre = pos2(outer, bottom - R);
+                                    let mut mesh = egui::epaint::Mesh::default();
+                                    mesh.colored_vertex(pos2(x, bottom), t.ribbon);
+                                    const STEPS: u32 = 8;
+                                    for i in 0..=STEPS {
+                                        let a = std::f32::consts::FRAC_PI_2 * i as f32 / STEPS as f32;
+                                        // From straight below the centre round to level with it, on the tab's side.
+                                        let p = centre + vec2((x - outer).signum() * R * a.sin(), R * a.cos());
+                                        mesh.colored_vertex(p, t.ribbon);
+                                        if i > 0 {
+                                            mesh.add_triangle(0, i, i + 1);
+                                        }
+                                    }
+                                    ui.painter().add(mesh);
                                 }
                             } else if resp.hovered() {
                                 ui.painter().rect_filled(r.shrink2(vec2(0.0, 4.0)), 4.0, band.hover);
@@ -332,7 +349,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                             // The active tab's name in the app's navy (light blue in the dark theme); the
                             // others white; contextual tabs (Table Design…) in the icon's gold.
                             let color = if active {
-                                if t.dark { t.accent_text } else { crate::theme::BAND_NAVY }
+                                if t.dark { t.accent_text } else { t.band_ink }
                             } else if contextual {
                                 band.accent_text
                             } else {
