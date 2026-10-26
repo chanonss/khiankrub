@@ -233,74 +233,136 @@ type ThumbCache = std::collections::HashMap<usize, (u64, egui::TextureHandle)>;
 
 /// Navigation › Pages: a small picture of each page with its number below, the current page
 /// outlined, as in Word. Clicking one goes to that page. Thumbnails are rendered only once
-/// scrolled into view and again only when that page's content changes.
+/// scrolled into view and again only when that page's content changes. With mirror margins
+/// (facing pages) they are shown in spreads, as the pages face each other in print: the first
+/// page alone on the right, then each even page on the left of the odd page after it.
 fn page_thumbnails(app: &mut WordApp, ui: &mut Ui) {
-    use std::hash::{Hash, Hasher};
-    let t = Tokens::get(ui.ctx());
     let l = app.session.layout();
-    let ppp = ui.ctx().pixels_per_point();
-    let width = (ui.available_width() - 40.0).clamp(60.0, 150.0);
     let cache_id = egui::Id::new("nav_page_thumbs");
     let mut cache: ThumbCache = ui.ctx().data_mut(|d| d.get_temp(cache_id)).unwrap_or_default();
     cache.retain(|i, _| *i < l.pages.len());
     let mut budget = THUMBS_PER_FRAME;
-    for (i, page) in l.pages.iter().enumerate() {
-        if page.w <= 0.0 || page.h <= 0.0 {
-            continue;
-        }
-        let size = vec2(width, width * page.h / page.w);
-        let current = app.session.page_hint == i;
-        let resp = ui
-            .vertical_centered(|ui| {
-                ui.add_space(6.0);
-                let (r, resp) = ui.allocate_exact_size(size, egui::Sense::click());
-                if ui.is_rect_visible(r) {
-                    let mut h = std::collections::hash_map::DefaultHasher::new();
-                    (crate::canvas::page_content_key(page), width.to_bits(), ppp.to_bits()).hash(&mut h);
-                    let key = h.finish();
-                    let fresh = cache.get(&i).is_some_and(|(k, _)| *k == key);
-                    if !fresh && budget > 0 {
-                        budget -= 1;
-                        let img =
-                            wordcraft_render::render_page(&app.session.doc, page, width / page.w * ppp, &crate::canvas::screen_render_options());
-                        let tex = ui.ctx().load_texture(
-                            format!("nav page {i}"),
-                            egui::ColorImage::from_rgba_premultiplied([img.width as usize, img.height as usize], &img.pixels),
-                            egui::TextureOptions::LINEAR,
-                        );
-                        cache.insert(i, (key, tex));
-                    } else if !fresh {
-                        ui.ctx().request_repaint();
+    let mut go = None;
+    if spreads(app) {
+        const GAP: f32 = 8.0;
+        let width = ((ui.available_width() - 32.0 - GAP) / 2.0).clamp(40.0, 110.0);
+        let indent = ((ui.available_width() - 2.0 * width - GAP) / 2.0).max(0.0);
+        for row in spread_rows(l.pages.len()) {
+            ui.horizontal_top(|ui| {
+                ui.spacing_mut().item_spacing.x = 0.0;
+                ui.add_space(indent);
+                for (k, slot) in row.into_iter().enumerate() {
+                    if k == 1 {
+                        ui.add_space(GAP);
                     }
-                    ui.painter().rect_filled(r, 0.0, egui::Color32::WHITE);
-                    // A stale picture stays until its new one is ready, rather than a blank page.
-                    if let Some((_, tex)) = cache.get(&i) {
-                        let uv = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
-                        ui.painter().image(tex.id(), r, uv, egui::Color32::WHITE);
-                    }
-                    let (w, c) = if current {
-                        (3.0, t.accent)
-                    } else if resp.hovered() {
-                        (2.0, t.accent.linear_multiply(0.6))
-                    } else {
-                        (1.0, t.border_strong)
+                    let Some(page) = slot.and_then(|i| l.pages.get(i).map(|p| (i, p))) else {
+                        ui.add_space(width);
+                        continue;
                     };
-                    ui.painter().rect_stroke(r.expand(if current { 2.0 } else { 0.0 }), 2.0, Stroke::new(w, c), egui::StrokeKind::Outside);
+                    let size = vec2(width, width * page.1.h / page.1.w.max(1.0) + 40.0);
+                    ui.allocate_ui_with_layout(size, egui::Layout::top_down(egui::Align::Center), |ui| {
+                        if thumbnail(app, ui, page, width, &mut cache, &mut budget).is_some_and(|r| r.clicked()) {
+                            go = Some(page.0);
+                        }
+                    });
                 }
-                let label = crate::i18n::fmt(tl!("Page {page}"), &[("page", &page.number.to_string())]);
-                ui.add_space(if current { 5.0 } else { 3.0 });
-                let font = if current { semibold(11.5) } else { regular(11.5) };
-                ui.label(egui::RichText::new(&label).font(font).color(if current { t.accent_text } else { t.text_dim }));
-                resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, current, &label));
-                resp
-            })
-            .inner;
-        if resp.clicked() {
-            let _ = app.run("edit.goto", json!({"page": i + 1}));
+            });
         }
+    } else {
+        let width = (ui.available_width() - 40.0).clamp(60.0, 150.0);
+        for page in l.pages.iter().enumerate() {
+            ui.vertical_centered(|ui| {
+                if thumbnail(app, ui, page, width, &mut cache, &mut budget).is_some_and(|r| r.clicked()) {
+                    go = Some(page.0);
+                }
+            });
+        }
+    }
+    if let Some(i) = go {
+        let _ = app.run("edit.goto", json!({"page": i + 1}));
     }
     ui.add_space(6.0);
     ui.ctx().data_mut(|d| d.insert_temp(cache_id, cache));
+}
+
+/// Whether the page thumbnails are shown as facing pages: the document has mirror margins.
+fn spreads(app: &WordApp) -> bool {
+    app.session.doc.settings.mirror_margins
+}
+
+/// The rows of a spread view of `n` pages, by page index, left then right: the first page alone
+/// on the right, then the pages in pairs.
+fn spread_rows(n: usize) -> Vec<[Option<usize>; 2]> {
+    let mut rows = Vec::new();
+    if n > 0 {
+        rows.push([None, Some(0)]);
+    }
+    let mut i = 1;
+    while i < n {
+        rows.push([Some(i), (i + 1 < n).then_some(i + 1)]);
+        i += 2;
+    }
+    rows
+}
+
+/// One page's thumbnail, `width` points wide, with its label below; `None` for a page with no
+/// size.
+fn thumbnail(
+    app: &WordApp,
+    ui: &mut Ui,
+    (i, page): (usize, &wordcraft_layout::Page),
+    width: f32,
+    cache: &mut ThumbCache,
+    budget: &mut usize,
+) -> Option<egui::Response> {
+    use std::hash::{Hash, Hasher};
+    if page.w <= 0.0 || page.h <= 0.0 {
+        return None;
+    }
+    let t = Tokens::get(ui.ctx());
+    let ppp = ui.ctx().pixels_per_point();
+    let size = vec2(width, width * page.h / page.w);
+    let current = app.session.page_hint == i;
+    ui.add_space(6.0);
+    let (r, resp) = ui.allocate_exact_size(size, egui::Sense::click());
+    if ui.is_rect_visible(r) {
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        (crate::canvas::page_content_key(page), width.to_bits(), ppp.to_bits()).hash(&mut h);
+        let key = h.finish();
+        let fresh = cache.get(&i).is_some_and(|(k, _)| *k == key);
+        if !fresh && *budget > 0 {
+            *budget -= 1;
+            let img = wordcraft_render::render_page(&app.session.doc, page, width / page.w * ppp, &crate::canvas::screen_render_options());
+            let tex = ui.ctx().load_texture(
+                format!("nav page {i}"),
+                egui::ColorImage::from_rgba_premultiplied([img.width as usize, img.height as usize], &img.pixels),
+                egui::TextureOptions::LINEAR,
+            );
+            cache.insert(i, (key, tex));
+        } else if !fresh {
+            ui.ctx().request_repaint();
+        }
+        ui.painter().rect_filled(r, 0.0, egui::Color32::WHITE);
+        // A stale picture stays until its new one is ready, rather than a blank page.
+        if let Some((_, tex)) = cache.get(&i) {
+            let uv = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
+            ui.painter().image(tex.id(), r, uv, egui::Color32::WHITE);
+        }
+        let (w, c) = if current {
+            (3.0, t.accent)
+        } else if resp.hovered() {
+            (2.0, t.accent.linear_multiply(0.6))
+        } else {
+            (1.0, t.border_strong)
+        };
+        ui.painter().rect_stroke(r.expand(if current { 2.0 } else { 0.0 }), 2.0, Stroke::new(w, c), egui::StrokeKind::Outside);
+    }
+    let label = crate::i18n::fmt(tl!("Page {page}"), &[("page", &page.number.to_string())]);
+    ui.add_space(if current { 5.0 } else { 3.0 });
+    let font = if current { semibold(11.5) } else { regular(11.5) };
+    ui.label(egui::RichText::new(&label).font(font).color(if current { t.accent_text } else { t.text_dim }));
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, current, &label));
+    Some(resp)
 }
 
 /// Constrain each heading to the available pane width so long document text cannot
@@ -933,6 +995,43 @@ mod navigation_tests {
         for font in [regular(12.5), semibold(12.5), crate::theme::medium(12.5)] {
             assert!(ctx.fonts_mut(|f| f.has_glyphs(&font, "ชื่อเต็มของกรุงเทพมหานคร")), "{font:?} draws Thai");
         }
+    }
+
+    /// With mirror margins the thumbnails face each other as printed pages do: page 1 alone on the
+    /// right, then 2 beside 3 and 4 beside 5; without them, one column.
+    #[test]
+    fn mirror_margins_show_the_thumbnails_in_spreads() {
+        assert_eq!(spread_rows(0), Vec::<[Option<usize>; 2]>::new());
+        assert_eq!(spread_rows(4), vec![[None, Some(0)], [Some(1), Some(2)], [Some(3), None]]);
+        let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Default::default());
+        for k in 1..=5 {
+            if k > 1 {
+                a.run("insert.pageBreak", json!({})).unwrap();
+            }
+            a.run("text.insert", json!({"text": format!("Page {k}")})).unwrap();
+        }
+        a.run("layout.margins", json!({"preset": "mirrored"})).unwrap();
+        a.run("ui.navTab", json!({"tab": "pages"})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1200.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(8);
+        let at = |h: &egui_kittest::Harness<'_, WordApp>, n: u32| {
+            egui_kittest::kittest::Queryable::get_by_role_and_label(h, egui::accesskit::Role::Button, &format!("Page {n}")).rect()
+        };
+        let (p1, p2, p3, p4, p5) = (at(&h, 1), at(&h, 2), at(&h, 3), at(&h, 4), at(&h, 5));
+        assert!((p2.min.y - p3.min.y).abs() < 1.0 && (p4.min.y - p5.min.y).abs() < 1.0, "2 faces 3 and 4 faces 5");
+        assert!(p2.max.x < p3.min.x && p1.min.x > p2.max.x, "even pages on the left, odd on the right");
+        assert!((p1.min.x - p3.min.x).abs() < 1.0 && p1.max.y < p2.min.y, "page 1 alone, on the right");
+        h.state_mut().run("layout.margins", json!({"preset": "normal"})).unwrap();
+        h.run_steps(4);
+        let (p2, p3) = (at(&h, 2), at(&h, 3));
+        assert!((p2.min.x - p3.min.x).abs() < 1.0 && p2.max.y < p3.min.y, "one column again");
     }
 
     /// Navigation › Pages shows a thumbnail of every page, labelled with its number, and clicking

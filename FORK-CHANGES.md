@@ -7,6 +7,11 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-26
 
+### Page thumbnails as facing pages
+With Mirror margins on (Layout › Margins › Mirrored, Word's facing pages), Navigation › Pages shows the
+thumbnails in spreads, as Apple Pages does with Facing Pages: page 1 alone on the right, then 2 beside 3,
+4 beside 5. Without mirror margins they stay in one column.
+
 ### A Thai test document
 `examples/thai-format-test.docx` is a five-page Thai document to open after every change. Each section has a
 grey note saying what to look at: Thai fonts (including ones that may be missing, such as Angsana New),
