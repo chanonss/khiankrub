@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use crate::colors::{Remember, Target};
 use crate::options::MeasureExt;
 use crate::theme::{Tokens, medium, regular, semibold};
-use crate::widgets::{CONTENT_H, LABEL_H, big, big_toggle, combo, font_combo, group, menu_button, small, split};
+use crate::widgets::{CONTENT_H, LABEL_H, big, big_toggle, combo, font_combo, group, menu_button, small, split, split_labeled};
 use crate::{WordApp, icons};
 
 pub const TABS: [&str; 13] = wordcraft_engine::ribbon::TABS;
@@ -1556,7 +1556,8 @@ fn home(app: &mut WordApp, ui: &mut Ui) {
                     mi(ui, app, "Remove Space After Paragraph", "para.removeSpaceAfter", json!({}));
                     mi(ui, app, "Line Spacing Options…", "para.dialog", json!({}));
                 });
-                split(ui, app, "shading", "Shading", "para.shading", json!({"color": app.canvas.last_shading.clone()}), false, None, |ui, app| {
+                let swatch = crate::colors::parse(&app.canvas.last_shading).map(|c| egui::Color32::from_rgb(c.0, c.1, c.2));
+                split(ui, app, "shading", "Shading", "para.shading", json!({"color": app.canvas.last_shading.clone()}), false, swatch, |ui, app| {
                     mi(ui, app, "No Color", "para.shading", json!({"color": null}));
                     let theme = app.session.doc.settings.theme_colors.clone();
                     crate::colors::menu(ui, app, &theme, Target::cmd("para.shading").remember(Remember::Shading));
@@ -3125,7 +3126,9 @@ fn table_design(app: &mut WordApp, ui: &mut Ui) {
                     ui.close();
                 }
             });
-            split(ui, app, "shading", "Shading", "table.shading", json!({"color": app.canvas.last_shading.clone()}), false, None, |ui, app| {
+            let swatch = crate::colors::parse(&app.canvas.last_shading).map(|c| egui::Color32::from_rgb(c.0, c.1, c.2));
+            let params = json!({"color": app.canvas.last_shading.clone()});
+            split_labeled(ui, app, "shading", Some("Shading"), "Shading", "table.shading", params, false, swatch, |ui, app| {
                 mi(ui, app, "No Color", "table.shading", json!({"color": null}));
                 let theme = app.session.doc.settings.theme_colors.clone();
                 crate::colors::menu(ui, app, &theme, Target::cmd("table.shading").remember(Remember::Shading));

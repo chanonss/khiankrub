@@ -230,27 +230,57 @@ pub fn split(
     swatch: Option<Color32>,
     menu: impl FnOnce(&mut Ui, &mut WordApp),
 ) {
+    split_labeled(ui, app, icon, None, tip, id, params, checked, swatch, menu);
+}
+
+/// A split button with an optional label after its icon (Table Design's Shading). The button
+/// and its arrow stay on one row, also in a column of small buttons.
+pub fn split_labeled(
+    ui: &mut Ui,
+    app: &mut WordApp,
+    icon: &str,
+    label: Option<&str>,
+    tip: &str,
+    id: &str,
+    params: Value,
+    checked: bool,
+    swatch: Option<Color32>,
+    menu: impl FnOnce(&mut Ui, &mut WordApp),
+) {
     let tip = tl!(tip);
+    let label = label.map(|l| tl!(l));
     let t = Tokens::get(ui.ctx());
-    let (r, resp) = ui.allocate_exact_size(vec2(SMALL_W, SMALL_H), Sense::click());
-    keytip_badge(ui, r, id, tip);
-    let (ar, aresp) = ui.allocate_exact_size(vec2(11.0, SMALL_H), Sense::click());
-    bg(ui, r, &resp, checked, &t);
-    bg(ui, ar, &aresp, false, &t);
-    let ic = Rect::from_center_size(r.center(), vec2(SMALL_ICON, SMALL_ICON));
-    icons::paint(ui.painter(), ic, icon, t.icon, t.accent);
-    if let Some(sw) = swatch {
-        ui.painter().rect_filled(Rect::from_min_max(pos2(r.min.x + 4.0, r.max.y - 5.0), pos2(r.max.x - 4.0, r.max.y - 2.0)), 0.0, sw);
-    }
-    icons::paint(ui.painter(), Rect::from_center_size(ar.center(), vec2(DROPDOWN, DROPDOWN)), "dropdown", t.icon, t.accent);
-    let resp = tooltip(app, resp, tip, id);
-    command_menu(&resp, app, id);
-    if resp.clicked() {
-        run_from_ribbon(app, id, params);
-    }
-    egui::Popup::menu(&aresp).show(|ui| {
-        ui.set_min_width(180.0);
-        menu(ui, app);
+    let text_w = label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(11.5), t.text).size().x) + 4.0).unwrap_or(0.0);
+    let gap = ui.spacing().item_spacing.x;
+    // A row exactly the button's size (`ui.horizontal` would make it a little taller).
+    ui.allocate_ui_with_layout(vec2(SMALL_W + text_w + gap + 11.0, SMALL_H), egui::Layout::left_to_right(egui::Align::Center), |ui| {
+        let (r, resp) = ui.allocate_exact_size(vec2(SMALL_W + text_w, SMALL_H), Sense::click());
+        keytip_badge(ui, r, id, tip);
+        let (ar, aresp) = ui.allocate_exact_size(vec2(11.0, SMALL_H), Sense::click());
+        bg(ui, r, &resp, checked, &t);
+        bg(ui, ar, &aresp, false, &t);
+        let ir = Rect::from_min_size(r.min, vec2(SMALL_W, SMALL_H));
+        let ic = Rect::from_center_size(ir.center(), vec2(SMALL_ICON, SMALL_ICON));
+        icons::paint(ui.painter(), ic, icon, t.icon, t.accent);
+        if let Some(sw) = swatch {
+            // Over the icon's own colour bar, outlined so a pale colour still shows.
+            let bar = Rect::from_min_max(pos2(ic.min.x + 2.0, ic.min.y + 16.5), pos2(ic.max.x - 2.0, ic.min.y + 19.0));
+            ui.painter().rect_filled(bar, 0.0, sw);
+            ui.painter().rect_stroke(bar, 0.0, Stroke::new(0.6, t.border_strong), egui::StrokeKind::Inside);
+        }
+        if let Some(l) = label {
+            ui.painter().text(pos2(ir.max.x, r.center().y), Align2::LEFT_CENTER, l, regular(11.5), t.text);
+        }
+        icons::paint(ui.painter(), Rect::from_center_size(ar.center(), vec2(DROPDOWN, DROPDOWN)), "dropdown", t.icon, t.accent);
+        let resp = tooltip(app, resp, tip, id);
+        command_menu(&resp, app, id);
+        if resp.clicked() {
+            run_from_ribbon(app, id, params);
+        }
+        egui::Popup::menu(&aresp).show(|ui| {
+            ui.set_min_width(180.0);
+            menu(ui, app);
+        });
     });
 }
 

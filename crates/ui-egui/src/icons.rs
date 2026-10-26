@@ -249,10 +249,14 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
             pen.line_c(&[(2.5, 5.0), (4.5, 3.0), (6.5, 5.0)], a);
             pen.line_c(&[(2.5, 15.0), (4.5, 17.0), (6.5, 15.0)], a);
         }
+        // A tipped paint bucket: its handle over the top, paint in its lower half and a drop
+        // falling from its rim, over the colour bar.
         "shading" => {
-            pen.fill(&[(4.0, 9.0), (10.0, 3.0), (16.0, 9.0), (10.0, 15.0)], Color32::TRANSPARENT);
-            pen.closed(&[(4.0, 9.0), (10.0, 3.0), (16.0, 9.0), (10.0, 15.0)], c);
-            pen.fcircle(16.5, 13.5, 1.6, a);
+            pen.line_c(&[(4.0, 8.5), (3.6, 4.6), (6.0, 2.4), (9.5, 2.6)], c);
+            pen.fill(&[(4.0, 9.0), (15.0, 9.0), (9.5, 14.5)], a);
+            pen.closed(&[(4.0, 9.0), (9.5, 3.5), (15.0, 9.0), (9.5, 14.5)], c);
+            pen.line_c(&[(15.0, 9.0), (16.5, 11.0)], a);
+            pen.fcircle(16.5, 13.0, 1.7, a);
             pen.frect(2.0, 16.5, 18.0, 19.0, yellow);
         }
         // A dotted 2 × 2 grid with a solid bottom border. Dots every 1.75 units, big enough to

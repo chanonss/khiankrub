@@ -7,6 +7,11 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-26
 
+### Shading button in Table Design
+Table Design's Shading button had its arrow wrapped under the icon and no label. It now reads
+"Shading ▾" on one row, like Styles above it. The shading icon is redrawn as a tipped paint bucket, and its
+colour bar (here and on Home) shows the last shading colour used, outlined so pale colours still show.
+
 ### Page thumbnails as facing pages
 With Mirror margins on (Layout › Margins › Mirrored, Word's facing pages), Navigation › Pages shows the
 thumbnails in spreads, as Apple Pages does with Facing Pages: page 1 alone on the right, then 2 beside 3,
