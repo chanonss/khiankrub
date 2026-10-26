@@ -18,7 +18,7 @@ pub const LEVELS: usize = 9;
 pub fn specs() -> Vec<CommandSpec> {
     vec![
         CommandSpec::new("list.define", "Define New Multilevel List", "Home › Paragraph › Multilevel List", define).params(
-            r#"{"levels": [{"format"?: "decimal|lowerLetter|upperLetter|lowerRoman|upperRoman|decimalZero|ordinal|cardinalText|thaiNumbers|thaiLetters|thaiCounting|bullet|none", "text"?: "%1.%2." (%n = level n's number; the bullet character for bullet), "start"?: n, "restartAfter"?: 0-8 (0 = never; omit = the level above), "style"?: paragraph style linked to the level | null, "align"?: "left|center|right", "alignedAt"?: pt, "indentAt"?: pt, "follow"?: "tab|space|nothing", "tabAt"?: pt | null, "font"?: string | null, "bold"?: bool, "italic"?: bool (false: as the paragraph), "color"?: "RRGGBB" | null, "legal"?: bool}, …] (index = level, up to 9; fields left out keep the base list's), "num"?: list id to change in place (default: a new list), "apply"?: bool (default true: number the selected paragraphs), "name"?: string}"#,
+            r#"{"levels": [{"format"?: "decimal|lowerLetter|upperLetter|lowerRoman|upperRoman|decimalZero|ordinal|cardinalText|thaiNumbers|thaiLetters|thaiCounting|bullet|none", "text"?: "%1.%2." (%n = level n's number; the bullet character for bullet), "start"?: n, "restartAfter"?: 0-8 (0 = never; omit = the level above), "style"?: paragraph style linked to the level | null, "align"?: "left|center|right", "alignedAt"?: pt, "indentAt"?: pt, "follow"?: "tab|space|nothing", "tabAt"?: pt | null, "font"?: string | null, "bold"?: bool, "italic"?: bool (false: as the paragraph), "size"?: pt | null, "underline"?: bool, "color"?: "RRGGBB" | null, "legal"?: bool}, …] (index = level, up to 9; fields left out keep the base list's), "num"?: list id to change in place (default: a new list), "apply"?: bool (default true: number the selected paragraphs), "name"?: string}"#,
         ),
         CommandSpec::new("list.get", "List Definition", "Home › Paragraph › Multilevel List", get)
             .params(r#"{"num"?: list id (default: the caret's list)} → {"num", "levels": [as list.define]}"#)
@@ -54,6 +54,8 @@ pub fn level_json(l: &Level) -> Value {
         "font": l.chr.font.as_ref().or(l.chr.font_cs.as_ref()),
         "bold": l.chr.bold.unwrap_or(false),
         "italic": l.chr.italic.unwrap_or(false),
+        "size": l.chr.size.or(l.chr.size_cs),
+        "underline": l.chr.underline.is_some_and(|u| u != wordcraft_doc::props::Underline::None),
         "color": color,
         "legal": l.legal,
     })
@@ -130,6 +132,19 @@ pub fn level_from(mut l: Level, i: usize, v: &Value) -> Level {
     }
     if let Some(b) = p::bool(v, "italic") {
         (l.chr.italic, l.chr.italic_cs) = if b { (Some(true), Some(true)) } else { (None, None) };
+    }
+    // The number's size (points, for Thai text too); null follows the paragraph.
+    match v.get("size") {
+        Some(Value::Null) => (l.chr.size, l.chr.size_cs) = (None, None),
+        Some(_) => {
+            if let Some(sz) = p::f32(v, "size").filter(|s| s.is_finite()).map(|s| (s * 2.0).round().clamp(2.0, 3276.0) / 2.0) {
+                (l.chr.size, l.chr.size_cs) = (Some(sz), Some(sz));
+            }
+        }
+        None => {}
+    }
+    if let Some(b) = p::bool(v, "underline") {
+        l.chr.underline = b.then_some(wordcraft_doc::props::Underline::Single);
     }
     match v.get("color") {
         Some(Value::Null) => l.chr.color = None,

@@ -89,6 +89,8 @@ pub struct CanvasState {
     /// Document faces added to the interface fonts so the input method's composition (#565) and a
     /// file name in the window caption can be drawn.
     pub(crate) ime_faces: Vec<std::sync::Arc<wordcraft_fonts::FontFace>>,
+    /// The list number selected by clicking it ([`crate::number_select`]).
+    pub(crate) number_sel: Option<(StoryRef, wordcraft_doc::Path)>,
     pub want_focus: bool,
     pub context_issue: Option<serde_json::Value>,
     pub context_synonyms: Option<serde_json::Value>,
@@ -216,6 +218,7 @@ impl Default for CanvasState {
             render_ms: 0.0,
             ime_preedit: String::new(),
             ime_faces: Vec::new(),
+            number_sel: None,
             want_focus: true,
             context_issue: None,
             context_synonyms: None,
@@ -1302,6 +1305,14 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 screen_rects.push(sr);
             }
         }
+        // A selected list number and its level's numbers.
+        crate::number_select::paint(
+            app,
+            &layout,
+            &rects,
+            |pi| layout.pages.get(pi).zip(rects.get(pi)).map_or(geo.scale, |(page, pr)| page_screen_scale(*pr, page, geo.scale)),
+            &painter,
+        );
         // Anchor only to visible selection geometry. A selection can span pages, and its
         // document-first line may be scrolled offscreen; using it would pin the toolbar to an
         // old screen position unrelated to the visible selection.
@@ -2220,6 +2231,7 @@ fn mouse(app: &mut WordApp, ui: &Ui, resp: &egui::Response, rects: &[Rect], layo
         let clicks = press_count(app.canvas.last_press, now, p, delay, dist);
         app.canvas.last_press = Some((now, p, clicks));
         app.canvas.unit_drag = None;
+        app.canvas.number_sel = None;
         // A double-click that enters or leaves a header/footer is handled on release.
         let hf_switch =
             (hf_zone.is_some() && story == StoryRef::Body) || (matches!(story, StoryRef::Part(_)) && !in_text_box(app) && hf_zone.is_none());
@@ -2240,6 +2252,16 @@ fn mouse(app: &mut WordApp, ui: &Ui, resp: &egui::Response, rects: &[Rect], layo
                 _ => story,
             }
         };
+        // A click on a list paragraph's number selects the number (and shows its level's
+        // numbers), as in Word.
+        if !mods.shift
+            && clicks == 1
+            && let Some((s, path)) = layout.label_at(page, x, y)
+        {
+            crate::number_select::select(app, s, path);
+            app.session.page_hint = page;
+            return;
+        }
         if !mods.shift
             && let Some((at, inner)) = layout.equation_hit(page, x, y, story)
         {

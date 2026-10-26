@@ -63,6 +63,7 @@ pub mod ink;
 pub mod keys;
 pub mod keytips;
 pub mod mini_toolbar;
+pub mod number_select;
 pub mod number_text;
 pub mod numfield;
 pub mod objects;
@@ -797,6 +798,10 @@ impl WordApp {
     /// Close, Envelopes, Labels and Finish & Merge on a document with unsaved changes first ask
     /// Save / Don't Save / Cancel, and the command runs once that is answered (`ui.saveChanges`).
     pub fn run(&mut self, id: &str, params: Value) -> Result<Value, String> {
+        // A selected list number takes the font formatting itself ([`number_select`]).
+        if let Some(r) = number_select::route(self, id, &params) {
+            return r;
+        }
         if id == "file.recover" && params.as_object().is_none_or(|p| p.is_empty()) {
             self.ui.backstage = true;
             self.ui.backstage_page = "recover".into();

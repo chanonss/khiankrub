@@ -609,6 +609,43 @@ impl DocLayout {
         out
     }
 
+    /// The box of a list paragraph's number in one placed piece (page coordinates): from the
+    /// number to where its text starts, so the tab or space after it is in the box, as Word
+    /// highlights a selected number; on the number's line. `None` without a number on this piece
+    /// or in turned text.
+    fn label_box(it: &Placed) -> Option<Rect> {
+        let Placed::Lines { para, l0, l1, x, y, turn: TextDirection::Horizontal, .. } = it else { return None };
+        let lab = para.label.as_ref()?;
+        let li = para.label_line();
+        if li < *l0 || li >= *l1 {
+            return None;
+        }
+        let first = para.lines.get(*l0)?;
+        let line = para.lines.get(li)?;
+        let (mut x0, mut x1) = (lab.x, lab.x + lab.width);
+        // Out to the text: the first character's edge on the number's side.
+        if let Some(tx) = para.x_of(li, line.start) {
+            if line.rtl { x0 = x0.min(tx) } else { x1 = x1.max(tx) }
+        }
+        Some(Rect::new(x + x0, y + (line.top - first.top), (x1 - x0).max(0.0), line.height))
+    }
+
+    /// Where the list number of the paragraph at `path` is drawn: its page and box (see
+    /// [`Self::label_box`]).
+    pub fn label_rect(&self, story: StoryRef, path: &Path, page_hint: usize) -> Option<(usize, Rect)> {
+        self.pieces(story, path, page_hint).into_iter().find_map(|(pi, it)| Self::label_box(it).map(|r| (pi, r)))
+    }
+
+    /// The paragraph whose list number is at (`x`, `y`) on page `pi` (page coordinates).
+    pub fn label_at(&self, pi: usize, x: f32, y: f32) -> Option<(StoryRef, Path)> {
+        let page = self.pages.get(pi)?;
+        page.items.iter().find_map(|it| {
+            let r = Self::label_box(it)?;
+            let Placed::Lines { story, path, .. } = it else { return None };
+            (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h).then(|| (*story, path.clone()))
+        })
+    }
+
     /// Highlight rectangles for the selection `a..b`, per page.
     pub fn selection_rects(&self, doc: &Document, a: &Pos, b: &Pos, page_hint: usize) -> Vec<(usize, Rect)> {
         let (a, b) = if a <= b { (a, b) } else { (b, a) };
@@ -641,7 +678,9 @@ impl DocLayout {
                         }
                         // Selection continuing past the paragraph end shows the paragraph mark.
                         if li + 1 == para.lines.len() && path != b.path {
-                            let ex = l.end_x();
+                            // Where the mark is drawn: the line's visual end, which differs from
+                            // its logical end when the last text runs the other way.
+                            let ex = l.visual_end_x();
                             let w = para.mark_width();
                             let x0 = if l.rtl { ex - w } else { ex };
                             put(Rect::new(x0, top, w, l.height));

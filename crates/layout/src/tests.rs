@@ -1386,10 +1386,18 @@ fn selection_rects_cover_range() {
 }
 
 /// A selection running past a paragraph's end covers its whole ¶, as drawn, as in Word: in a
-/// paragraph with text and in an empty one (the highlight once stopped 5 pt in, under the mark).
+/// paragraph with text, in an empty one (the highlight once stopped 5 pt in, under the mark), and
+/// in a left-to-right paragraph ending in Hebrew, whose mark is past the Hebrew rather than at its
+/// logical end.
 #[test]
 fn a_selection_past_a_paragraph_end_covers_its_mark() {
-    let d = Document::from_text("ทดสอบ\n\nNext");
+    for text in ["ทดสอบ\n\nNext", "Hello \u{5e9}\u{5dc}\u{5d5}\u{5dd}\n\nNext"] {
+        selection_covers_marks(text);
+    }
+}
+
+fn selection_covers_marks(text: &str) {
+    let d = Document::from_text(text);
     let l = lay(&d);
     let sel = l.selection_rects(&d, &Pos::body(0, 0), &Pos::body(2, 0), 0);
     let marks: Vec<(f32, f32, f32)> = display::page_display(&d, &l.pages[0], &display::DisplayOptions { marks: true, ..Default::default() })
@@ -1399,8 +1407,26 @@ fn a_selection_past_a_paragraph_end_covers_its_mark() {
     // The first two paragraphs' marks are in the selection; each lies inside a highlight.
     for (x, baseline, size) in marks.iter().take(2) {
         let covered = sel.iter().any(|(_, r)| r.y < *baseline && *baseline <= r.y + r.h && r.x <= *x && x + size * 0.6 <= r.x + r.w + 0.01);
-        assert!(covered, "¶ at {x} (size {size}) not covered by {sel:?}");
+        assert!(covered, "{text:?}: ¶ at {x} (size {size}) not covered by {sel:?}");
     }
+}
+
+/// With formatting marks on, a paragraph that keeps with the next one gets a small square in the
+/// margin beside its first line, as in Word; an ordinary paragraph doesn't, and marks off hide it.
+#[test]
+fn a_keep_with_next_paragraph_shows_a_square_with_marks_on() {
+    let mut d = Document::from_text("Heading\nBody");
+    let at = Pos::body(0, 0);
+    d.format_paragraphs(&at, &at, &|p: &mut ParaProps| p.keep_next = Some(true)).unwrap();
+    let l = lay(&d);
+    let squares = |marks: bool| {
+        display::page_display(&d, &l.pages[0], &display::DisplayOptions { marks, ..Default::default() })
+            .into_iter()
+            .filter(|i| matches!(i, display::Draw::Fill { rect, color: Rgb(0x20, 0x20, 0x20), .. } if rect.w < 7.0 && rect.w == rect.h))
+            .count()
+    };
+    assert_eq!(squares(true), 1, "one square, beside the heading");
+    assert_eq!(squares(false), 0, "hidden with marks off");
 }
 
 #[test]

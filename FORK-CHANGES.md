@@ -7,6 +7,24 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 
 ## 2026-10-25
 
+### Selecting list numbers; the keep-with-next square
+- **Click a list number** to select it, as in Word: it turns darker grey, and every number at the same level
+  of that list turns light grey (the highlight runs from the number to its text, the tab included). While it
+  is selected, **Bold, Italic, Underline, the font, Size, Colour and Increase/Decrease Font Size** change that
+  level's numbers in the whole list, not the text (`list.define` in place, one undo step). Typing, a click in
+  the text or moving the caret ends it. `number_select.rs`; `list.define` levels gain `size` and `underline`.
+  Test: `clicking_a_number_selects_its_level_and_formats_the_numbers`.
+- **With formatting marks on**, a small black square sits in the margin beside the first line of a paragraph
+  that keeps with the next one, keeps its lines together or starts a page (headings keep with the next, so
+  every heading shows one), as in Word. Test: `a_keep_with_next_paragraph_shows_a_square_with_marks_on`.
+
+### Fixes from WordCraft's automatic review
+- In mixed-direction text (a left-to-right paragraph ending in Hebrew), the ¶ highlight now starts where the
+  mark is drawn (the line's visual end) rather than at its logical end, which missed the mark. The local-time
+  test reads UTC before and after the local clock, so an hour turning between reads can't fail it, and counts
+  minutes for half-hour offsets. Both were pointed out by CodeRabbit on the pull requests sent to WordCraft
+  (storytold/wordcraft#4274, #4275).
+
 ### Update check opt-in; Code signing policy
 - The start-up update check is **off until the user agrees**. At the first start of the desktop app a small
   window asks "Check for updates automatically?" (**Check Automatically** / **Don't Check**), saying that only
