@@ -30,6 +30,25 @@ This is a one-person project and still young. If something doesn't work, please
 โปรแกรมพิมพ์เอกสารภาษาไทยที่ใช้ได้ฟรี ยังอยู่ระหว่างพัฒนา
 หากพบปัญหา แจ้งได้ที่หน้า [Issues](https://github.com/chanonss/khiankrub/issues) ขอบคุณทุกความคิดเห็นครับ
 
+## What's new in 0.9.1
+
+- **Clearer right-click menus.** Document and table actions now have matching icons, including the
+  Insert, Delete and AutoFit submenus. Shortcuts and disabled actions remain easy to see.
+- **Right-click a list number** to restart at 1, define a multilevel list, or change its indent.
+  Control-click works on Mac too.
+- **Report a problem** beside Share opens the developer's form with the app version and platform
+  already filled in. No document content is included.
+- **File remains available in an empty window.** After leaving the Start screen, File still lets
+  you create or open a document.
+- **Mac disk image.** The universal DMG lets you drag KhianKrub into Applications; the zip is also available.
+
+เมนูคลิกขวามีไอคอนและคำสั่งจัดการเลขลำดับเพิ่มขึ้น เพิ่มปุ่ม **แจ้งปัญหา** ข้างปุ่มแชร์
+แก้ไขให้เปิดเมนูไฟล์ได้เมื่อยังไม่มีเอกสาร และเพิ่มไฟล์ DMG สำหรับติดตั้งบน Mac
+
+<p align="center">
+  <img src="docs/images/khiankrub-context-menu.png" alt="KhianKrub 0.9.1 interface: the gold Report a problem button beside Share, and a document right-click menu with icons for Cut, Copy, Paste, Font, Paragraph, Link and New Comment" width="100%">
+</p>
+
 ## What's new in 0.9.0
 
 ### Choose the top band's colour, with Thai motifs
@@ -149,16 +168,16 @@ Everything that differs from the original, newest first, is in [FORK-CHANGES.md]
 ### Mac
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
-   the Mac zip (under *Assets*): **KhianKrub-…-macos-universal.zip** from 0.8.0 on,
-   **KhianKrub-…-macos-apple-silicon.zip** in 0.7.3 and earlier.
-2. Double-click the zip to unzip it, then drag **KhianKrub** into your **Applications** folder.
+   **KhianKrub-0.9.1-macos-universal.dmg** under *Assets*.
+2. Open the DMG and drag **KhianKrub** onto **Applications**. The universal zip is an alternative:
+   unzip it, then drag KhianKrub into Applications.
 3. **First time only: right-click › Open.** The app is not signed by Apple, so macOS says it cannot verify the
    developer. Right-click (or Control-click) KhianKrub, choose **Open**, then click **Open** again. If the dialog
    only offers *Move to Trash*, open **System Settings › Privacy & Security** and click **Open Anyway** next to
    KhianKrub.
 
-ดาวน์โหลดไฟล์ zip จากหน้า [Releases](https://github.com/chanonss/khiankrub/releases/latest) ดับเบิลคลิกเพื่อแตกไฟล์
-แล้วลาก KhianKrub ไปไว้ในโฟลเดอร์ Applications ครั้งแรกที่เปิดให้คลิกขวาที่แอป เลือก Open แล้วกด Open อีกครั้ง
+ดาวน์โหลดไฟล์ DMG จากหน้า [Releases](https://github.com/chanonss/khiankrub/releases/latest) เปิดไฟล์
+แล้วลาก KhianKrub ไปไว้ในโฟลเดอร์ Applications หรือใช้ไฟล์ zip แทนได้ ครั้งแรกที่เปิดให้คลิกขวาที่แอป เลือก Open แล้วกด Open อีกครั้ง
 
 **Needs:** macOS 11 or later. From 0.8.0 the Mac download is one app for both Apple silicon (M1 or later) and
 Intel Macs; 0.7.3 and earlier run on Apple silicon only.
@@ -166,7 +185,7 @@ Intel Macs; 0.7.3 and earlier run on Apple silicon only.
 ### Windows
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
-   **khiankrub-…-windows-x64.msi** (under *Assets*), then double-click it.
+   **khiankrub-0.9.1-windows-x64.msi** (under *Assets*), then double-click it.
 2. **First time only: More info › Run anyway.** The installer is not signed yet (see [Code signing policy](#code-signing-policy)), so
    Windows says "Windows protected your PC". Click **More info**, then **Run anyway**, and click **Yes** when Windows asks for permission. KhianKrub is
    then in the Start menu.

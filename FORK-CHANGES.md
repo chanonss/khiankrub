@@ -798,3 +798,7 @@ KhianKrub and applied with `git cherry-pick -x` (each commit names its original)
 ## Desktop sync — 2026-10-28
 
 Ported the File-tab fix (5f7eab0a), context-menu/numbering changes (a0c1432e, adffb32b) and problem-report form (cc13edc5) from the web source. SIPA fonts remain available through locally installed fonts; their licences do not meet this repository’s bundled-asset rule. See [desktop-sync.md](docs/desktop-sync.md).
+
+## v0.9.1 release packaging — 2026-10-28
+
+README now describes the desktop UI update with an original screenshot and installation instructions. Release builds add a universal Mac DMG with a drag-to-Applications shortcut alongside the existing universal zip and Windows x64 MSI/portable zip. The DMG is mounted read-only to verify the packaged app signature, version and Applications shortcut before upload.

@@ -1,7 +1,7 @@
 # KhianKrub: build the release files for a tag (`v0.7.3`, or a test tag such as `v0.7.3-test1`) on
 # GitHub's runners and attach them to that tag's release:
 #   - Windows: the installer and portable zip (`packaging/windows/package.ps1 -Arch x64`)
-#   - Mac: KhianKrub-<version>-macos-universal.zip, one app for Apple silicon and Intel Macs
+#   - Mac: universal .dmg and .zip, one app for Apple silicon and Intel Macs
 #     (`packaging/macos/local-app.sh --universal`, zipped with ditto)
 # A tag with no release yet gets a draft release; its notes and publishing are done by hand. The
 # files are unsigned (no signing secrets; the Mac app is ad-hoc signed), as the hand-built ones
@@ -90,6 +90,28 @@ jobs:
       - name: Build the installer and portable zip
         run: ./packaging/windows/package.ps1 -Arch x64
 
+      - name: Install, check the version, and uninstall on the runner
+        run: |
+          $msi = (Get-ChildItem dist/release/khiankrub-*-windows-x64.msi).FullName
+          $folder = Join-Path $env:RUNNER_TEMP 'khiankrub-install-test'
+          $log = Join-Path $env:RUNNER_TEMP 'khiankrub-install.log'
+          $install = Start-Process msiexec.exe -ArgumentList "/i `"$msi`" /qn /norestart INSTALLFOLDER=`"$folder`" /L*v `"$log`"" -Wait -PassThru
+          if ($install.ExitCode -notin @(0, 3010)) {
+            Get-Content $log -Tail 80
+            throw "MSI installation failed: $($install.ExitCode)"
+          }
+          try {
+            $expected = (Select-String -Path Cargo.toml -Pattern '^version = "([^"]+)"').Matches.Groups[1].Value
+            $actual = [System.Diagnostics.FileVersionInfo]::GetVersionInfo((Join-Path $folder 'KhianKrub.exe')).ProductVersion
+            if ($actual -ne $expected) { throw "Installed app version $actual does not match $expected" }
+            $version = & (Join-Path $folder 'wordcraft-cli.exe') --version
+            if ($LASTEXITCODE -ne 0 -or $version -notmatch [regex]::Escape($expected)) { throw "Installed CLI version check failed: $version" }
+            Write-Output "Installed app and CLI version verified: $expected"
+          } finally {
+            $uninstall = Start-Process msiexec.exe -ArgumentList "/x `"$msi`" /qn /norestart" -Wait -PassThru
+            if ($uninstall.ExitCode -notin @(0, 3010)) { throw "MSI uninstall failed: $($uninstall.ExitCode)" }
+          }
+
       - name: SHA-256 for the release notes
         run: |
           $files = Get-ChildItem dist/release/khiankrub-*-windows-x64*.msi, dist/release/khiankrub-*-windows-x64-portable.zip
@@ -131,6 +153,7 @@ jobs:
         env:
           MACOSX_DEPLOYMENT_TARGET: '11.0'
         run: |
+          . packaging/env.sh
           cargo build --release --locked -p wordcraft --target aarch64-apple-darwin --target x86_64-apple-darwin
           packaging/macos/local-app.sh --universal "$RUNNER_TEMP/out/KhianKrub.app"
 
@@ -157,5 +180,13 @@ jobs:
           echo "$zip: $sha"
           { echo "| File | SHA-256 |"; echo "|---|---|"; echo "| \`$zip\` | \`$sha\` |"; } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Build and verify the drag-to-Applications installer
+        run: |
+          . packaging/env.sh
+          bash packaging/macos/create-dmg.sh "$RUNNER_TEMP/out/KhianKrub.app"
+          dmg="$DIST/KhianKrub-$VERSION-macos-universal.dmg"
+          sha=$(shasum -a 256 "$dmg" | cut -d' ' -f1)
+          { echo "| File | SHA-256 |"; echo "|---|---|"; echo "| \`$(basename "$dmg")\` | \`$sha\` |"; } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Attach to the tag's release
-        run: gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber dist/release/KhianKrub-*-macos-universal.zip
+        run: gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber dist/release/KhianKrub-*-macos-universal.zip dist/release/KhianKrub-*-macos-universal.dmg
