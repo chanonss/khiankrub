@@ -1,7 +1,8 @@
 # Desktop sync from the web app
 
 Source reviewed: local `khiankrub-web` branch `web`, commit `3d7e5696` (2026-10-28).
-Desktop baseline: `47674b1b`, v0.9.0. This is a local development update; nothing is published.
+Desktop baseline: `47674b1b`, v0.9.0. The updated source version is **v0.9.1**.
+Release installers and a release tag are managed separately.
 
 | Web change | Desktop result |
 |---|---|

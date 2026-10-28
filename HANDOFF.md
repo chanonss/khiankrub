@@ -9,6 +9,8 @@ session history do not travel between machines (section 10).
 
 ## 1. Where things stand
 
+- **Current desktop source: v0.9.1** (2026-10-28). The web UI updates were ported in `4f15a065`: context-menu icons, numbering actions, empty-window File access and the problem-report form. Drive uses the system file picker. See [desktop sync notes](docs/desktop-sync.md). The latest published installers remain v0.9.0 until a separate release is built and published.
+
 - **App:** KhianKrub (เขียนครับ), Chanon's fork of [storytold/wordcraft](https://github.com/storytold/wordcraft) for Thai
   users (Rust, egui). Fork: <https://github.com/chanonss/khiankrub>, branch **`my-changes`** (the default branch).
   The repo was renamed from `chanonss/wordcraft` on 2026-10-23; GitHub redirects the old address. **Never create a new
