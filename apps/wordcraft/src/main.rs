@@ -259,6 +259,7 @@ fn write_prefs(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
 fn services(file_dialog: file_dialogs::Hook, ctx: &egui::Context) -> Services {
     Services {
         file_dialog: Some(file_dialog),
+        browser_info: Some(format!("KhianKrub desktop / {} / {}", std::env::consts::OS, std::env::consts::ARCH)),
         printers: Some(print::discover()),
         print_native: Some(print::submit()),
         clipboard_picture: Some(Box::new(clipboard::picture)),

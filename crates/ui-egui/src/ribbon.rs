@@ -233,59 +233,90 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing = vec2(2.0, 0.0);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    // No document open (#1129): nothing to share, edit or comment on.
-                    if !app.has_document() {
-                        ui.disable();
-                    }
                     // Share, Editing mode, Comments, drawn first so the tabs get only the room
-                    // left of them (#897).
-                    let share = tl!("Share");
-                    let share_w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(share.to_string(), medium(12.0), t.text).size().x);
-                    let (r, resp) = ui.allocate_exact_size(vec2((share_w + 36.0).max(74.0), 24.0), Sense::click());
-                    ui.painter().rect_filled(r, 4.0, if resp.hovered() { band.accent.gamma_multiply(0.85) } else { band.accent });
-                    icons::paint(
-                        ui.painter(),
-                        Rect::from_center_size(pos2(r.min.x + 14.0, r.center().y), vec2(14.0, 14.0)),
-                        "share",
-                        band.on_accent,
-                        band.on_accent,
-                    );
-                    ui.painter().text(pos2(r.min.x + 26.0, r.center().y), Align2::LEFT_CENTER, share, medium(12.0), band.on_accent);
-                    if resp.on_hover_text(tl!("Export a copy to share (PDF, Word document)")).clicked() {
-                        let _ = app.run("ui.backstage", json!({"value": true, "page": "export"}));
+                    // left of them (#897). With no document open (#1129) there is nothing to
+                    // share, edit or comment on: only they are greyed out, not the tabs drawn
+                    // after them, so File still opens New and Open.
+                    ui.scope(|ui| {
+                        if !app.has_document() {
+                            ui.disable();
+                        }
+                        let share = tl!("Share");
+                        let share_w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(share.to_string(), medium(12.0), t.text).size().x);
+                        let (r, resp) = ui.allocate_exact_size(vec2((share_w + 36.0).max(74.0), 24.0), Sense::click());
+                        ui.painter().rect_filled(r, 4.0, if resp.hovered() { band.accent.gamma_multiply(0.85) } else { band.accent });
+                        icons::paint(
+                            ui.painter(),
+                            Rect::from_center_size(pos2(r.min.x + 14.0, r.center().y), vec2(14.0, 14.0)),
+                            "share",
+                            band.on_accent,
+                            band.on_accent,
+                        );
+                        ui.painter().text(pos2(r.min.x + 26.0, r.center().y), Align2::LEFT_CENTER, share, medium(12.0), band.on_accent);
+                        if resp.on_hover_text(tl!("Export a copy to share (PDF, Word document)")).clicked() {
+                            let _ = app.run("ui.backstage", json!({"value": true, "page": "export"}));
+                        }
+                        ui.add_space(6.0);
+                    });
+                    // Report a problem, left of Share: gold outline, and it works with no document open.
+                    if crate::report::report_url("", "").is_some() {
+                        let label = tl!("Report a problem");
+                        let w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(label.to_string(), medium(12.0), t.text).size().x);
+                        let (r, resp) = ui.allocate_exact_size(vec2(w + 34.0, 24.0), Sense::click());
+                        if resp.hovered() {
+                            ui.painter().rect_filled(r, 4.0, band.hover);
+                        }
+                        ui.painter().rect_stroke(r, 4.0, egui::Stroke::new(1.2, band.accent), egui::StrokeKind::Inside);
+                        icons::paint(
+                            ui.painter(),
+                            Rect::from_center_size(pos2(r.min.x + 14.0, r.center().y), vec2(14.0, 14.0)),
+                            "report",
+                            band.accent,
+                            band.accent,
+                        );
+                        ui.painter().text(pos2(r.min.x + 26.0, r.center().y), Align2::LEFT_CENTER, label, medium(12.0), band.accent);
+                        resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, label));
+                        if resp.on_hover_text(tl!("Tell the developer about a problem (opens a form)")).clicked() {
+                            let _ = app.run("ui.reportProblem", json!({}));
+                        }
+                        ui.add_space(6.0);
                     }
-                    ui.add_space(6.0);
-                    let track = app.session.doc.settings.track_changes;
-                    let view_only = app.session.view_only;
-                    let (mode_icon, mode_label) = if view_only {
-                        ("eye", tl!("View only"))
-                    } else if track {
-                        ("pencil", tl!("Reviewing"))
-                    } else {
-                        ("pencil", tl!("Editing"))
-                    };
-                    let mode = crate::widgets::icon_text_menu_button(ui, mode_icon, mode_label, regular(12.0));
-                    egui::Popup::menu(&mode).show(|ui| {
-                        if ui.steady_label(!view_only && !track, tl!(tl!("Editing — edit the document directly"))).clicked() {
-                            // Leave view-only first: it refuses the tracking command.
-                            let _ = app.run("review.viewOnly", json!({"value": false}));
-                            let _ = app.run("review.trackChanges", json!({"value": false}));
-                            ui.close();
+                    ui.scope(|ui| {
+                        if !app.has_document() {
+                            ui.disable();
                         }
-                        if ui.steady_label(!view_only && track, tl!(tl!("Reviewing — edits become suggestions"))).clicked() {
-                            let _ = app.run("review.viewOnly", json!({"value": false}));
-                            let _ = app.run("review.trackChanges", json!({"value": true}));
-                            ui.close();
-                        }
-                        if ui.steady_label(view_only, tl!(tl!("View only — no changes or suggestions"))).clicked() {
-                            let _ = app.run("review.viewOnly", json!({"value": true}));
-                            ui.close();
+                        let track = app.session.doc.settings.track_changes;
+                        let view_only = app.session.view_only;
+                        let (mode_icon, mode_label) = if view_only {
+                            ("eye", tl!("View only"))
+                        } else if track {
+                            ("pencil", tl!("Reviewing"))
+                        } else {
+                            ("pencil", tl!("Editing"))
+                        };
+                        let mode = crate::widgets::icon_text_menu_button(ui, mode_icon, mode_label, regular(12.0));
+                        egui::Popup::menu(&mode).show(|ui| {
+                            if ui.steady_label(!view_only && !track, tl!(tl!("Editing — edit the document directly"))).clicked() {
+                                // Leave view-only first: it refuses the tracking command.
+                                let _ = app.run("review.viewOnly", json!({"value": false}));
+                                let _ = app.run("review.trackChanges", json!({"value": false}));
+                                ui.close();
+                            }
+                            if ui.steady_label(!view_only && track, tl!(tl!("Reviewing — edits become suggestions"))).clicked() {
+                                let _ = app.run("review.viewOnly", json!({"value": false}));
+                                let _ = app.run("review.trackChanges", json!({"value": true}));
+                                ui.close();
+                            }
+                            if ui.steady_label(view_only, tl!(tl!("View only — no changes or suggestions"))).clicked() {
+                                let _ = app.run("review.viewOnly", json!({"value": true}));
+                                ui.close();
+                            }
+                        });
+                        ui.add_space(4.0);
+                        if crate::widgets::icon_text_button(ui, "comment", tl!("Comments"), regular(12.0)).clicked() {
+                            let _ = app.run("view.commentsPane", json!({}));
                         }
                     });
-                    ui.add_space(4.0);
-                    if crate::widgets::icon_text_button(ui, "comment", tl!("Comments"), regular(12.0)).clicked() {
-                        let _ = app.run("view.commentsPane", json!({}));
-                    }
                     ui.add_space(8.0);
                     ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
                         // The tabs that don't fit go into a » menu at the end of the strip. File, the

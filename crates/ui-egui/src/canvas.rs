@@ -1547,7 +1547,12 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
         if crate::objects::select_at(app, &layout, &rects, geo.scale, p) {
             app.canvas.context_issue = None;
             app.canvas.context_synonyms = None;
+        } else if let Some((story, path)) = layout.label_at(page, x, y) {
+            crate::number_select::select(app, story, path);
+            app.canvas.context_issue = None;
+            app.canvas.context_synonyms = None;
         } else if let Some(pos) = layout.hit(page, x, y, app.session.sel.focus.story) {
+            app.canvas.number_sel = None;
             let (a, b) = app.session.sel.ordered();
             if !(a <= pos && pos <= b) || app.session.sel.is_collapsed() {
                 app.session.sel = wordcraft_engine::Selection::caret(pos);
@@ -2841,6 +2846,61 @@ fn equation_menu(app: &mut WordApp, ui: &mut Ui) {
     }
 }
 
+/// Original ribbon icons also identify context-menu actions, with a fixed icon column.
+fn paint_context_icon(ui: &Ui, rect: Rect, icon: &str, enabled: bool) {
+    let t = crate::theme::Tokens::get(ui.ctx());
+    let (ink, accent) = if enabled { (t.icon, t.accent) } else { (t.text_disabled, t.text_disabled) };
+    crate::icons::paint(ui.painter(), rect, icon, ink, accent);
+}
+
+fn context_submenu(ui: &mut Ui, icon: &str, label: &str, contents: impl FnOnce(&mut Ui)) {
+    let atom = ui.id().with(("context submenu icon", label));
+    let padding = ui.spacing().button_padding.x;
+    let response = ui.menu_button((egui::Atom::custom(atom, egui::vec2(18.0, 18.0)), label), contents).response;
+    let rect = Rect::from_center_size(egui::pos2(response.rect.left() + padding + 9.0, response.rect.center().y), egui::vec2(18.0, 18.0));
+    paint_context_icon(ui, rect, icon, response.enabled());
+}
+
+fn context_menu_icon(id: &str, params: &serde_json::Value) -> &'static str {
+    match id {
+        "edit.cut" => "cut",
+        "edit.copy" => "copy",
+        "edit.paste" => "paste",
+        "ui.dialog" => match params.get("name").and_then(|v| v.as_str()) {
+            Some("font") => "fonts",
+            Some("paragraph") => "pilcrow",
+            Some("link") => "link",
+            _ => "properties",
+        },
+        "para.restartNumbering" => "numbering",
+        "list.define" => "multilevel",
+        "para.indent" => "indent",
+        "para.outdent" => "outdent",
+        "review.newComment" => "newComment",
+        "review.ignoreAll" => "check",
+        "review.addToDictionary" => "spelling",
+        "references.updateFields" | "references.updateToc" | "picture.reset" => "redo",
+        "fields.setCode" => "pencil",
+        "fields.toggleCode" => "quickParts",
+        "view.altTextPane" => "altText",
+        "ui.changePicture" => "picture",
+        "ui.tab" => "crop",
+        "table.insertColumnLeft" => "insertLeft",
+        "table.insertColumnRight" => "insertRight",
+        "table.insertRowAbove" => "insertAbove",
+        "table.insertRowBelow" => "insertBelow",
+        "table.deleteCells" | "table.deleteColumn" | "table.deleteRow" | "table.deleteTable" => "deleteTable",
+        "table.split" => "splitCells",
+        "table.merge" => "merge",
+        "table.distributeRows" => "distributeRows",
+        "table.distributeColumns" => "distributeCols",
+        "table.autofit" => "autofit",
+        "table.textDirection" => "textDirection",
+        "references.caption" => "caption",
+        _ => "properties",
+    }
+}
+
 fn context_menu(app: &mut WordApp, ui: &mut Ui) {
     if app.session.math.is_some() {
         return equation_menu(app, ui);
@@ -2849,7 +2909,15 @@ fn context_menu(app: &mut WordApp, ui: &mut Ui) {
     let item = |ui: &mut Ui, app: &mut WordApp, label: &str, id: &str, params: serde_json::Value| {
         let sc = crate::widgets::shortcut_text(app, id);
         let on = crate::widgets::enabled(app, id);
-        if ui.add_enabled(on, egui::Button::new(tl!(label)).shortcut_text(sc)).clicked() {
+        let icon = context_menu_icon(id, &params);
+        let atom = ui.id().with(("context icon", id, label));
+        let response = ui
+            .add_enabled_ui(on, |ui| egui::Button::new((egui::Atom::custom(atom, egui::vec2(18.0, 18.0)), tl!(label))).shortcut_text(sc).atom_ui(ui))
+            .inner;
+        if let Some(rect) = response.rect(atom) {
+            paint_context_icon(ui, rect, icon, on);
+        }
+        if response.response.clicked() {
             let _ = app.run(id, params);
             ui.close();
         }
@@ -2882,7 +2950,7 @@ fn context_menu(app: &mut WordApp, ui: &mut Ui) {
     item(ui, app, "Paste", "edit.paste", json!({}));
     ui.separator();
     if let Some(syn) = app.canvas.context_synonyms.clone().and_then(|v| v.as_array().cloned()).filter(|a| !a.is_empty()) {
-        ui.menu_button(tl!("Synonyms"), |ui| {
+        context_submenu(ui, "thesaurus", tl!("Synonyms"), |ui| {
             for w in syn.iter().filter_map(|x| x.as_str()) {
                 if ui.button(w).clicked() {
                     let _ = app.run("select.word", json!({}));
@@ -2897,6 +2965,12 @@ fn context_menu(app: &mut WordApp, ui: &mut Ui) {
         });
     }
     item(ui, app, "Font…", "ui.dialog", json!({"name": "font"}));
+    if crate::number_select::active(app).is_some() {
+        item(ui, app, "Restart at 1", "para.restartNumbering", json!({}));
+        item(ui, app, "Define New Multilevel List…", "list.define", json!({}));
+        item(ui, app, "Increase Indent", "para.indent", json!({}));
+        item(ui, app, "Decrease Indent", "para.outdent", json!({}));
+    }
     item(ui, app, "Paragraph…", "ui.dialog", json!({"name": "paragraph"}));
     item(ui, app, "Link…", "ui.dialog", json!({"name": "link"}));
     item(ui, app, "New Comment", "review.newComment", json!({}));
@@ -2926,13 +3000,13 @@ fn context_menu(app: &mut WordApp, ui: &mut Ui) {
         item(ui, app, "Size and Crop…", "ui.tab", json!({"tab": "Picture Format"}));
     }
     if object {
-        ui.menu_button(tl!("Wrap Text"), |ui| crate::ribbon::wrap_text_items(ui, app));
+        context_submenu(ui, "textBox", tl!("Wrap Text"), |ui| crate::ribbon::wrap_text_items(ui, app));
     }
     if app.session.sel.focus.path.cell().is_some() {
         // The table's items follow what is selected, as in Word (2019, Windows).
         let pick = table_pick(&app.session);
         ui.separator();
-        ui.menu_button(tl!("Insert"), |ui| {
+        context_submenu(ui, "plus", tl!("Insert"), |ui| {
             item(ui, app, "Insert Columns to the Left", "table.insertColumnLeft", json!({}));
             item(ui, app, "Insert Columns to the Right", "table.insertColumnRight", json!({}));
             item(ui, app, "Insert Rows Above", "table.insertRowAbove", json!({}));
@@ -2940,7 +3014,7 @@ fn context_menu(app: &mut WordApp, ui: &mut Ui) {
         });
         // Every Delete is there whatever is selected, as on Word's Delete button: with the caret
         // in a cell, Delete Table is how the table goes (#1198).
-        ui.menu_button(tl!("Delete"), |ui| {
+        context_submenu(ui, "deleteTable", tl!("Delete"), |ui| {
             item(ui, app, "Delete Cells", "table.deleteCells", json!({}));
             item(ui, app, "Delete Columns", "table.deleteColumn", json!({}));
             item(ui, app, "Delete Rows", "table.deleteRow", json!({}));
@@ -2957,7 +3031,7 @@ fn context_menu(app: &mut WordApp, ui: &mut Ui) {
             item(ui, app, "Distribute Columns", "table.distributeColumns", json!({}));
         }
         if pick == TablePick::Table {
-            ui.menu_button(tl!("AutoFit"), |ui| {
+            context_submenu(ui, "autofit", tl!("AutoFit"), |ui| {
                 item(ui, app, "AutoFit Contents", "table.autofit", json!({"mode": "contents"}));
                 item(ui, app, "AutoFit Window", "table.autofit", json!({"mode": "window"}));
                 item(ui, app, "Fixed Column Width", "table.autofit", json!({"mode": "fixed"}));

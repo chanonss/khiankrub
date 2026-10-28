@@ -75,6 +75,7 @@ pub mod previews;
 pub mod print_page;
 pub mod printing;
 pub mod read_aloud;
+pub mod report;
 pub mod ribbon;
 pub mod ruler_tabs;
 pub mod scroll;
@@ -100,6 +101,8 @@ pub use file_dialogs::{FileDialogAnswer, FileDialogRequest, open_filters};
 /// Platform services injected by the host (file dialogs, file I/O).
 #[derive(Default)]
 pub struct Services {
+    /// Platform details included in the problem-report form.
+    pub browser_info: Option<String>,
     /// Desktop: discover configured printers on a worker.
     pub printers: Option<printing::Discover>,
     /// Desktop: submit the PDF with the chosen settings on a worker.
@@ -1476,6 +1479,17 @@ impl WordApp {
                 self.ui.theme = if dark { theme::Appearance::Dark } else { theme::Appearance::Light };
                 json!({"dark": dark, "theme": self.ui.theme.code()})
             }
+            "ui.reportProblem" => {
+                // Open the Report a problem form in a new tab, with the version and browser filled in.
+                let browser = self.services.browser_info.clone().unwrap_or_default();
+                match report::report_url(env!("CARGO_PKG_VERSION"), &browser) {
+                    Some(url) => {
+                        self.canvas.open_url = Some(url.clone());
+                        json!({"url": url})
+                    }
+                    None => return Some(Err("no problem-report form is configured".into())),
+                }
+            }
             "ui.theme" => {
                 // `light`, `dark` or `system` (follow the OS appearance); no value reads it.
                 if let Some(v) = s("value") {
@@ -2165,7 +2179,12 @@ impl WordApp {
     /// Read a Control-click as the right-click on macOS, then inject synthetic input events from
     /// the control channel (one pointer event per frame).
     pub fn raw_input_hook(&mut self, raw: &mut egui::RawInput) {
-        if cfg!(target_os = "macos") {
+        self.raw_input_hook_for_os(raw, egui::os::OperatingSystem::from_target_os());
+    }
+
+    /// The browser host supplies the visitor's OS; wasm itself has no target OS.
+    pub fn raw_input_hook_for_os(&mut self, raw: &mut egui::RawInput, os: egui::os::OperatingSystem) {
+        if os == egui::os::OperatingSystem::Mac {
             control_click_as_secondary(&mut raw.events, &mut self.control_click);
         }
         if self.synthetic.is_empty() {
@@ -2595,6 +2614,7 @@ pub(crate) fn works_without_document(id: &str) -> bool {
             | "ui.keytips"
             | "ui.dark"
             | "ui.theme"
+            | "ui.reportProblem"
             | "ui.bandColor"
             | "ui.bandMotif"
             | "ui.interfaceSize"
@@ -3168,6 +3188,31 @@ mod tests {
         b.run("ui.startScreen", json!({"value": false})).unwrap();
         assert!(!b.start_screen(), "off: today's behaviour");
         assert!(!b.ui.backstage && b.has_document());
+    }
+
+    /// Back from the Start screen leaves the empty window: its File tab can still be clicked
+    /// (only Share, Editing and Comments are greyed out), and File › Blank document opens one.
+    /// The tabs were drawn inside the greyed-out part of the strip, so File couldn't be clicked
+    /// and there was no way to open or create a document.
+    #[test]
+    fn the_empty_window_s_file_tab_can_be_clicked() {
+        use egui_kittest::kittest::{NodeT, Queryable};
+        let mut a = app();
+        a.start_screen();
+        let mut h = harness(a);
+        h.run_steps(4);
+        h.get_by_label("Back").click();
+        h.run_steps(4);
+        assert!(!h.state().ui.backstage && !h.state().has_document(), "the empty window");
+        let file = h.get_by_role_and_label(egui::accesskit::Role::Button, "File");
+        assert!(!file.accesskit_node().is_disabled(), "File is not greyed out");
+        assert!(h.get_by_label("Comments").accesskit_node().is_disabled(), "Comments is: nothing to comment on");
+        file.click();
+        h.run_steps(4);
+        assert!(h.state().ui.backstage, "File opens the Backstage");
+        h.get_by_label("Blank document").click();
+        h.run_steps(4);
+        assert!(h.state().has_document() && !h.state().ui.backstage, "a document is open");
     }
 
     /// #1129: the empty window's File tab goes back to the Backstage with only Home, New, Open
@@ -6340,6 +6385,18 @@ mod tests {
             assert_eq!((InterfaceSize::AUTO.zoom_factor(native), InterfaceSize::AUTO.drawn_percent(native)), (1.0, 100), "{native}");
         }
         assert_eq!(InterfaceSize::AUTO.drawn_percent(f32::MAX), u16::MAX);
+    }
+
+    /// Report a problem opens the form in a new tab, with the version filled in, and works with no
+    /// document open.
+    #[test]
+    fn report_a_problem_opens_the_form() {
+        let mut a = app();
+        a.start_screen();
+        let v = a.run("ui.reportProblem", json!({})).unwrap();
+        let url = a.canvas.open_url.take().unwrap();
+        assert_eq!(v["url"], json!(url));
+        assert!(url.contains(env!("CARGO_PKG_VERSION")), "{url}");
     }
 
     /// The band's colour and Thai motif: set and read by command, refused when unknown, saved in

@@ -794,3 +794,7 @@ KhianKrub and applied with `git cherry-pick -x` (each commit names its original)
 ## Building and checking
 - App: `cargo build --release -p wordcraft` (about 3 to 4 minutes), then `packaging/macos/local-app.sh`.
 - Full check before committing: `cargo xtask ci` (fmt, clippy, tests, assets, layers, wasm).
+
+## Desktop sync — 2026-10-28
+
+Ported the File-tab fix (5f7eab0a), context-menu/numbering changes (a0c1432e, adffb32b) and problem-report form (cc13edc5) from the web source. SIPA fonts remain available through locally installed fonts; their licences do not meet this repository’s bundled-asset rule. See [desktop-sync.md](docs/desktop-sync.md).

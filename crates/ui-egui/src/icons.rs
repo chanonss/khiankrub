@@ -251,6 +251,12 @@ pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, accent: Color32) {
         }
         // A tipped paint bucket: its handle over the top, paint in its lower half and a drop
         // falling from its rim, over the colour bar.
+        // Report a problem: an exclamation mark in a circle.
+        "report" => {
+            pen.circle(10.0, 10.0, 7.5, c);
+            pen.line_c(&[(10.0, 6.0), (10.0, 11.0)], a);
+            pen.fcircle(10.0, 14.0, 1.1, a);
+        }
         "shading" => {
             pen.line_c(&[(4.0, 8.5), (3.6, 4.6), (6.0, 2.4), (9.5, 2.6)], c);
             pen.fill(&[(4.0, 9.0), (15.0, 9.0), (9.5, 14.5)], a);

@@ -165,6 +165,35 @@ mod tests {
         h.run_steps(2);
     }
 
+    #[test]
+    fn browser_mac_control_click_on_a_number_opens_numbering_options() {
+        use egui_kittest::kittest::Queryable;
+        let mut h = list_window();
+        let layout = h.state_mut().session.layout();
+        let (pi, r) = layout.label_rect(StoryRef::Body, &wordcraft_doc::Path(vec![1]), 0).unwrap();
+        let at = crate::canvas::page_to_screen(h.state_mut(), pi, r.x + r.w / 2.0, r.y + r.h / 2.0).unwrap();
+        h.event(egui::Event::PointerMoved(at));
+        h.step();
+        for pressed in [true, false] {
+            let mut raw = egui::RawInput {
+                events: vec![egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::CTRL }],
+                ..Default::default()
+            };
+            h.state_mut().raw_input_hook_for_os(&mut raw, egui::os::OperatingSystem::Mac);
+            for event in raw.events {
+                h.event(event);
+            }
+            h.step();
+        }
+        h.run_steps(2);
+        assert!(h.state().canvas.context_menu_open);
+        assert_eq!(super::active(h.state()).map(|(_, p)| p), Some(wordcraft_doc::Path(vec![1])));
+        h.get_by_label_contains("Restart at 1");
+        h.get_by_label_contains("Define New Multilevel List…").click();
+        h.run_steps(2);
+        assert!(matches!(h.state().dialog, Some(crate::dialogs::Dialog::DefineList { .. })));
+    }
+
     /// A click on "1.1" selects it: the caret goes to its paragraph's start and the number is
     /// selected; Bold then makes level 2's numbers bold (1.1 and 1.2), not the text, and Increase
     /// Font Size steps their size. Typing or another click ends it.

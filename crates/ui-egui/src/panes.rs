@@ -889,6 +889,40 @@ mod tests {
     use super::comment_stamp;
 
     #[test]
+    fn browser_mac_control_click_on_a_style_opens_modify() {
+        use egui_kittest::kittest::Queryable;
+        let mut app = crate::WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Default::default());
+        app.session.view.styles_pane = true;
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut crate::WordApp| {
+                app.logic(ui.ctx());
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(4);
+        let at = h.query_all_by_label("Heading 1").map(|n| n.rect().center()).max_by(|a, b| a.x.total_cmp(&b.x)).unwrap();
+        h.event(egui::Event::PointerMoved(at));
+        h.step();
+        for pressed in [true, false] {
+            let mut raw = egui::RawInput {
+                events: vec![egui::Event::PointerButton { pos: at, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::CTRL }],
+                ..Default::default()
+            };
+            h.state_mut().raw_input_hook_for_os(&mut raw, egui::os::OperatingSystem::Mac);
+            for event in raw.events {
+                h.event(event);
+            }
+            h.step();
+        }
+        h.run_steps(2);
+        h.get_by_label("Update to Match Selection");
+        h.get_by_label("Modify…").click();
+        h.run_steps(2);
+        assert!(matches!(h.state().dialog, Some(crate::dialogs::Dialog::ModifyStyle { .. })));
+    }
+
+    #[test]
     fn comment_stamp_keeps_date_and_time() {
         assert_eq!(comment_stamp("2026-10-12T04:44:31Z"), "2026-10-12 04:44");
         assert_eq!(comment_stamp("2026-10-12"), "2026-10-12");
