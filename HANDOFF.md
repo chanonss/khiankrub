@@ -9,7 +9,8 @@ session history do not travel between machines (section 10).
 
 ## 1. Where things stand
 
-- **Current desktop source: v0.9.1** (2026-10-28). The web UI updates were ported in `4f15a065`: context-menu icons, numbering actions, empty-window File access and the problem-report form. Drive uses the system file picker. See [desktop sync notes](docs/desktop-sync.md). The latest published installers remain v0.9.0 until a separate release is built and published.
+- **Current desktop release: v0.9.2** (2026-11-02): the web app's UP12 fixes, x-height font menu and character spacing spinner, plus WordCraft v0.13.2/v0.14.0 fixes ported by hand (UP14). See [desktop sync notes](docs/desktop-sync.md) and [upstream-v0.14.md](docs/upstream-v0.14.md). Remote `upstream` = storytold/wordcraft is set in this clone; upstream copying tables (#1784) is still to port.
+- **Earlier desktop source: v0.9.1** (2026-10-28). The web UI updates were ported in `4f15a065`: context-menu icons, numbering actions, empty-window File access and the problem-report form. Drive uses the system file picker. See [desktop sync notes](docs/desktop-sync.md). The latest published installers remain v0.9.0 until a separate release is built and published.
 
 - **App:** KhianKrub (เขียนครับ), Chanon's fork of [storytold/wordcraft](https://github.com/storytold/wordcraft) for Thai
   users (Rust, egui). Fork: <https://github.com/chanonss/khiankrub>, branch **`my-changes`** (the default branch).

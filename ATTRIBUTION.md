@@ -111,3 +111,4 @@ Generated-in-code art is original and has no file to list: the UI icon set (`cra
 | File | Author | Source | Licence | Notes |
 |---|---|---|---|---|
 | `docs/images/khiankrub-context-menu.png` | Chanon Sarasuk, captured with Codex | Original KhianKrub desktop interface and repository sample document; captured through its own control channel | MIT OR Apache-2.0 | Context-menu icons and the report button introduced in v0.9.1; no third-party product screenshot or artwork |
+| `docs/images/khiankrub-0.9.2-character-spacing.png` | Chanon Sarasuk, captured with Claude Code | Original KhianKrub desktop interface and repository sample document; rendered headlessly with the `ui_shot` example | MIT OR Apache-2.0 | Font dialog with the character spacing up/down buttons introduced in v0.9.2; no third-party product screenshot or artwork |

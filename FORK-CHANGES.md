@@ -844,3 +844,7 @@ Ported the File-tab fix (5f7eab0a), context-menu/numbering changes (a0c1432e, ad
 ## v0.9.1 release packaging — 2026-10-28
 
 README now describes the desktop UI update with an original screenshot and installation instructions. Release builds add a universal Mac DMG with a drag-to-Applications shortcut alongside the existing universal zip and Windows x64 MSI/portable zip. The DMG is mounted read-only to verify the packaged app signature, version and Applications shortcut before upload.
+
+## v0.9.2 release — 2026-11-02
+
+Version 0.9.2: the web app's UP12 fixes, the x-height font menu and the character spacing spinner, plus WordCraft v0.13.2/v0.14.0 fixes (UP14). README has a What's new in 0.9.2 section with a Font dialog screenshot; notes in `packaging/releases/v0.9.2.md`.

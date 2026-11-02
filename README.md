@@ -30,6 +30,30 @@ This is a one-person project and still young. If something doesn't work, please
 โปรแกรมพิมพ์เอกสารภาษาไทยที่ใช้ได้ฟรี ยังอยู่ระหว่างพัฒนา
 หากพบปัญหา แจ้งได้ที่หน้า [Issues](https://github.com/chanonss/khiankrub/issues) ขอบคุณทุกความคิดเห็นครับ
 
+## What's new in 0.9.2
+
+- **Documents with links print.** A document with a hyperlink or a table of contents failed to print
+  from the desktop app; it prints now. PDFs you save keep their links.
+- **Up and down buttons for character spacing** in the Font dialog and in Modify Style › Font, as in
+  Word, in 0.1 pt steps.
+- **Thai fonts read clearly in the font menu.** Each font is shown at a size matched to its letter
+  height, so TH Sarabun New and the other SIPA fonts are no longer tiny.
+- **Lines ending in Shift+Enter stretch** under Justify and Thai Distributed, as in Word.
+- **Closer to Word:** headings from other programs show in the Navigation pane; table-of-contents
+  page numbers are fields Word can update; Format Painter works on a double-clicked word; Increase
+  and Decrease Font Size keep mixed sizes mixed; Table Properties applies to every selected row,
+  column and cell; Crop on a picture's right-click menu; Find and Replace takes regular-expression
+  groups; password-protected (Standard encryption) Word files open.
+- **Steadier:** limits on damaged fonts, Word files and very long layouts, faster PDF export, and
+  a clear message on the status bar when a file won't open.
+
+ปุ่มเพิ่ม/ลดระยะห่างตัวอักษรในหน้าต่างฟอนต์ เมนูฟอนต์แสดงฟอนต์ไทยในขนาดที่อ่านง่าย พิมพ์เอกสารที่มีลิงก์หรือสารบัญได้แล้ว
+บรรทัดที่จบด้วย Shift+Enter ยืดเต็มบรรทัดเมื่อจัดชิดขอบหรือกระจายแบบไทย และแก้ไขให้ใกล้เคียง Word และเสถียรขึ้นอีกหลายจุด
+
+<p align="center">
+  <img src="docs/images/khiankrub-0.9.2-character-spacing.png" alt="KhianKrub 0.9.2 Font dialog in Thai, with up and down buttons beside the Spacing (pt) box" width="410">
+</p>
+
 ## What's new in 0.9.1
 
 - **Clearer right-click menus.** Document and table actions now have matching icons, including the
@@ -168,7 +192,7 @@ Everything that differs from the original, newest first, is in [FORK-CHANGES.md]
 ### Mac
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
-   **KhianKrub-0.9.1-macos-universal.dmg** under *Assets*.
+   **KhianKrub-0.9.2-macos-universal.dmg** under *Assets*.
 2. Open the DMG and drag **KhianKrub** onto **Applications**. The universal zip is an alternative:
    unzip it, then drag KhianKrub into Applications.
 3. **First time only: right-click › Open.** The app is not signed by Apple, so macOS says it cannot verify the
@@ -185,7 +209,7 @@ Intel Macs; 0.7.3 and earlier run on Apple silicon only.
 ### Windows
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
-   **khiankrub-0.9.1-windows-x64.msi** (under *Assets*), then double-click it.
+   **khiankrub-0.9.2-windows-x64.msi** (under *Assets*), then double-click it.
 2. **First time only: More info › Run anyway.** The installer is not signed yet (see [Code signing policy](#code-signing-policy)), so
    Windows says "Windows protected your PC". Click **More info**, then **Run anyway**, and click **Yes** when Windows asks for permission. KhianKrub is
    then in the Start menu.
