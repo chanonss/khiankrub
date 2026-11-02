@@ -728,7 +728,7 @@ fn position_page(ui: &mut Ui, f: &mut StyleForm) {
     heading(ui, "Spacing");
     egui::Grid::new("ms_charsp").num_columns(2).spacing(vec2(10.0, 8.0)).show(ui, |ui| {
         ui.label(tl!("Character spacing (pt):"));
-        ui.add(crate::numfield::NumField::new(&mut f.spacing).speed(0.1).range(-20.0..=20.0));
+        ui.add(crate::numfield::NumField::new(&mut f.spacing).speed(0.1).range(-20.0..=20.0).spinner());
         ui.end_row();
         ui.checkbox(&mut f.kern, tl!("Kerning for fonts (pt) and up:"));
         ui.add_enabled(f.kern, crate::numfield::NumField::new(&mut f.kern_at).range(1.0..=1638.0).speed(0.5));

@@ -1621,7 +1621,7 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 color_field(ui, &theme, color, "Automatic", "auto");
                 ui.end_row();
                 ui.label(tl!("Spacing (pt):"));
-                ui.add(crate::numfield::NumField::new(spacing).speed(0.1).range(-20.0..=20.0));
+                ui.add(crate::numfield::NumField::new(spacing).speed(0.1).range(-20.0..=20.0).spinner());
                 ui.end_row();
             });
             ui.separator();

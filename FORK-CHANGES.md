@@ -5,6 +5,30 @@ Thai-speaking audience. This file lists what differs from the original, newest f
 progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each entry matches a commit on the
 `my-changes` branch.
 
+## 2026-11-02 (desktop sync from the web app)
+
+### WordCraft v0.12 fixes (UP12)
+- Selected WordCraft v0.12 stability and editing fixes, first taken into the web app on 2026-10-29: Tab
+  indents a whole selected paragraph; bounded font, DOCX and layout memory; style sets keep imported styles
+  and Thai defaults; faster PDF and shaping; justified and Thai-distributed lines ending in Shift+Enter
+  stretch (unless `w:doNotExpandShiftReturn`); bookmarks and NBSP lay out as in Word; Crop on the picture
+  right-click menu; Standard-encrypted packages open; regex Replace expands capture groups. Details and
+  upstream PR numbers: [docs/upstream-v0.12.md](docs/upstream-v0.12.md).
+
+### Font menu sizes Thai fonts by x-height
+- Each font-menu entry is sized by its x-height, so small-looking Thai faces (TH Sarabun New and the other
+  SIPA fonts) read about as tall as Latin fonts.
+
+### Up and down buttons for character spacing
+- A user asked for Word's up and down buttons on the character spacing box, instead of typing a + or −
+  number. `NumField` gained an opt-in `spinner()`: two small buttons beside the box step the value by the
+  field's step (0.1 pt here), within its range. The Font dialog's Spacing (pt) and Modify Style › Font's
+  Character spacing (pt) use it. Thai labels เพิ่ม / ลด for screen readers. Test:
+  `the_spinner_buttons_step_the_number`.
+
+### Clippy 1.95
+- Fixes for the lints Rust 1.95's Clippy adds (`collapsible_match`, `nonminimal_bool`) in untouched code.
+
 ## 2026-10-26
 
 ### HANDOFF.md brought up to date

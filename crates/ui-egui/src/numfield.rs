@@ -5,6 +5,8 @@
 //! cursor, a click selects the number, and typing replaces it. It takes the same settings as
 //! `DragValue` (range, decimals, a unit suffix, a custom formatter and parser) so it replaces it
 //! one for one; the up and down arrow keys still step the value by `speed` while it has the focus.
+//! With `spinner`, two small buttons beside the box step it by the same amount, as Word's number
+//! boxes do.
 
 use std::ops::RangeInclusive;
 
@@ -34,6 +36,7 @@ pub struct NumField<'a> {
     suffix: String,
     formatter: Option<Formatter<'a>>,
     parser: Option<Parser<'a>>,
+    spinner: bool,
 }
 
 impl<'a> NumField<'a> {
@@ -53,6 +56,7 @@ impl<'a> NumField<'a> {
             suffix: String::new(),
             formatter: None,
             parser: None,
+            spinner: false,
         };
         if N::INTEGRAL {
             field.max_decimals = Some(0);
@@ -65,6 +69,12 @@ impl<'a> NumField<'a> {
     /// How much the arrow keys change the value (and so how many decimals it shows).
     pub fn speed(mut self, speed: impl Into<f64>) -> Self {
         self.speed = speed.into();
+        self
+    }
+
+    /// Up and down buttons beside the box, each stepping the value by `speed`.
+    pub fn spinner(mut self) -> Self {
+        self.spinner = true;
         self
     }
 
@@ -125,7 +135,7 @@ fn parse_plain(text: &str) -> Option<f64> {
 
 impl Widget for NumField<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
-        let Self { mut get_set, speed, range, clamp_existing, min_decimals, max_decimals, suffix, formatter, parser } = self;
+        let Self { mut get_set, speed, range, clamp_existing, min_decimals, max_decimals, suffix, formatter, parser, spinner } = self;
         let id: Id = ui.next_auto_id();
         let focused = ui.is_enabled() && ui.memory_mut(|m| m.has_focus(id));
         // The text kept from the last frame; none on the first frame with the focus.
@@ -184,16 +194,25 @@ impl Widget for NumField<'_> {
         let pad = ui.spacing().button_padding;
         let inner_w = (text_w + 6.0).max(ui.spacing().interact_size.x - 2.0 * pad.x);
         let escape_key = ui.input(|i| i.key_pressed(Key::Escape));
-        let mut response = ui.add(
-            TextEdit::singleline(&mut text)
-                .id(id)
-                .clip_text(false)
-                .horizontal_align(Align::Center)
-                .margin(pad)
-                .min_size(ui.spacing().interact_size)
-                .desired_width(inner_w)
-                .font(font),
-        );
+        let edit = TextEdit::singleline(&mut text)
+            .id(id)
+            .clip_text(false)
+            .horizontal_align(Align::Center)
+            .margin(pad)
+            .min_size(ui.spacing().interact_size)
+            .desired_width(inner_w)
+            .font(font);
+        let (mut response, spun) = if spinner {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 2.0;
+                let r = ui.add(edit);
+                let spun = spin_buttons(ui, r.rect.height());
+                (r, spun)
+            })
+            .inner
+        } else {
+            (ui.add(edit), 0.0)
+        };
 
         // A click gives the field the focus during this frame; a Tab gave it before the frame began.
         let gained = gained_early || (!focused && response.has_focus());
@@ -226,12 +245,45 @@ impl Widget for NumField<'_> {
         } else if response.has_focus() {
             ui.data_mut(|d| d.insert_temp(id, Editing { text, value: get_set(None), start }));
         }
+        // A spinner button steps from the number as it stands, after anything typed was read.
+        if spun != 0.0 {
+            let now = get_set(None);
+            get_set(Some(clamp_to(egui::emath::round_to_decimals(now + speed * spun, auto), &range)));
+        }
 
         if get_set(None) != before {
             response.mark_changed();
         }
         response
     }
+}
+
+/// The up and down buttons, stacked in a column as tall as the box: +1, -1 or 0 for a click.
+fn spin_buttons(ui: &mut Ui, height: f32) -> f64 {
+    let half = (height / 2.0).floor().max(6.0);
+    let size = egui::vec2(16.0, half);
+    let mut step = 0.0;
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing.y = 0.0;
+        for (up, label) in [(true, tl!("Increase")), (false, tl!("Decrease"))] {
+            let (rect, r) = ui.allocate_exact_size(size, egui::Sense::click());
+            r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label));
+            let v = ui.style().interact(&r);
+            ui.painter().rect(rect.shrink(0.5), 2.0, v.bg_fill, v.bg_stroke, egui::StrokeKind::Inside);
+            let c = rect.center();
+            let (w, h) = (3.5, 2.5);
+            let pts = if up {
+                vec![egui::pos2(c.x - w, c.y + h / 2.0), egui::pos2(c.x + w, c.y + h / 2.0), egui::pos2(c.x, c.y - h)]
+            } else {
+                vec![egui::pos2(c.x - w, c.y - h / 2.0), egui::pos2(c.x + w, c.y - h / 2.0), egui::pos2(c.x, c.y + h)]
+            };
+            ui.painter().add(egui::Shape::convex_polygon(pts, v.fg_stroke.color, egui::Stroke::NONE));
+            if r.clicked() {
+                step += if up { 1.0 } else { -1.0 };
+            }
+        }
+    });
+    step
 }
 
 #[cfg(test)]
@@ -315,6 +367,34 @@ mod tests {
         assert_eq!(super::parse_plain("−2"), Some(-2.0));
         assert_eq!(super::parse_plain(" 1 2 "), Some(12.0));
         assert_eq!(super::parse_plain("abc"), None);
+    }
+
+    /// The spinner's buttons step the number by the field's step and stay in the range.
+    #[test]
+    fn the_spinner_buttons_step_the_number() {
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(300.0, 100.0)).build_ui_state(
+            |ui, v: &mut f32| {
+                ui.add(NumField::new(v).speed(0.1).range(-20.0..=20.0).spinner());
+            },
+            0.0,
+        );
+        h.run_steps(3);
+        for _ in 0..3 {
+            h.get_by_label("Increase").click();
+            h.run_steps(3);
+        }
+        assert!((*h.state() - 0.3).abs() < 1e-6, "{}", h.state());
+        for _ in 0..5 {
+            h.get_by_label("Decrease").click();
+            h.run_steps(3);
+        }
+        assert!((*h.state() + 0.2).abs() < 1e-6, "{}", h.state());
+        assert_eq!(h.get_by_role(Role::TextInput).value().as_deref(), Some("-0.2"));
+        *h.state_mut() = 20.0;
+        h.run_steps(2);
+        h.get_by_label("Increase").click();
+        h.run_steps(3);
+        assert_eq!(*h.state(), 20.0, "the range holds");
     }
 
     /// Escape drops what was typed; the arrow keys step the number.
