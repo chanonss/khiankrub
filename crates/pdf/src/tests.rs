@@ -1486,3 +1486,33 @@ fn bundled_unicode_glyphs_are_visible_and_extractable() {
     assert!(String::from_utf8_lossy(&bytes).contains("/ToUnicode"));
     assert_eq!(squash(&extract_text(&bytes).concat()), TEXT);
 }
+
+/// A run's baseline is the y most of its glyphs share, ties to the lower bits; a run on one
+/// baseline (the common case) gives its y without counting.
+#[test]
+fn baseline_is_the_most_shared_y() {
+    assert_eq!(baseline(&[]), None);
+    assert_eq!(baseline(&[(1, 0.0, 7.5)]), Some(7.5));
+    assert_eq!(baseline(&[(1, 0.0, 7.5), (2, 3.0, 7.5), (3, 6.0, 7.5)]), Some(7.5));
+    assert_eq!(baseline(&[(1, 0.0, 7.5), (2, 3.0, 4.0), (3, 6.0, 7.5)]), Some(7.5));
+    assert_eq!(baseline(&[(1, 0.0, 9.0), (2, 3.0, 4.0)]), Some(4.0));
+    assert_eq!(baseline(&[(1, 0.0, -0.0), (2, 3.0, 0.0)]), Some(0.0));
+}
+
+#[test]
+fn kept_heading_cache_preserves_mixed_thai_english_pdf_bytes() {
+    let mut d = sample();
+    d.body.clear();
+    d.apply_thai_defaults();
+    for i in 0..12 {
+        let mut heading = Paragraph::with_text(&format!("บทที่ {i} / Chapter {i}"), Default::default());
+        heading.props.keep_next = Some(true);
+        d.body.push(para_block(heading));
+        d.body.push(para_block(Paragraph::with_text("ภาษาไทยและภาษาอังกฤษ Thai and English. ".repeat(8).as_str(), Default::default())));
+    }
+    let cached = layout(&d, &mut LayoutCache::new(), &LayoutOptions::default());
+    let uncached = layout(&d, &mut LayoutCache::new(), &LayoutOptions { proofing: true, ..Default::default() });
+    assert_eq!(cached.pages.len(), uncached.pages.len());
+    let opts = PdfOptions::default();
+    assert_eq!(export_layout(&d, &cached, &opts).unwrap(), export_layout(&d, &uncached, &opts).unwrap());
+}

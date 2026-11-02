@@ -758,9 +758,17 @@ fn lines(
                 k += 1;
                 continue;
             };
-            let mut glyphs = Vec::new();
-            let mut text = String::new();
-            let mut ranges: Vec<std::ops::Range<usize>> = Vec::new();
+            // Sized for the run's text clusters up front: no growing per glyph.
+            let run = pl.clusters.get(k..line.c1.min(pl.clusters.len())).unwrap_or_default();
+            let (n_glyphs, n_bytes) = run
+                .iter()
+                .take_while(|c| c.style == si)
+                .filter(|c| matches!(c.kind, ClKind::Text | ClKind::Space))
+                .fold((0usize, 0usize), |(g, b), c| (g + c.g1.saturating_sub(c.g0) as usize, b + c.end.saturating_sub(c.start)));
+            let mut glyphs = Vec::with_capacity(n_glyphs);
+            let mut text = String::with_capacity(n_bytes);
+            let mut ranges: Vec<std::ops::Range<usize>> = Vec::with_capacity(n_glyphs);
+            let symbol_font = wordcraft_doc::symbol_fonts::is_symbol_font(&st.rc.font);
             let run_start = k;
             while k < line.c1 {
                 let Some(c) = pl.clusters.get(k) else { break };
@@ -786,7 +794,7 @@ fn lines(
                     } else if let Some(p) = para {
                         let t = p.text.get(c.start..c.end).unwrap_or("");
                         // Symbol-font characters (Wingdings…) read as the Unicode symbols drawn.
-                        if wordcraft_doc::symbol_fonts::is_symbol_font(&st.rc.font) {
+                        if symbol_font {
                             text.push_str(&wordcraft_doc::symbol_fonts::map_text(&st.rc.font, t));
                         } else if st.rc.caps || st.rc.small_caps {
                             // All Caps and Small Caps read as the capitals drawn (#1473), mapped

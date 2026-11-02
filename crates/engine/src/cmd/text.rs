@@ -624,8 +624,12 @@ fn tab(s: &mut Session, _: &Value) -> CmdResult {
         para.touch();
         return sel_result(s);
     }
-    if !s.sel.is_collapsed() && s.sel.anchor.path != s.sel.focus.path {
-        // Multiple paragraphs selected: increase indent.
+    let whole_para = !s.sel.is_collapsed() && s.sel.anchor.path == s.sel.focus.path && {
+        let (a, b) = s.sel.ordered();
+        a.off == 0 && s.doc.para_at(&a).is_some_and(|p| b.off == p.len())
+    };
+    if !s.sel.is_collapsed() && (s.sel.anchor.path != s.sel.focus.path || whole_para) {
+        // Several paragraphs or a whole paragraph selected: increase indent.
         return super::para::indent(s, &Value::Null);
     }
     ins_char(s, '\t')

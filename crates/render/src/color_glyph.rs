@@ -23,7 +23,7 @@ pub(crate) enum Drawable {
 impl Drawable {
     fn bytes(&self) -> usize {
         match self {
-            Drawable::Layers(ops) => ops.len().saturating_mul(64),
+            Drawable::Layers(ops) => wordcraft_fonts::color::ops_bytes(ops),
             Drawable::Bitmap { pixmap, .. } => pixmap.width() as usize * pixmap.height() as usize * 4,
         }
     }

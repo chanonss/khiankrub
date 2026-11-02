@@ -488,8 +488,10 @@ pub struct LayoutCache {
     /// Narrowest and widest content of paragraphs measured for table autofit ([`Ctx::para_measured`]).
     measures: HashMap<Key, (f32, f32)>,
     /// Outlines of pictures' opaque pixels (Tight and Through wrapping), by media key, the
-    /// media's bytes (address and length) and crop.
-    outlines: HashMap<(String, usize, usize, [u32; 4]), Option<Arc<Vec<(f32, f32)>>>>,
+    /// media's bytes (address and length) and crop. Kept from one layout to the next, so each
+    /// entry holds a weak reference to its bytes: their allocation isn't freed while the entry is
+    /// kept, so no other picture's bytes can come to have its address ([`Outlines`]).
+    outlines: Outlines,
     env: u64,
     used: HashSet<Key>,
     /// The STYLEREF style index of the last pass and what it was built from: the body blocks
@@ -662,25 +664,46 @@ struct Ctx<'a> {
     /// Cache-key hashes of the table-style text formatting cells were laid out with
     /// ([`Ctx::table_key`]).
     table_keys: Vec<(para::CellText, u64)>,
+    /// Transparency decoded once per picture and bounded across the layout pass.
+    alphas: contour::Alphas,
+}
+
+/// Picture outlines by media name, bytes (address and length) and crop ([`LayoutCache`]), each
+/// with a weak reference to those bytes. The cache outlives the documents it is used with, and
+/// an address names the same bytes only while their allocation lives: the weak reference keeps
+/// it (not the bytes in it), so a picture loaded later can't be given a freed picture's address
+/// and length and be taken for it.
+type Outlines = HashMap<(String, usize, usize, [u32; 4]), (std::sync::Weak<Vec<u8>>, Option<Arc<Vec<(f32, f32)>>>)>;
+
+/// Picture `bytes`'s outline within `crop`, kept in `outlines` under `key`. One refused for this
+/// layout's decoding budget wraps as its rectangle and isn't kept: a later layout may decode it.
+fn picture_outline(
+    outlines: &mut Outlines,
+    alphas: &mut contour::Alphas,
+    key: (String, usize, usize, [u32; 4]),
+    bytes: &Arc<Vec<u8>>,
+    crop: [f32; 4],
+) -> Option<Arc<Vec<(f32, f32)>>> {
+    if let Some((_, o)) = outlines.get(&key) {
+        return o.clone();
+    }
+    let outline = alphas.outline(bytes, crop).ok()?.map(Arc::new);
+    if outlines.len() >= 256 {
+        outlines.clear();
+    }
+    outlines.insert(key, (Arc::downgrade(bytes), outline.clone()));
+    outline
 }
 
 impl Ctx<'_> {
     /// The outline Tight and Through wrapping follow around `o` (see [`contour::wrap_outline`]);
     /// pictures' are worked out once per picture and crop.
     fn wrap_outline(&mut self, o: &InlineObject) -> Option<Arc<Vec<(f32, f32)>>> {
-        let (doc, cache) = (self.doc, &mut *self.cache);
+        let (doc, cache, alphas) = (self.doc, &mut *self.cache, &mut self.alphas);
         contour::wrap_outline(o, |media, crop| {
             let bytes = doc.media.get(media)?;
             let key = (media.to_string(), Arc::as_ptr(bytes) as usize, bytes.len(), crop.map(f32::to_bits));
-            if let Some(o) = cache.outlines.get(&key) {
-                return o.clone();
-            }
-            if cache.outlines.len() >= 256 {
-                cache.outlines.clear();
-            }
-            let outline = contour::picture_outline(bytes, crop).map(Arc::new);
-            cache.outlines.insert(key, outline.clone());
-            outline
+            picture_outline(&mut cache.outlines, alphas, key, bytes, crop)
         })
     }
 
@@ -752,6 +775,33 @@ impl Ctx<'_> {
         let pl = Arc::new(para::layout_para(p, &self.para_env(width, label, table, exclusions, eq_number)));
         self.cache.paras.insert(key, pl.clone());
         pl
+    }
+
+    /// `p` laid out on its own, as the paragraph after a kept one is measured before it is placed
+    /// (no wrap areas, proofing, typed word or resized text boxes), through the cache when
+    /// [`Ctx::para_labelled`] would lay it out with those same inputs: it is then not laid out a
+    /// second time when it is placed. Counts nothing (list labels, equation numbers, page totals).
+    /// `None` when the inputs differ.
+    pub(crate) fn para_ahead(&mut self, p: &Paragraph, width: f32, label: Option<(String, Level)>) -> Option<Arc<ParaLayout>> {
+        let resized = p
+            .objects
+            .iter()
+            .any(|o| matches!(o, InlineObject::Shape { story: Some(_), float, .. } if float.wrap == Wrap::Inline && float.rot == 0.0));
+        if self.opts.proofing || self.boxes.inside() || resized || self.hide_deleted != self.opts.hides_deleted(StoryRef::Body) {
+            return None;
+        }
+        let kept = (self.eq_count, self.uses_totals);
+        let (key, eq_number) = self.para_key(p, width, None, &[], label.as_ref());
+        (self.eq_count, self.uses_totals) = kept;
+        self.cache.used.insert(key.clone());
+        if let Some(pl) = self.cache.paras.get(&key) {
+            self.cache.hits += 1;
+            return Some(pl.clone());
+        }
+        self.cache.misses += 1;
+        let pl = Arc::new(para::layout_para(p, &self.para_env(width, label, None, &[], eq_number)));
+        self.cache.paras.insert(key, pl.clone());
+        Some(pl)
     }
 
     /// What `measure` reads from `p` laid out as [`Ctx::para_labelled`] would, remembering only
@@ -2028,6 +2078,7 @@ fn layout_pass(
         quiet_marks: Vec::new(),
         mirror: false,
         table_keys: Vec::new(),
+        alphas: Default::default(),
     };
     let sections = doc.sections();
     let web = matches!(opts.view, ViewMode::Web | ViewMode::Draft | ViewMode::Outline);
@@ -3610,25 +3661,27 @@ fn next_first_line(ctx: &mut Ctx, block: usize, width: f32, depth: usize) -> f32
         Some(Block::Para(p)) => {
             // Don't advance list counters for a lookahead: lay out without the label.
             let rp = ctx.doc.styles.resolve_para(&p.props);
-            let env = para::ParaEnv {
-                doc: ctx.doc,
-                width,
-                label: None,
-                fields: &ctx.fields,
-                show_hidden: ctx.opts.show_hidden,
-                field_codes: ctx.opts.field_codes,
-                hide_deleted: ctx.opts.hides_deleted(StoryRef::Body),
-                table: None,
-                proofing: None,
-                numeral: ctx.opts.numeral,
-                exclusions: &[],
-                eq_number: ctx.eq_count,
-                read_line_spacing: if ctx.opts.view == ViewMode::Read { ctx.opts.read_line_spacing } else { None },
-                grid: ctx.grid,
-                fit_objects: false,
-            };
-            let _ = rp;
-            let pl = para::layout_para(p, &env);
+            let pl = ctx.para_ahead(p, width, None).unwrap_or_else(|| {
+                let env = para::ParaEnv {
+                    doc: ctx.doc,
+                    width,
+                    label: None,
+                    fields: &ctx.fields,
+                    show_hidden: ctx.opts.show_hidden,
+                    field_codes: ctx.opts.field_codes,
+                    hide_deleted: ctx.opts.hides_deleted(StoryRef::Body),
+                    table: None,
+                    proofing: None,
+                    numeral: ctx.opts.numeral,
+                    exclusions: &[],
+                    eq_number: ctx.eq_count,
+                    read_line_spacing: if ctx.opts.view == ViewMode::Read { ctx.opts.read_line_spacing } else { None },
+                    grid: ctx.grid,
+                    fit_objects: false,
+                };
+                let _ = rp;
+                Arc::new(para::layout_para(p, &env))
+            });
             if pl.rp.keep_next && depth < 8 {
                 pl.rp.space_before + pl.height + pl.rp.space_after + next_first_line(ctx, block + 1, width, depth + 1)
             } else {
@@ -3653,6 +3706,9 @@ fn next_first_line(ctx: &mut Ctx, block: usize, width: f32, depth: usize) -> f32
     }
 }
 
+/// Cap copied header items across one table, including overflowing exact-height rows.
+const MAX_HEADER_ITEMS: usize = 500_000;
+
 fn place_table(ctx: &mut Ctx, pb: &mut PageBuilder, t: &wordcraft_doc::Table, block: usize, body_top: f32) {
     pb.prev = None;
     let width = pb.col_w();
@@ -3673,13 +3729,8 @@ fn place_table(ctx: &mut Ctx, pb: &mut PageBuilder, t: &wordcraft_doc::Table, bl
     // A table in the text flow starts below the floating objects in its way.
     below_floats(pb, pb.col_x() + tl.x, pb.col_x() + tl.x + tl.width);
     let header_rows: Vec<usize> = (0..t.rows.len()).take_while(|r| t.rows.get(*r).is_some_and(|row| row.props.header)).collect();
-    // Header rows are re-placed on every page a table spills onto, so a table with many header
-    // rows that each spill onto their own page is O(header rows × pages) placed items — a few KB
-    // of document can otherwise fill memory. Once this many header rows have been repeated across
-    // the whole table, later pages carry none; pagination still finishes. Far above any real
-    // table (e.g. 3 header rows over 30 000 pages).
-    const MAX_HEADER_REPEATS: usize = 200_000;
     let mut header_repeats = 0usize;
+    let header_cost = header_rows.iter().filter_map(|i| tl.rows.get(*i)).map(|r| r.items.len().max(1)).fold(0, usize::saturating_add);
     let place = |pb: &mut PageBuilder, row: &table::RowLayout| {
         let (x, y) = (pb.col_x() + tl.x, pb.y);
         if let Some(pg) = pb.page() {
@@ -3743,15 +3794,10 @@ fn place_table(ctx: &mut Ctx, pb: &mut PageBuilder, t: &wordcraft_doc::Table, bl
             }
             pb.advance(block, body_top);
             // Repeat header rows, up to this table's cap.
-            if !header_rows.contains(&ri) && header_repeats < MAX_HEADER_REPEATS {
-                for hr in &header_rows {
-                    if header_repeats >= MAX_HEADER_REPEATS {
-                        break;
-                    }
-                    if let Some(h) = tl.rows.get(*hr) {
-                        place(pb, h);
-                        header_repeats += 1;
-                    }
+            if !header_rows.contains(&ri) && header_repeats.saturating_add(header_cost) <= MAX_HEADER_ITEMS {
+                header_repeats += header_cost;
+                for h in header_rows.iter().filter_map(|hr| tl.rows.get(*hr)) {
+                    place(pb, h);
                 }
             }
             fresh = true;
@@ -4144,9 +4190,13 @@ mod tests;
 #[cfg(test)]
 mod tests_bidi;
 #[cfg(test)]
+mod tests_budget;
+#[cfg(test)]
 mod tests_complex;
 #[cfg(test)]
 mod tests_grid;
+#[cfg(test)]
+mod tests_nbsp;
 #[cfg(test)]
 mod tests_numeral;
 #[cfg(test)]

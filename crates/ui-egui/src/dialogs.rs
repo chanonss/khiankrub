@@ -4407,6 +4407,28 @@ mod tests {
         assert!((after.min.y - (before.min.y + 120.0)).abs() <= 1.0, "moved down: {before:?} -> {after:?}");
     }
 
+    /// #4177: Replace All in the Find and Replace dialog, with Regular expressions on, expands
+    /// capture groups (`$2 $1`, `\2 \1`, `${name}`) instead of inserting them literally.
+    #[test]
+    fn replace_all_with_regex_groups_from_the_dialog() {
+        use egui_kittest::kittest::Queryable;
+        for (with, want) in [("$2 $1", "John Smith and Jane Doe"), (r"\2 \1", "John Smith and Jane Doe"), ("${last}!", "Smith! and Doe!")] {
+            let mut h = app_harness(app_with("Smith, John and Doe, Jane"));
+            h.state_mut().run("ui.dialog", json!({"name": "replace"})).unwrap();
+            h.run_steps(2);
+            if let Some(Dialog::Find { query, replace, regex, .. }) = h.state_mut().dialog.as_mut() {
+                *query = r"(?<last>\w+), (\w+)".into();
+                *replace = with.into();
+                *regex = true;
+            } else {
+                panic!("Replace opens the Find and Replace dialog");
+            }
+            h.run_steps(2);
+            h.get_by_label("Replace All").click();
+            h.run_steps(2);
+            assert_eq!(h.state().session.doc.plain_text(wordcraft_doc::StoryRef::Body), want, "{with}");
+        }
+    }
     fn app_harness(app: WordApp) -> egui_kittest::Harness<'static, WordApp> {
         egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
             |ui, app: &mut WordApp| {

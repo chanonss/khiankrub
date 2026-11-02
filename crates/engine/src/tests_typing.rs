@@ -1289,3 +1289,34 @@ fn increase_indent_and_demote_past_the_last_list_level_stop_at_the_last() {
         assert_eq!(s.doc.para_at(&at).unwrap().props.numbering.map(|n| n.level), Some(8), "{cmd}");
     }
 }
+
+#[test]
+fn tab_with_a_whole_paragraph_selected_indents_it() {
+    let mut s = typed("Hello world");
+    run(&mut s, "select.paragraph", json!({}));
+    run(&mut s, "text.tab", json!({}));
+    assert_eq!(paras(&s), vec![para("Hello world", None)]);
+    assert_eq!(s.doc.para_at(&s.sel.focus).unwrap().props.indent_left, Some(36.0));
+}
+
+#[test]
+fn tab_with_a_partial_selection_still_inserts_a_tab() {
+    let mut s = typed("Hello world");
+    run(&mut s, "select.text", json!({"text": "ello"}));
+    run(&mut s, "text.tab", json!({}));
+    assert_eq!(paras(&s), vec![para("H\t world", None)]);
+}
+
+#[test]
+fn tab_indents_a_reverse_selected_thai_paragraph_and_undo_restores_it() {
+    let mut s = typed("สวัสดีครับ Hello");
+    let text = s.doc.plain_text(StoryRef::Body);
+    run(&mut s, "select.paragraph", json!({}));
+    std::mem::swap(&mut s.sel.anchor, &mut s.sel.focus);
+    run(&mut s, "text.tab", json!({}));
+    assert_eq!(s.doc.plain_text(StoryRef::Body), text);
+    assert_eq!(s.doc.para_at(&s.sel.focus).unwrap().props.indent_left, Some(36.0));
+    run(&mut s, "edit.undo", json!({}));
+    assert_eq!(s.doc.plain_text(StoryRef::Body), text);
+    assert_eq!(s.doc.para_at(&s.sel.focus).unwrap().props.indent_left, None);
+}

@@ -22,6 +22,8 @@ mod write;
 mod xml;
 
 pub use chart_spec::{chart_items, chart_xml};
+#[doc(hidden)]
+pub use crypt::encrypt_standard_for_tests;
 pub use crypt::{
     DEFAULT_SPIN_COUNT, MAX_PASSWORD_CHARS, PasswordCheck, check_password, check_protection_password, decrypt, encrypt, encrypt_with_spin_count,
     is_encrypted, protection_hash,

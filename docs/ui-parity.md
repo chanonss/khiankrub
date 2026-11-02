@@ -1,6 +1,10 @@
 # UI parity with Microsoft Word
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-28 · **Change:** trivial (Modify Table Style formats every table style part, #714); previously trivial: a click on the ribbon chrome hands the keyboard to the page in the same frame, #1093 follow-up; previously trivial: Page Setup vertical alignment, #1320; previously trivial: the app opens on the Home tab every launch, as in Word; previously trivial: no document behind the Start screen, #1129; previously trivial: equation pictures share a few textures, #1002; previously trivial: selection bar in the left margin, #856; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously major: first version; ribbon, dialogs, shortcuts and on-canvas interaction measured from `crates/ui-egui` and the command registry) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
+> **KhianKrub status — 2026-11-02:** UP12.1: preserve style-set inputs. Applying a style set changes matching styles without discarding other imported styles, latent styles or document defaults. Theme font/accent application is restricted to the incoming set, preserving Thai defaults and unrelated font choices.
+
+> **KhianKrub status — 2026-11-02:** UP12.3: the picture context menu has a direct localized Crop action that displays handles; regex Replace supports numbered/named groups, whole matches, literal dollars, tabs and paragraph breaks, including Replace All from the dialog.
+
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-02 · **Change:** trivial (Modify Table Style formats every table style part, #714); previously trivial: a click on the ribbon chrome hands the keyboard to the page in the same frame, #1093 follow-up; previously trivial: Page Setup vertical alignment, #1320; previously trivial: the app opens on the Home tab every launch, as in Word; previously trivial: no document behind the Start screen, #1129; previously trivial: equation pictures share a few textures, #1002; previously trivial: selection bar in the left margin, #856; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously major: first version; ribbon, dialogs, shortcuts and on-canvas interaction measured from `crates/ui-egui` and the command registry) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
 
 Desktop sync (2026-10-28): ported the web File-tab fix, document context-menu icons and numbering actions, and problem-report form. See [desktop sync notes](desktop-sync.md).
 
@@ -63,6 +67,8 @@ Document title opens Rename Document; the account badge opens Options › Genera
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-02 | minor | UP12.3: the picture context menu has a direct localized Crop action that displays handles; regex Replace supports numbered/named groups, whole matches, literal dollars, tabs and paragraph breaks, including Replace All from the dialog. |
+| 2026-11-02 | minor | UP12.1: preserve style-set inputs. Applying a style set changes matching styles without discarding other imported styles, latent styles or document defaults. Theme font/accent application is restricted to the incoming set, preserving Thai defaults and unrelated font choices. |
 | 2026-10-13 | trivial | New/Modify Table Style: No Border on a part that inherits its lines hides them; emptying the font box makes the part's font inherited again (#1288) |
 | 2026-10-14 | trivial | Tab stops edited on the ruler: corner kind selector, click to set, drag to move or off to clear, per-kind markers mirrored for RTL; each gesture one `para.tabs` call and one undo step; Rulers 85% → 90% |
 | 2026-10-12 | trivial | Tables on the page: one selected cell (Select Cell, or a click along its left edge) is a cell selection when its border is dragged: the border moves in its row only (#962) |

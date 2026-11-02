@@ -93,8 +93,12 @@ pub fn specs() -> Vec<CommandSpec> {
 fn set_fonts(s: &mut Session, heading: &str, body: &str) {
     s.doc.settings.major_font = heading.into();
     s.doc.settings.minor_font = body.into();
-    s.doc.styles.default_chr.font = Some(body.into());
-    for st in &mut s.doc.styles.styles {
+    style_fonts(&mut s.doc.styles, heading, body);
+}
+
+fn style_fonts(sheet: &mut wordcraft_doc::StyleSheet, heading: &str, body: &str) {
+    sheet.default_chr.font = Some(body.into());
+    for st in &mut sheet.styles {
         if let Some(f) = &st.chr.font
             && (f == styles::HEADING_FONT || st.id.starts_with("Heading") || st.id == "Title")
         {
@@ -106,7 +110,14 @@ fn set_fonts(s: &mut Session, heading: &str, body: &str) {
 }
 
 fn set_accent(s: &mut Session, accent: Rgb) {
-    for st in &mut s.doc.styles.styles {
+    style_accent(&mut s.doc.styles, accent);
+    if let Some(c) = s.doc.settings.theme_colors.get_mut(4) {
+        *c = accent;
+    }
+}
+
+fn style_accent(sheet: &mut wordcraft_doc::StyleSheet, accent: Rgb) {
+    for st in &mut sheet.styles {
         if st.id.starts_with("Heading") && st.id.len() == 8 && st.id.as_bytes().get(7).is_some_and(|d| *d <= b'5')
             || st.id == "IntenseQuote"
             || st.id == "IntenseEmphasis"
@@ -119,9 +130,6 @@ fn set_accent(s: &mut Session, accent: Rgb) {
                 }
             }
         }
-    }
-    if let Some(c) = s.doc.settings.theme_colors.get_mut(4) {
-        *c = accent;
     }
 }
 
@@ -169,14 +177,22 @@ fn style_set(s: &mut Session, v: &Value) -> CmdResult {
             _ => {}
         }
     }
-    // Keep custom styles and fonts.
-    let customs: Vec<_> = s.doc.styles.styles.iter().filter(|x| !x.builtin).cloned().collect();
-    fresh.styles.extend(customs);
-    fresh.default_chr.font = s.doc.styles.default_chr.font.clone();
-    s.doc.styles = fresh;
     let (h, b) = (s.doc.settings.major_font.clone(), s.doc.settings.minor_font.clone());
-    set_fonts(s, &h, &b);
-    set_accent(s, accent);
+    style_fonts(&mut fresh, &h, &b);
+    style_accent(&mut fresh, accent);
+    // Overlay the set onto the document's sheet: every other style, the latent styles and the
+    // document defaults stay as they are (no set defines its own defaults).
+    for mut st in fresh.styles {
+        match s.doc.styles.styles.iter_mut().find(|x| x.id == st.id) {
+            Some(old) => {
+                st.default = old.default;
+                st.locked = old.locked;
+                st.builtin = old.builtin;
+                *old = st;
+            }
+            None => s.doc.styles.styles.push(st),
+        }
+    }
     sel_result(s)
 }
 

@@ -1,6 +1,10 @@
 # Typing parity with Word
 
-> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-10-14 · **Change:** trivial (Shift+Delete cuts the selection on every platform, #1669; previously trivial: Select All then Delete removes a table the document starts with, #1198; previously trivial: Alt+numpad character codes, #961; previously trivial: Down and Up from a line start beside a table go into it, #1007; previously trivial: sample-text formulas on Enter, #1067; previously trivial: Track Changes: Accept All after a tracked delete from a paragraph end keeps the next paragraph; Reject All after typing into an empty paragraph keeps it (#864); previously minor: Correct TWo INitial CApitals, cAPS LOCK and table-cell capitals, #544; previously trivial: complex-script caret and Backspace, #604; Move Paragraph Up/Down, Promote/Demote, Go Back and Alt+X keys, #343) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
+> **KhianKrub status — 2026-11-02:** UP12.1: paragraph Tab selection. Tab indents a fully selected paragraph rather than replacing its text; partial selections still insert a tab. Regression tests: tab_with_a_whole_paragraph_selected_indents_it and tab_with_a_partial_selection_still_inserts_a_tab.
+
+> **KhianKrub status — 2026-11-02:** UP12.2: justified and Thai-distributed lines ending in Shift+Enter extend to the margin unless w:doNotExpandShiftReturn is enabled; paragraph-final, page-break and column-break behavior stays unchanged.
+
+> **Last reviewed:** 2026-10-11 · **Last updated:** 2026-11-02 · **Change:** trivial (Shift+Delete cuts the selection on every platform, #1669; previously trivial: Select All then Delete removes a table the document starts with, #1198; previously trivial: Alt+numpad character codes, #961; previously trivial: Down and Up from a line start beside a table go into it, #1007; previously trivial: sample-text formulas on Enter, #1067; previously trivial: Track Changes: Accept All after a tracked delete from a paragraph end keeps the next paragraph; Reject All after typing into an empty paragraph keeps it (#864); previously minor: Correct TWo INitial CApitals, cAPS LOCK and table-cell capitals, #544; previously trivial: complex-script caret and Backspace, #604; Move Paragraph Up/Down, Promote/Demote, Go Back and Alt+X keys, #343) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
 
 What Word does when you type, observed black-box (same keystrokes typed into Word and
 WordCraft, results read back paragraph by paragraph) and pinned by tests in
@@ -32,6 +36,7 @@ formatting use the existing editing primitives. Tests: `sample_text_formulas_exp
 | … Enter ×3, ×4 | each further Enter adds a blank Normal paragraph (never swallowed) | `more_enters_after_a_list_make_blank_paragraphs` |
 | Enter on an empty **nested** item | moves it up one level; only a top-level empty item leaves the list | `enter_on_an_empty_nested_item_moves_it_up_a_level_first` |
 | `* ` Enter (nothing typed) | list cancelled, Normal paragraph | `enter_right_after_starting_a_list_cancels_it` |
+| Tab with one whole paragraph selected (either direction) | indents the paragraph without replacing its text; undo restores the indent. Partial selections receive a tab | `tab_with_a_whole_paragraph_selected_indents_it`, `tab_with_a_partial_selection_still_inserts_a_tab`, `tab_indents_a_reverse_selected_thai_paragraph_and_undo_restores_it` |
 | Tab / Shift+Tab at the start of an item | demote / promote | `shift_tab_and_tab_change_list_levels` |
 | Backspace at the start of an item | 1st: number removed, indent kept; 2nd: Normal paragraph — **not** joined to the one above | `backspace_at_the_start_of_an_item_removes_the_number_then_the_indent` |
 | Enter mid-item / at item start | splits the item / inserts an empty item above | `enter_in_the_middle_or_at_the_start_of_an_item` |
@@ -196,6 +201,8 @@ Word.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-11-02 | minor | UP12.2: justified and Thai-distributed lines ending in Shift+Enter extend to the margin unless w:doNotExpandShiftReturn is enabled; paragraph-final, page-break and column-break behavior stays unchanged. |
+| 2026-11-02 | minor | UP12.1: paragraph Tab selection. Tab indents a fully selected paragraph rather than replacing its text; partial selections still insert a tab. Regression tests: tab_with_a_whole_paragraph_selected_indents_it and tab_with_a_partial_selection_still_inserts_a_tab. |
 | 2026-10-14 | trivial | Shift+Delete cuts the selection, and does nothing without one, on macOS and Linux too, as in Word for Windows (#1669); Shift+Backspace already erased (#707) |
 | 2026-10-13 | trivial | Select All then Delete or Backspace removes a table the document starts with (#1198) |
 | 2026-10-12 | trivial | Editing keys: Down and Up from the start of a line beside a table go into it instead of skipping it (#1007) |

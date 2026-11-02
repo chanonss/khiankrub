@@ -351,6 +351,10 @@ fn visual_order(text: &str, glyphs: &[(u32, f32, f32)], clusters: &[std::ops::Ra
 
 /// The y most of a run's glyphs share: its baseline, which raised or lowered marks leave.
 fn baseline(glyphs: &[(u32, f32, f32)]) -> Option<f32> {
+    let &(_, _, first) = glyphs.first()?;
+    if glyphs.iter().all(|g| g.2.to_bits() == first.to_bits()) {
+        return Some(first);
+    }
     let mut counts: HashMap<u32, usize> = HashMap::new();
     for (_, _, y) in glyphs {
         *counts.entry(y.to_bits()).or_insert(0) += 1;
@@ -1344,8 +1348,6 @@ impl Exporter<'_> {
         let placed: Vec<(u32, f32, f32, std::ops::Range<usize>)> =
             order.iter().filter_map(|&i| Some((glyphs.get(i).copied()?, ranges.get(i).cloned()?))).map(|((g, x, y), r)| (g, x, y, r)).collect();
         let Some(&(_, x0, y0, _)) = placed.first() else { return };
-        // The run's baseline: the y most of its glyphs share (marks sit higher or lower).
-        let base = baseline(glyphs).unwrap_or(y0);
         let kg: Vec<KrillaGlyph> = placed
             .iter()
             .enumerate()
@@ -1359,6 +1361,8 @@ impl Exporter<'_> {
             .collect();
         let pushed = italic;
         if italic {
+            // The run's baseline: the y most of its glyphs share (marks sit higher or lower).
+            let base = baseline(glyphs).unwrap_or(y0);
             s.push_transform(&Transform::from_row(1.0, 0.0, -0.21, 1.0, 0.21 * base, 0.0));
         }
         s.set_fill(Some(fill(color, alpha)));
