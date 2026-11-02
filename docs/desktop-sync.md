@@ -19,3 +19,19 @@ Release installers and a release tag are managed separately.
 
 
 Validation: `cargo xtask ci` passed all six checks (format, Clippy, workspace tests, asset attribution, dependency layers and WASM). The UI regressions include File access, Control-click, numbering menus, Thai labels and the report form.
+
+## Sync 2 — 2026-11-02
+
+Source reviewed: local `khiankrub-web` branch `web` up to `07e79478` (2026-11-02), the 52 commits after `3d7e5696`.
+Desktop baseline: `5ae5731f` (v0.9.1). The version number is not changed yet.
+
+| Web change | Desktop result |
+|---|---|
+| WordCraft v0.12 fixes, UP12 (`5777b01d`) | Ported: stability bounds for fonts, DOCX and layout; Thai style defaults kept by style sets; PDF/shaping caches; Shift+Enter justification; bookmark/NBSP layout; Crop on the picture menu; Standard-encrypted packages; regex capture groups. See [upstream-v0.12.md](upstream-v0.12.md). |
+| Font menu sized by x-height (`74e32deb`) | Ported. |
+| Clippy 1.95 fixes (`5955ac7f`) | Ported, so the gates pass on the current toolchain. |
+| Character spacing up/down buttons (`07e79478`) | Ported: Font dialog and Modify Style › Font. |
+| Quiet Glass icons, `krub-icons` crate (`9252c9a6`) | Not yet: tied to the web start screen code; to be split out if the desktop should match the web look. |
+| Web start screen, KrubOffice launcher and app switcher, new tab per document, browser drafts, fonts loaded on request, bundled TLWG/SIPA fonts, Drive worker | Website/browser features; not part of the native app. |
+
+Validation: `cargo xtask ci` passed all six checks (format, Clippy with Rust 1.95, workspace tests: 2,862 passed, 0 failed, 3 ignored; asset attribution, dependency layers and WASM). The ported regressions include `the_spinner_buttons_step_the_number` and `kept_heading_cache_preserves_mixed_thai_english_pdf_bytes`.

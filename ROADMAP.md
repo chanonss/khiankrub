@@ -12,6 +12,8 @@
 
 Desktop sync (2026-10-28): ported the web File-tab fix, document context-menu icons and numbering actions, and problem-report form. See [desktop sync notes](docs/desktop-sync.md).
 
+Desktop sync (2026-11-02): ported WordCraft v0.12 fixes (UP12), the x-height font menu and the character spacing up/down buttons. See [desktop sync notes](docs/desktop-sync.md).
+
 WordCraft aims for complete parity with Microsoft Word, then goes further on speed, openness and
 agent control. This page is the summary; the assessment is
 [`docs/target-app-parity.md`](docs/target-app-parity.md), the work list is
