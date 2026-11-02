@@ -397,13 +397,24 @@ pub fn ink_mask(img: &mut egui::ColorImage) {
 /// and dropped (#848): browsing the list used to load every family shown for good, so each trip
 /// through the Font box grew memory by tens of megabytes. A name the font has no glyphs for (a
 /// symbol font's), or a font that can't be read, shows in the default face.
+/// The size a font-menu entry is drawn at: 13 pt for a typical Latin face, scaled so every
+/// family's letters look about as tall. Thai national fonts (TH Sarabun New and the other SIPA
+/// families) draw small for their size, which is why Thai documents use 16 pt; at a flat 13 pt
+/// their names were hard to read. Large faces shrink a little at most.
+fn font_entry_size(x_height: f64, upem: f64) -> f32 {
+    const TARGET: f64 = 0.5;
+    let ratio = x_height / upem;
+    let k = if ratio.is_finite() && ratio > 0.0 { (TARGET / ratio).clamp(0.9, 1.6) } else { 1.0 };
+    (13.0 * k) as f32
+}
+
 pub fn font_entry_image(name: &str, ppp: f32) -> egui::ColorImage {
     let db = wordcraft_fonts::FontDb::global();
     let face = db
         .preview_face(name)
         .filter(|f| name.chars().filter(|c| !c.is_whitespace()).all(|c| f.covers(c)))
         .unwrap_or_else(|| db.face(wordcraft_fonts::FALLBACK_FAMILY, "Regular"));
-    let img = wordcraft_render::render_text_line(&face, name, 13.0, 244.0, 22.0, 2.0, ppp);
+    let img = wordcraft_render::render_text_line(&face, name, font_entry_size(face.x_height, face.upem), 244.0, 22.0, 2.0, ppp);
     egui::ColorImage::from_rgba_unmultiplied([img.width as usize, img.height as usize], &img.to_straight())
 }
 
@@ -707,6 +718,20 @@ pub fn table_style_tile(ui: &mut Ui, app: &mut WordApp, style: &str) -> Response
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Font-menu entries: small-looking faces such as the SIPA fonts (x-height
+    /// about a third of the em) draw larger, a typical face stays at 13 pt, a very large face
+    /// shrinks only a little, and junk metrics fall back to 13 pt.
+    #[test]
+    fn font_entries_draw_small_looking_faces_larger() {
+        let sipa = super::font_entry_size(330.0, 1000.0);
+        assert!(sipa > 19.0 && sipa <= 13.0 * 1.6 + 0.01, "{sipa}");
+        assert!((super::font_entry_size(500.0, 1000.0) - 13.0).abs() < 0.01);
+        assert!(super::font_entry_size(800.0, 1000.0) >= 13.0 * 0.9 - 0.01);
+        for (x, u) in [(0.0, 1000.0), (500.0, 0.0), (f64::NAN, 1000.0), (-3.0, 1000.0), (500.0, f64::INFINITY)] {
+            assert_eq!(super::font_entry_size(x, u), 13.0, "{x}/{u}");
+        }
+    }
 
     /// #848: each trip through the Font box loaded every family it showed, for good. Entries are
     /// now drawn with a face read for the preview alone: installed families stay unloaded.
