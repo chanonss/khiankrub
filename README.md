@@ -210,7 +210,7 @@ Intel Macs; 0.7.3 and earlier run on Apple silicon only.
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
    **khiankrub-0.9.2-windows-x64.msi** (under *Assets*), then double-click it.
-2. **First time only: More info › Run anyway.** The installer is not signed yet (see [Code signing policy](#code-signing-policy)), so
+2. **First time only: More info › Run anyway.** The installer is not signed (see [Code signing policy](#code-signing-policy)), so
    Windows says "Windows protected your PC". Click **More info**, then **Run anyway**, and click **Yes** when Windows asks for permission. KhianKrub is
    then in the Start menu.
 
@@ -227,18 +227,17 @@ On both, Thai text looks best with a Thai font installed, such as TH Sarabun New
 
 ## Code signing policy
 
-KhianKrub has applied to [SignPath Foundation](https://signpath.org) for free code signing of its Windows
-releases. Once the application is approved, Windows releases are signed under this policy: *Free code signing
-provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).*
-Until then the Windows installer is unsigned (see *Download and install*).
+Windows releases are **not code-signed**: the free signing programme KhianKrub applied to did not accept it, so
+Windows shows "Windows protected your PC" the first time (see *Download and install* for **More info › Run
+anyway**). Mac releases are ad-hoc signed and not notarized by Apple.
 
-- **What is signed:** the Windows installer (`khiankrub-<version>-windows-x64.msi`) and the programs in it and in
-  the portable zip (`KhianKrub.exe`, `wordcraft-cli.exe`). They are built from this repository's source by
-  GitHub Actions ([`.github/workflows/release-files.yml`](.github/workflows/release-files.yml)) from a release
-  tag; nothing built elsewhere is signed.
+- **How releases are built:** the Windows installer (`khiankrub-<version>-windows-x64.msi`), the portable zip and
+  the Mac DMG and zip are built from this repository's source by GitHub Actions
+  ([`.github/workflows/release-files.yml`](.github/workflows/release-files.yml)) from a release tag; nothing built
+  elsewhere is published. Each release lists the files' SHA-256 checksums (`SHA256SUMS`) so you can check a download.
 - **Team and roles:**
   - Committers and reviewers: [Chanon Sarasuk](https://github.com/chanonss)
-  - Approvers (each release is approved by hand before it is signed): [Chanon Sarasuk](https://github.com/chanonss)
+  - Approvers (each release is checked and published by hand): [Chanon Sarasuk](https://github.com/chanonss)
 - **Based on WordCraft:** KhianKrub is a fork of [storytold/wordcraft](https://github.com/storytold/wordcraft),
   which publishes signed builds of its own.
 
