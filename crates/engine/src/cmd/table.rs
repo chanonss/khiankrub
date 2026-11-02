@@ -204,7 +204,7 @@ pub fn specs() -> Vec<CommandSpec> {
         })
         .params(r#"{"value"?: bool} (true: the first column stands at the right; without a value it toggles)"#)),
         t(CommandSpec::new("table.properties", "Properties", "Table Layout › Table", properties).params(
-            r#"{"align"?: "left|center|right", "rtl"?: bool, "width"?: pt|null, "widthPct"?: percent, "indent"?: pt, "rowHeight"?: pt|null, "rowHeightRule"?: "atLeast|exact", "allowBreak"?: bool, "headerRow"?: bool, "columnWidth"?: pt, "cellWidth"?: pt|null, "valign"?: "top|center|bottom", "cellMargins"?: {"top", "left", "bottom", "right" (pt)}} (row, column and cell settings apply to the caret's; without settings it returns the current ones)"#,
+            r#"{"align"?: "left|center|right", "rtl"?: bool, "width"?: pt|null, "widthPct"?: percent, "indent"?: pt, "rowHeight"?: pt|null, "rowHeightRule"?: "atLeast|exact", "allowBreak"?: bool, "headerRow"?: bool, "columnWidth"?: pt, "cellWidth"?: pt|null, "valign"?: "top|center|bottom", "cellMargins"?: {"top", "left", "bottom", "right" (pt)}} (row, column and cell settings apply to the selected rows, columns and cells, or the caret's; without settings it returns the caret's current ones)"#,
         )),
         CommandSpec::new("table.fromText", "Convert Text to Table", "Insert › Tables", from_text).params(r#"{"separator"?: "tab|comma"}"#),
         CommandSpec::new("table.quick", "Quick Tables", "Insert › Tables", quick_table).params(r#"{"kind"?: "calendar|tabular|matrix"}"#),
@@ -280,18 +280,9 @@ fn set_column_widths(t: &mut Table, cells: &[(usize, usize)], w: f32) {
     }
 }
 
-fn set_column_width(t: &mut Table, r: usize, c: usize, w: f32) {
-    let g = t.grid_col(r, c);
-    if let Some(x) = t.grid.get_mut(g) {
-        *x = w;
-        t.props.width = None;
-        t.props.width_pct = None;
-        sync_cell_widths(t);
-    }
-}
-
 /// Table Properties: table, row, column and cell settings in one undoable step. Row, column and
-/// cell settings apply to the caret's. Without any setting it returns the current values.
+/// cell settings apply to the selected rows, columns and cells, as in Word, and to the caret's
+/// when nothing is selected (#4857). Without any setting it returns the caret's current values.
 fn properties(s: &mut Session, v: &Value) -> CmdResult {
     let (tp, r, c) = cell(s)?;
     let keys = [
@@ -362,6 +353,11 @@ fn properties(s: &mut Session, v: &Value) -> CmdResult {
         [p::f32(m, "top").unwrap_or(0.0), p::f32(m, "left").unwrap_or(5.4), p::f32(m, "bottom").unwrap_or(0.0), p::f32(m, "right").unwrap_or(5.4)]
             .map(|x| if x.is_finite() { x.clamp(0.0, 144.0) } else { 0.0 })
     });
+    // The selected cells (a whole table, rows, a column…), else the caret's.
+    let cells = Some(selected_cells(s)).filter(|c| !c.is_empty()).unwrap_or_else(|| vec![(r, c)]);
+    let mut rows: Vec<usize> = cells.iter().map(|&(r, _)| r).collect();
+    rows.sort_unstable();
+    rows.dedup();
     with_table(s, |t| {
         if let Some(m) = margins {
             t.props.cell_margins = Some(m);
@@ -376,7 +372,7 @@ fn properties(s: &mut Session, v: &Value) -> CmdResult {
             t.props.indent = Some(i);
         }
         if let Some(cw) = column_width {
-            set_column_width(t, r, c, cw);
+            set_column_widths(t, &cells, cw);
         }
         if let Some(w) = width {
             t.props.width = w;
@@ -385,7 +381,8 @@ fn properties(s: &mut Session, v: &Value) -> CmdResult {
         if let Some(pct) = width_pct {
             t.props.width_pct = Some(pct);
         }
-        if let Some(row) = t.rows.get_mut(r) {
+        for &r in &rows {
+            let Some(row) = t.rows.get_mut(r) else { continue };
             if let Some(h) = row_height {
                 row.props.height = h;
                 row.props.height_rule = if h.is_some() { rule.unwrap_or(HeightRule::AtLeast) } else { HeightRule::Auto };
@@ -400,13 +397,14 @@ fn properties(s: &mut Session, v: &Value) -> CmdResult {
             if let Some(h) = header {
                 row.props.header = h;
             }
-            if let Some(cl) = row.cells.get_mut(c) {
-                if let Some(w) = cell_width {
-                    cl.props.width = w;
-                }
-                if let Some(va) = valign {
-                    cl.props.valign = Some(va);
-                }
+        }
+        for &(r, c) in &cells {
+            let Some(cl) = t.rows.get_mut(r).and_then(|row| row.cells.get_mut(c)) else { continue };
+            if let Some(w) = cell_width {
+                cl.props.width = w;
+            }
+            if let Some(va) = valign {
+                cl.props.valign = Some(va);
             }
         }
     })

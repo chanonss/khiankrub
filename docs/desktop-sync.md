@@ -35,3 +35,7 @@ Desktop baseline: `5ae5731f` (v0.9.1). The version number is not changed yet.
 | Web start screen, KrubOffice launcher and app switcher, new tab per document, browser drafts, fonts loaded on request, bundled TLWG/SIPA fonts, Drive worker | Website/browser features; not part of the native app. |
 
 Validation: `cargo xtask ci` passed all six checks (format, Clippy with Rust 1.95, workspace tests: 2,862 passed, 0 failed, 3 ignored; asset attribution, dependency layers and WASM). The ported regressions include `the_spinner_buttons_step_the_number` and `kept_heading_cache_preserves_mixed_thai_english_pdf_bytes`.
+
+## Upstream WordCraft v0.13.2 / v0.14.0 — 2026-11-02
+
+Eleven upstream fixes ported by hand to the desktop app (UP14); three were not needed in the fork and one (copying tables, #1784) is left for its own batch. See [upstream-v0.14.md](upstream-v0.14.md). The web app does not have these yet.

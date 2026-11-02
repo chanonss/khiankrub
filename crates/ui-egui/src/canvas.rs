@@ -2186,6 +2186,9 @@ fn mouse(app: &mut WordApp, ui: &Ui, resp: &egui::Response, rects: &[Rect], layo
     if released_clicks > 0 && app.canvas.unit_drag.as_ref().is_some_and(|d| d.clicks == released_clicks) {
         app.canvas.unit_drag = None;
         app.canvas.dragging = false;
+        // Double-clicking a word (or triple-clicking a paragraph) with the Format Painter armed
+        // paints it, as dragging across it does (#4410).
+        apply_format_painter(app);
         return;
     }
     // Double-click in the header/footer area edits it (creating it when the page has none, #960);
@@ -2408,9 +2411,7 @@ fn mouse(app: &mut WordApp, ui: &Ui, resp: &egui::Response, rects: &[Rect], layo
         app.canvas.dragging = false;
         app.canvas.column_drag = None;
         app.canvas.unit_drag = None;
-        if app.session.painter.is_some() && !app.session.sel.is_collapsed() {
-            let _ = app.run("edit.pasteFormat", json!({}));
-        }
+        apply_format_painter(app);
     }
     // Hover a link: show its target.
     if resp.hovered()
@@ -2735,6 +2736,14 @@ fn margin_handle(app: &mut WordApp, ui: &Ui, edge: MarginEdge, zone: Rect, to_pt
 }
 
 /// Convert a page position (points) to screen coordinates (for agents and tests).
+/// Paint the selection with the Format Painter's formatting, when it is armed and something is
+/// selected.
+fn apply_format_painter(app: &mut WordApp) {
+    if app.session.painter.is_some() && !app.session.sel.is_collapsed() {
+        let _ = app.run("edit.pasteFormat", json!({}));
+    }
+}
+
 pub fn page_to_screen(app: &mut WordApp, page: usize, x: f32, y: f32) -> Option<Pos2> {
     let r = app.canvas.page_rects.get(page)?;
     let layout = app.session.layout();
@@ -4900,6 +4909,49 @@ mod tests {
 
     fn page_at_index(rects: &[Rect], p: Pos2) -> Option<usize> {
         nearest_page(rects, p)
+    }
+
+    /// #4410: with the Format Painter armed, a double-click on a word paints that word, and the
+    /// painter goes off again (it was only dragging across the text that painted it).
+    #[test]
+    fn double_clicking_a_word_with_the_format_painter_paints_it() {
+        use egui::{Event, PointerButton};
+        let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Default::default());
+        a.run("text.insert", json!({"text": "Bold source then target words"})).unwrap();
+        a.run("view.commentsPane", json!({"value": false})).unwrap();
+        a.run("select.text", json!({"text": "Bold"})).unwrap();
+        a.run("format.bold", json!({})).unwrap();
+        a.run("edit.formatPainter", json!({})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).with_step_dt(1.0 / 60.0).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        for _ in 0..6 {
+            h.step();
+        }
+        assert!(h.state().session.painter.is_some(), "armed");
+        let word_off = "Bold source then ".len() + 2;
+        let c = h.state_mut().session.layout().caret(&Pos::body(0, word_off)).expect("caret");
+        let at = page_to_screen(h.state_mut(), c.page, c.x, c.top + c.height / 2.0).expect("on screen");
+        h.event(Event::PointerMoved(at));
+        for _ in 0..2 {
+            h.event(Event::PointerButton { pos: at, button: PointerButton::Primary, pressed: true, modifiers: Default::default() });
+            h.step();
+            h.event(Event::PointerButton { pos: at, button: PointerButton::Primary, pressed: false, modifiers: Default::default() });
+            h.step();
+        }
+        for _ in 0..3 {
+            h.step();
+        }
+        let s = &h.state().session;
+        let para = s.doc.para_at(&Pos::body(0, 0)).expect("paragraph");
+        assert_eq!(para.props_of_char("Bold source then t".len()).bold, Some(true), "the double-clicked word is painted");
+        assert_ne!(para.props_of_char("Bold source ".len()).bold, Some(true), "the other words are not");
+        assert!(s.painter.is_none(), "the painter is used up");
     }
 }
 

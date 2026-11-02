@@ -1773,6 +1773,15 @@ impl WordApp {
         self.status_msg = Some((s.into(), now_ms()));
     }
 
+    /// A file that wouldn't open (#1103): log it, and say on the status bar which file and why,
+    /// whatever handed it over (the command line, a macOS open event, a drop). Returns the message.
+    pub fn report_open_failure(&mut self, path: &str, error: &str) -> String {
+        log::warn!("{path}: {error}");
+        let msg = i18n::fmt(tl!("Couldn't open {path}: {error}"), &[("path", path), ("error", error)]);
+        self.status(msg.clone());
+        msg
+    }
+
     /// Media key of the selected picture, if any.
     pub(crate) fn selected_picture_media(&self) -> Option<String> {
         match wordcraft_engine::cmd::objects::selected(&self.session) {

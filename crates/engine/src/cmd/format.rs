@@ -338,26 +338,59 @@ fn current_size(s: &Session) -> f32 {
 }
 
 fn step_size(s: &mut Session, dir: i32) -> CmdResult {
-    let cur = current_size(s);
-    let next = if dir > 0 {
-        SIZES.iter().copied().find(|x| *x > cur + 0.01).unwrap_or(((cur / 10.0).floor() + 1.0) * 10.0)
-    } else {
-        SIZES.iter().rev().copied().find(|x| *x < cur - 0.01).unwrap_or(1.0)
-    };
-    let next = next.clamp(1.0, 1638.0);
-    // Each run steps from its own size when the selection mixes sizes.
-    apply(s, &|c| {
-        c.size = Some(next);
-        c.size_cs = Some(next);
+    resize(s, &|cur| {
+        if dir > 0 {
+            SIZES.iter().copied().find(|x| *x > cur + 0.01).unwrap_or(((cur / 10.0).floor() + 1.0) * 10.0)
+        } else {
+            SIZES.iter().rev().copied().find(|x| *x < cur - 0.01).unwrap_or(1.0)
+        }
     })
 }
 
 fn nudge_size(s: &mut Session, d: f32) -> CmdResult {
-    let next = (current_size(s) + d).clamp(1.0, 1638.0);
-    apply(s, &|c| {
-        c.size = Some(next);
-        c.size_cs = Some(next);
-    })
+    resize(s, &|cur| cur + d)
+}
+
+/// Relative commands transform each run's effective size, including inherited sizes (#4903).
+/// Keep `apply`'s targets and the existing explicit override of both normal and complex-script size.
+fn resize(s: &mut Session, next: &dyn Fn(f32) -> f32) -> CmdResult {
+    let set = |c: &mut CharProps, size: f32| {
+        let size = next(size).clamp(1.0, 1638.0);
+        c.size = Some(size);
+        c.size_cs = Some(size);
+    };
+    let ranges = column_rows(s).or_else(|| target(s).map(|range| vec![range]));
+    let Some(ranges) = ranges else {
+        // Pending typing props and an empty paragraph's mark get the same single change.
+        let size = current_size(s);
+        return apply(s, &|c| set(c, size));
+    };
+    // Resolve against one immutable snapshot while formatting splits and normalizes runs.
+    let styles = s.doc.styles.clone();
+    for (a, b) in ranges {
+        for path in s.doc.paths_between(&a, &b) {
+            let p = s.doc.para_mut(a.story, &path)?;
+            let style = p.props.style.clone();
+            let from = if path == a.path { a.off } else { 0 };
+            let to = if path == b.path { b.off } else { p.len() };
+            let format = |c: &mut CharProps| set(c, styles.resolve_char(style.as_deref(), c).size);
+            // Avoid format_range here: its path walk would repeat a paragraph-prefix scan.
+            p.format(from, to, &format)?;
+            // Keep format_range's paragraph-mark rule, including filtering linked marks.
+            if to == p.len() && (from == 0 || path != a.path) {
+                let style = p.mark.style.clone();
+                format(&mut p.mark);
+                if p.mark.link.take().is_some() {
+                    p.mark.style = style.filter(|s| s != "Hyperlink");
+                }
+            }
+        }
+        // An empty selected cell has only its paragraph mark, which needs a new layout too.
+        if a == b {
+            s.doc.para_mut(a.story, &a.path)?.touch();
+        }
+    }
+    sel_result(s)
 }
 
 fn color(s: &mut Session, v: &Value) -> CmdResult {

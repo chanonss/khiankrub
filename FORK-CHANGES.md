@@ -5,6 +5,24 @@ Thai-speaking audience. This file lists what differs from the original, newest f
 progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each entry matches a commit on the
 `my-changes` branch.
 
+## 2026-11-02 (WordCraft v0.13.2 and v0.14.0 fixes, UP14)
+
+- Ported by hand from WordCraft (upstream moved to egui 0.37 and split many files, so nothing
+  cherry-picked cleanly); each keeps its upstream regression test. Details and PR links:
+  [docs/upstream-v0.14.md](docs/upstream-v0.14.md).
+- **Printing:** a document with a link or a table of contents prints again (the printer's PDF leaves
+  out link annotations; saved PDFs keep them).
+- **macOS:** launch arguments are no longer opened as files; a file that won't open is named on the
+  status bar with the reason (Thai: เปิด {path} ไม่ได้).
+- **Crashes:** a glyph id above 65535 in PDF export; page numbers that wrapped on 32-bit.
+- **Word fidelity:** heading styles without `w:outlineLvl` show in the Navigation pane; an undefined
+  paragraph style is formatted as Normal; TOC page numbers are `PAGEREF` fields; a kept heading
+  follows a three-line paragraph that widow control moves.
+- **Editing:** Format Painter on a double-clicked word; Grow/Shrink Font steps each run from its own
+  size; Table Properties applies row, column and cell settings to the whole selection.
+- An undefined `Footer` style still gets Word's built-in Footer, which KhianKrub adds to files that
+  lack it; the undefined-style tests use another name.
+
 ## 2026-11-02 (desktop sync from the web app)
 
 ### WordCraft v0.12 fixes (UP12)

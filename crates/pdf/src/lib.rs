@@ -90,11 +90,15 @@ pub struct PdfOptions {
     pub comments: bool,
     /// Compress content streams.
     pub compress: bool,
+    /// Write hyperlinks and in-document links as link annotations. A print job leaves them out:
+    /// they print nothing, and a printer driver can't fit a page with annotations to the paper
+    /// (#4734).
+    pub links: bool,
 }
 
 impl Default for PdfOptions {
     fn default() -> Self {
-        PdfOptions { pages: None, title: None, author: None, tagged: true, include_markup: false, comments: false, compress: true }
+        PdfOptions { pages: None, title: None, author: None, tagged: true, include_markup: false, comments: false, compress: true, links: true }
     }
 }
 
@@ -195,8 +199,10 @@ fn write_attempt(doc: &Document, lay: &DocLayout, opts: &PdfOptions, pages: &[us
             s.pop();
         }
         s.finish();
-        for a in ex.annotations(fit) {
-            kp.add_annotation(a);
+        if opts.links {
+            for a in ex.annotations(fit) {
+                kp.add_annotation(a);
+            }
         }
         kp.finish();
     }
@@ -246,6 +252,14 @@ impl Fit {
     fn point(self, x: f32, y: f32) -> (f32, f32) {
         (x * self.k, y * self.k + self.dy)
     }
+}
+
+/// A shaped glyph id as krilla takes it. Shaping gives 32-bit ids (a format-12 cmap can map to
+/// any), but krilla's font subsetting takes 16-bit ones and panics on a larger id (#3674): one
+/// that doesn't fit is written as .notdef (glyph 0), keeping its place. Its own character doesn't
+/// extract, since krilla maps no text to .notdef.
+fn glyph_id(g: u32) -> GlyphId {
+    GlyphId::new(u16::try_from(g).map_or(0, u32::from))
 }
 
 /// The outlines of `glyphs` (glyph id, pen position) at `size`, as one path in page coordinates.
@@ -1356,7 +1370,7 @@ impl Exporter<'_> {
                     Some((_, nx, _, _)) => (nx - x) / size,
                     None => face.advance(*g) as f32 / upem,
                 };
-                KrillaGlyph::new(GlyphId::new(*g), adv, 0.0, (y0 - y) / size, 0.0, r.clone(), None)
+                KrillaGlyph::new(glyph_id(*g), adv, 0.0, (y0 - y) / size, 0.0, r.clone(), None)
             })
             .collect();
         let pushed = italic;
@@ -1559,7 +1573,7 @@ impl Exporter<'_> {
                 let end = shaped.iter().skip(i + 1).map(|n| n.cluster).find(|cl| *cl > g.cluster).unwrap_or(text.len());
                 let start = g.cluster.min(end);
                 KrillaGlyph::new(
-                    GlyphId::new(g.gid),
+                    glyph_id(g.gid),
                     g.x_advance as f32 / upem,
                     g.x_offset as f32 / upem,
                     g.y_offset as f32 / upem,

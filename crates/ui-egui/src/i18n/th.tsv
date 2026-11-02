@@ -545,6 +545,7 @@ template	Studio handbook (sample)	คู่มือสตูดิโอ (ต�
 	Once a day, KhianKrub asks GitHub whether a newer version has been released, and offers the download. Nothing is sent but the request itself.	วันละครั้ง เขียนครับจะถาม GitHub ว่ามีเวอร์ชันใหม่หรือไม่ และเสนอให้ดาวน์โหลด โดยไม่ส่งข้อมูลอื่นนอกจากคำขอนี้
 	KhianKrub {version} is the latest version.	KhianKrub {version} เป็นเวอร์ชันล่าสุดแล้ว
 	Couldn't check for updates: {error}	ตรวจหาการอัปเดตไม่ได้: {error}
+	Couldn't open {path}: {error}	เปิด {path} ไม่ได้: {error}
 	Checking for updates…	กำลังตรวจหาการอัปเดต…
 	Check for Updates	ตรวจหาการอัปเดต
 	You're up to date	ไม่มีการอัปเดตใหม่

@@ -14,6 +14,8 @@ Desktop sync (2026-10-28): ported the web File-tab fix, document context-menu ic
 
 Desktop sync (2026-11-02): ported WordCraft v0.12 fixes (UP12), the x-height font menu and the character spacing up/down buttons. See [desktop sync notes](docs/desktop-sync.md).
 
+Upstream (2026-11-02): WordCraft v0.13.2 and v0.14.0 fixes ported by hand: printing documents with links, macOS launch arguments, PDF glyph ids, page parameters, heading outline levels, undefined styles, PAGEREF TOC numbers, Format Painter double-click, per-run font size steps, Table Properties on the whole selection. See [upstream-v0.14.md](docs/upstream-v0.14.md).
+
 WordCraft aims for complete parity with Microsoft Word, then goes further on speed, openness and
 agent control. This page is the summary; the assessment is
 [`docs/target-app-parity.md`](docs/target-app-parity.md), the work list is

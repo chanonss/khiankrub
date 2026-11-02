@@ -563,9 +563,21 @@ fn regenerate_toc(s: &mut Session, leader: Option<TabLeader>) -> Result<(), CmdE
             let page =
                 l.caret(&Pos { story: StoryRef::Body, path: target, off: e.lead }).and_then(|c| l.pages.get(c.page)).map(|pg| pg.number).unwrap_or(1);
             let show_page = no_pages.is_none_or(|(a, b)| !(a..=b).contains(&(e.level + 1)));
-            let text = if show_page { format!("{}{sep}{page}", e.text) } else { e.text.clone() };
-            let props = CharProps { link: links.get(k).cloned().flatten(), ..Default::default() };
-            let mut para = Paragraph::with_text(&text, props).styled(&format!("TOC{}", e.level + 1));
+            let link = links.get(k).cloned().flatten();
+            // With a bookmark to point at, the page number is a `PAGEREF` field, as Word writes
+            // it, so updating it in Word follows the heading to its new page.
+            let pageref = link.as_deref().and_then(|l| l.strip_prefix('#')).filter(|_| show_page).map(|b| format!("PAGEREF {b} \\h"));
+            let text = match (show_page, &pageref) {
+                (true, None) => format!("{}{sep}{page}", e.text),
+                (true, Some(_)) => format!("{}{sep}", e.text),
+                (false, _) => e.text.clone(),
+            };
+            let props = CharProps { link, ..Default::default() };
+            let mut para = Paragraph::with_text(&text, props.clone()).styled(&format!("TOC{}", e.level + 1));
+            if let Some(instr) = pageref {
+                let field = InlineObject::Field { instr, result: page.to_string(), locked: false, dirty: false, code: false, form: String::new() };
+                para.insert_object(para.len(), field, &props)?;
+            }
             para.mark = CharProps::default();
             if show_page && sep.contains('\t') {
                 let right = TabStop { pos: width - 0.5, align: TabAlign::Right, leader };

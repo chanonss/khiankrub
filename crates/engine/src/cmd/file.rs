@@ -342,7 +342,7 @@ pub fn export_options(s: &Session, v: &Value) -> crate::io::ExportOptions {
 
 fn export_png(s: &mut Session, v: &Value) -> CmdResult {
     let path = p::req_str(v, "path")?;
-    let page = p::u64(v, "page").unwrap_or(1).max(1) as usize - 1;
+    let page = crate::p::page_index(p::u64(v, "page").unwrap_or(1));
     let scale = p::f32(v, "scale").unwrap_or(2.0).clamp(0.1, 8.0);
     let l = s.export_layout_with(export_options(s, v).markup);
     let pg = l.pages.get(page).ok_or_else(|| CmdError::Params(format!("no page {}", page + 1)))?;
