@@ -1020,7 +1020,7 @@ mod navigation_tests {
     /// interface families now have glyphs for it.
     #[test]
     fn thai_heading_text_has_glyphs() {
-        if !wordcraft_fonts::FontDb::global().fallback_for('ก', u32::MAX).is_some() {
+        if wordcraft_fonts::FontDb::global().fallback_for('ก', u32::MAX).is_none() {
             return; // No Thai font on this machine: nothing to fall back to.
         }
         let ctx = egui::Context::default();
