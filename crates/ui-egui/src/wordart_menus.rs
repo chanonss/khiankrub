@@ -133,7 +133,7 @@ pub fn outline_menu(ui: &mut Ui, app: &mut WordApp, theme: &[Rgb], current: Opti
     ui.menu_button(crate::tl!("Weight"), |ui| {
         let color = current.map_or(Rgb::BLACK, |c| c.0).hex();
         for w in [0.25, 0.5, 0.75, 1.0, 1.5, 2.25, 3.0] {
-            mi(ui, app, &format!("{w} pt"), "format.textEffects", json!({"outline": {"color": color, "width": w}}));
+            mi(ui, app, &format!("{w} {}", crate::tl!("pt")), "format.textEffects", json!({"outline": {"color": color, "width": w}}));
         }
     });
 }
@@ -169,7 +169,7 @@ pub fn effects_menu(ui: &mut Ui, app: &mut WordApp, theme: &[Rgb], transform: bo
         mi(ui, app, "No Glow", "format.textEffects", json!({"glow": null}));
         ui.separator();
         for size in [3.0, 5.0, 8.0, 11.0] {
-            mi(ui, app, &format!("{size} pt"), "format.textEffects", json!({"glow": size}));
+            mi(ui, app, &format!("{size} {}", crate::tl!("pt")), "format.textEffects", json!({"glow": size}));
         }
         ui.separator();
         ui.menu_button(crate::tl!("Glow Colors"), |ui| {

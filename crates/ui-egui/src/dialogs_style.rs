@@ -11,7 +11,7 @@
 use egui::{Ui, vec2};
 use serde::Serialize;
 use serde_json::{Value, json};
-use wordcraft_doc::props::{LineSpacing, TabAlign, TabLeader, TabStop, Underline, VertAlign};
+use wordcraft_doc::props::{Highlight, LineSpacing, TabAlign, TabLeader, TabStop, Underline, VertAlign};
 use wordcraft_doc::{Align, CharProps, ParaProps, StyleKind, TextColor};
 
 use crate::WordApp;
@@ -19,20 +19,23 @@ use crate::options::MeasureExt;
 use crate::theme::semibold;
 use crate::widgets::SteadyUi;
 
-/// The pages, in order: (id, name, icon). A character style has only the first four.
-const PAGES: [(&str, &str, &str); 10] = [
+/// The pages, in order: (id, name, icon).
+const PAGES: [(&str, &str, &str); 14] = [
     ("general", "General", "styles"),
     ("font", "Font", "fonts"),
     ("effects", "Font Effects", "effects"),
-    ("position", "Position", "superscript"),
-    ("indents", "Indents & Spacing", "paraSpacing"),
-    ("alignment", "Alignment", "justify"),
     ("flow", "Text Flow", "pageBreak"),
-    ("tabs", "Tabs", "ruler"),
+    ("alignment", "Alignment", "justify"),
+    ("indents", "Indents & Spacing", "paraSpacing"),
+    ("position", "Position", "superscript"),
+    ("dropcap", "Drop Caps", "dropCap"),
+    ("highlight", "Highlighting", "highlight"),
+    ("area", "Area", "shading"),
     ("borders", "Borders & Shading", "borders"),
+    ("tabs", "Tabs", "ruler"),
     ("numbering", "Numbering", "multilevel"),
+    ("asian", "Asian Typography", "fonts"),
 ];
-const CHARACTER_PAGES: usize = 4;
 
 /// Underline styles offered: (OOXML name, label).
 const UNDERLINES: [(&str, &str); 9] = [
@@ -92,10 +95,12 @@ pub struct StyleForm {
     pub bold: bool,
     pub italic: bool,
     pub font_cs: String,
+    pub font_ea: String,
     pub size_cs: f32,
     pub bold_cs: bool,
     pub italic_cs: bool,
     pub color: String,
+    pub highlight: Highlight,
     // Font Effects.
     /// `Underline`'s OOXML name (`none`, `single`, `double`…).
     pub underline: String,
@@ -143,6 +148,10 @@ pub struct StyleForm {
     pub page_break: bool,
     pub no_hyphens: bool,
     pub no_line_numbers: bool,
+    /// Body text is 9; outline levels 1–9 are stored as 0–8.
+    pub outline_level: u8,
+    pub kinsoku: bool,
+    pub drop_cap: u8,
     // Tabs: position (interface unit), alignment, leader.
     pub tabs: Vec<(f32, TabAlign, TabLeader)>,
     /// The stop being edited.
@@ -178,6 +187,9 @@ pub struct StyleForm {
     /// the style it's based on) stay inherited.
     #[serde(skip)]
     pub start: Option<Box<StyleForm>>,
+    #[serde(skip)]
+    pub parent_baseline: Option<Box<StyleForm>>,
+    pub reset_formatting: bool,
 }
 
 fn align_name(a: Align) -> &'static str {
@@ -249,7 +261,7 @@ impl StyleForm {
         let base_para = ParaProps { style: st.based_on.clone(), ..Default::default() };
         let inherited_tabs = if st.based_on.is_some() { sheet.resolve_para(&base_para).tabs.iter().map(|t| t.pos).collect() } else { Vec::new() };
         let mut styles: Vec<(String, String)> =
-            sheet.styles.iter().filter(|s| s.kind == kind && !s.hidden && s.id != id).map(|s| (s.id.clone(), s.name.clone())).collect();
+            sheet.styles.iter().filter(|s| s.kind == kind && !s.hidden && s.id != id).map(|s| (s.id.clone(), crate::i18n::style_name(s))).collect();
         styles.sort_by(|a, b| a.1.cmp(&b.1));
         let mut f = StyleForm {
             page: "general".into(),
@@ -263,6 +275,7 @@ impl StyleForm {
             bold: rc.bold,
             italic: rc.italic,
             font_cs: rc.font_cs.clone(),
+            font_ea: rc.font_ea.clone().unwrap_or_else(|| rc.font.clone()),
             size_cs: rc.size_cs,
             bold_cs: rc.bold_cs,
             italic_cs: rc.italic_cs,
@@ -270,6 +283,7 @@ impl StyleForm {
                 TextColor::Rgb(c) => c.hex(),
                 TextColor::Auto => "auto".into(),
             },
+            highlight: Highlight::ALL.into_iter().find(|h| h.rgb() == rc.highlight).unwrap_or_default(),
             underline: rc.underline.ooxml().to_string(),
             underline_color: rc.underline_color.map_or("auto".to_string(), |c| c.hex()),
             strike: rc.strike,
@@ -304,6 +318,9 @@ impl StyleForm {
             page_break: rp.page_break_before,
             no_hyphens: rp.suppress_hyphens,
             no_line_numbers: rp.suppress_line_numbers,
+            outline_level: rp.outline_level.unwrap_or(9),
+            kinsoku: rp.kinsoku,
+            drop_cap: rp.drop_cap,
             tabs: rp.tabs.iter().filter(|t| t.align != TabAlign::Clear).map(|t| (t.pos / k, t.align, t.leader)).collect(),
             tab: 0,
             inherited_tabs,
@@ -322,6 +339,8 @@ impl StyleForm {
             lists,
             styles,
             start: None,
+            parent_baseline: None,
+            reset_formatting: false,
         };
         f.start = Some(Box::new(f.clone()));
         Some(f)
@@ -329,7 +348,7 @@ impl StyleForm {
 
     /// Whether `pick` differs from the opening form (or there is none to compare with).
     fn changed<T: PartialEq>(&self, pick: impl Fn(&StyleForm) -> T) -> bool {
-        self.start.as_deref().is_none_or(|s| pick(s) != pick(self))
+        self.parent_baseline.as_deref().or(self.start.as_deref()).is_none_or(|s| pick(s) != pick(self))
     }
 
     /// The character formatting the form changes in the style. A Thai value goes along when its
@@ -348,6 +367,7 @@ impl StyleForm {
             bold: self.changed(|f| f.bold).then_some(self.bold),
             italic: self.changed(|f| f.italic).then_some(self.italic),
             font_cs: Some(self.font_cs.clone()).filter(|f| !f.trim().is_empty() && font_cs),
+            font_ea: Some(self.font_ea.clone()).filter(|f| !f.trim().is_empty() && c(|f| f.font_ea.clone())),
             size_cs: size_cs.then_some(self.size_cs.clamp(1.0, 1638.0)),
             bold_cs: bold_cs.then_some(self.bold_cs),
             italic_cs: italic_cs.then_some(self.italic_cs),
@@ -358,6 +378,7 @@ impl StyleForm {
             } else {
                 wordcraft_doc::Rgb::parse(&self.color).map(TextColor::Rgb)
             },
+            highlight: self.changed(|f| f.highlight).then_some(self.highlight),
             underline: self.changed(|f| f.underline.clone()).then_some(Underline::from_ooxml(&self.underline)),
             underline_color: if self.changed(|f| f.underline_color.clone()) { wordcraft_doc::Rgb::parse(&self.underline_color) } else { None },
             strike: self.changed(|f| f.strike).then_some(self.strike),
@@ -412,6 +433,9 @@ impl StyleForm {
             page_break_before: self.changed(|f| f.page_break).then_some(self.page_break),
             suppress_hyphens: self.changed(|f| f.no_hyphens).then_some(self.no_hyphens),
             suppress_line_numbers: self.changed(|f| f.no_line_numbers).then_some(self.no_line_numbers),
+            outline_level: self.changed(|f| f.outline_level).then_some(self.outline_level.min(9)),
+            kinsoku: self.changed(|f| f.kinsoku).then_some(self.kinsoku),
+            drop_cap: self.changed(|f| f.drop_cap).then_some(self.drop_cap.min(10)),
             tabs: self.changed(|f| f.tabs.iter().map(|t| (t.0.to_bits(), t.1, t.2)).collect::<Vec<_>>()).then(|| self.tab_stops(k)),
             borders: self.borders_changed().then(|| self.borders()),
             shading: wordcraft_doc::Rgb::parse(&self.shading).filter(|_| self.changed(|f| f.shading.clone())),
@@ -475,6 +499,9 @@ impl StyleForm {
             "basedOn": if self.based_on.is_empty() { Value::Null } else { json!(self.based_on) },
             "chr": serde_json::to_value(self.chr()).unwrap_or(Value::Null),
         });
+        if self.reset_formatting {
+            v["resetFormatting"] = json!(true);
+        }
         if let Some(p) = self.para() {
             v["para"] = serde_json::to_value(p).unwrap_or(Value::Null);
             if !self.next.is_empty() {
@@ -498,6 +525,29 @@ impl StyleForm {
     }
 }
 
+/// Stage a reset without editing the document until Apply or OK.
+fn reset_to_parent(app: &mut WordApp, f: &mut StyleForm) {
+    let Some(original) = app.session.doc.styles.get(&f.id).cloned() else { return };
+    if let Some(style) = app.session.doc.styles.get_mut(&f.id) {
+        style.para = ParaProps::default();
+        style.chr = CharProps::default();
+        style.based_on = (!f.based_on.is_empty()).then(|| f.based_on.clone());
+    }
+    let inherited = StyleForm::read(app, &f.id);
+    if let Some(style) = app.session.doc.styles.get_mut(&f.id) {
+        *style = original;
+    }
+    if let Some(mut inherited) = inherited {
+        inherited.page = f.page.clone();
+        inherited.name = f.name.clone();
+        inherited.next = f.next.clone();
+        inherited.start = f.start.clone();
+        inherited.parent_baseline = Some(Box::new(inherited.clone()));
+        inherited.reset_formatting = true;
+        *f = inherited;
+    }
+}
+
 /// The Modify Style window. Returns true to close.
 pub fn body(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) -> bool {
     // A fixed area, so the window keeps its size from page to page (a separator here grew to the
@@ -508,7 +558,9 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) -> bool {
         // The pages.
         ui.vertical(|ui| {
             ui.set_width(150.0);
-            for (id, name, icon) in PAGES.iter().take(if f.character { CHARACTER_PAGES } else { PAGES.len() }) {
+            for (id, name, icon) in
+                PAGES.iter().filter(|(id, _, _)| !f.character || matches!(*id, "general" | "font" | "effects" | "position" | "highlight"))
+            {
                 ui.horizontal(|ui| {
                     let (r, _) = ui.allocate_exact_size(vec2(20.0, 20.0), egui::Sense::hover());
                     let t = crate::theme::Tokens::get(ui.ctx());
@@ -529,20 +581,24 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) -> bool {
                 "font" => font_page(app, ui, f),
                 "effects" => effects_page(app, ui, f),
                 "position" => position_page(ui, f),
+                "highlight" => highlight_page(ui, f),
+                "area" if !f.character => area_page(app, ui, f),
                 "tabs" if !f.character => tabs_page(ui, f),
                 "indents" if !f.character => indents_page(ui, f),
                 "alignment" if !f.character => alignment_page(ui, f),
                 "flow" if !f.character => flow_page(ui, f),
                 "borders" if !f.character => borders_page(app, ui, f),
                 "numbering" if !f.character => numbering_page(ui, f),
-                _ => general_page(ui, f),
+                "asian" if !f.character => asian_page(ui, f),
+                "dropcap" if !f.character => drop_cap_page(ui, f),
+                _ => general_page(app, ui, f),
             }
         });
     });
     ui.separator();
     ui.label(egui::RichText::new(tl!("Preview")).small().weak());
     let key = serde_json::to_string(&f.params()).unwrap_or_default();
-    let (chr, para, id) = (f.chr(), f.para(), f.id.clone());
+    let (chr, para, id, reset_formatting, based_on) = (f.chr(), f.para(), f.id.clone(), f.reset_formatting, f.based_on.clone());
     crate::previews::style_edit_preview(
         app,
         ui,
@@ -551,6 +607,11 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) -> bool {
         &key,
         &|sheet| {
             if let Some(st) = sheet.get_mut(&id) {
+                if reset_formatting {
+                    st.chr = CharProps::default();
+                    st.para = ParaProps::default();
+                    st.based_on = (!based_on.is_empty()).then(|| based_on.clone());
+                }
                 st.chr.overlay(&chr);
                 if let Some(p) = &para {
                     st.para.overlay(p);
@@ -559,7 +620,27 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) -> bool {
         },
         vec2(720.0, 64.0),
     );
-    let (ok, apply, cancel) = crate::dialogs::buttons_with_apply(ui, tl!("OK"));
+    let mut reset = false;
+    let mut reset_parent = false;
+    let (mut ok, mut apply, mut cancel) = (false, false, false);
+    ui.add_space(8.0);
+    ui.horizontal(|ui| {
+        reset = ui.button(tl!("Reset")).clicked();
+        reset_parent = ui.button(tl!("Reset to Parent")).clicked();
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            let keys = !crate::colors::is_open(ui.ctx());
+            cancel = ui.button(tl!("Cancel")).clicked() || (keys && ui.input(|i| i.key_pressed(egui::Key::Escape)));
+            apply = ui.button(tl!("Apply")).clicked();
+            ok = ui.add(crate::widgets::primary_button(ui, tl!("OK"))).clicked() || (keys && ui.input(|i| i.key_pressed(egui::Key::Enter)));
+        });
+    });
+    if reset_parent {
+        reset_to_parent(app, f);
+    }
+    if reset && let Some(start) = f.start.as_deref().cloned() {
+        let page = f.page.clone();
+        *f = StyleForm { page, start: Some(Box::new(start.clone())), ..start };
+    }
     if ok || apply {
         match app.run("styles.modify", f.params()) {
             // Apply: the document shows the change and the window stays, now starting from it
@@ -581,11 +662,18 @@ fn heading(ui: &mut Ui, s: &str) {
     ui.label(egui::RichText::new(tl!(s)).font(semibold(12.5)));
 }
 
-fn general_page(ui: &mut Ui, f: &mut StyleForm) {
+fn style_display_name(app: &WordApp, f: &StyleForm) -> String {
+    app.session.doc.styles.get(&f.id).filter(|style| style.name == f.name).map_or_else(|| f.name.clone(), crate::i18n::style_name)
+}
+
+fn general_page(app: &WordApp, ui: &mut Ui, f: &mut StyleForm) {
     heading(ui, "Style");
     egui::Grid::new("ms_general").num_columns(2).spacing(vec2(10.0, 8.0)).show(ui, |ui| {
         ui.label(tl!("Name:"));
-        ui.add(egui::TextEdit::singleline(&mut f.name).desired_width(300.0));
+        let mut display_name = style_display_name(app, f);
+        if ui.add(egui::TextEdit::singleline(&mut display_name).desired_width(300.0)).changed() {
+            f.name = display_name.clone();
+        }
         ui.end_row();
         let named = |id: &str| f.styles.iter().find(|(s, _)| s == id).map(|(_, n)| n.clone());
         ui.label(tl!("Based on:"));
@@ -599,9 +687,9 @@ fn general_page(ui: &mut Ui, f: &mut StyleForm) {
         ui.end_row();
         if !f.character {
             ui.label(tl!("Style for following paragraph:"));
-            let shown = if f.next.is_empty() || f.next == f.id { f.name.clone() } else { named(&f.next).unwrap_or_else(|| f.next.clone()) };
+            let shown = if f.next.is_empty() || f.next == f.id { display_name.clone() } else { named(&f.next).unwrap_or_else(|| f.next.clone()) };
             egui::ComboBox::from_id_salt("ms_next").selected_text(shown).width(300.0).show_ui(ui, |ui| {
-                ui.steady_value(&mut f.next, f.id.clone(), &f.name);
+                ui.steady_value(&mut f.next, f.id.clone(), &display_name);
                 for (id, name) in &f.styles {
                     ui.steady_value(&mut f.next, id.clone(), name);
                 }
@@ -653,6 +741,17 @@ fn font_page(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) {
         f.bold_cs = f.bold;
         f.italic_cs = f.italic;
     }
+    egui::Grid::new("ms_east_asian_font").num_columns(2).spacing(vec2(8.0, 8.0)).show(ui, |ui| {
+        ui.label(tl!("East Asian font:"));
+        let shown = app.previews.font_shown(&f.font_ea);
+        if let Some(pick) = crate::widgets::font_combo(ui, "ms_east_asian_font_family", 190.0, &shown, &fams, Some(&*prev))
+            && pick != crate::widgets::ADD_FONT
+            && pick != crate::widgets::LOAD_SYSTEM_FONTS
+        {
+            f.font_ea = app.previews.font_stored(&pick);
+        }
+        ui.end_row();
+    });
     egui::Grid::new("ms_color").num_columns(2).spacing(vec2(8.0, 8.0)).show(ui, |ui| {
         ui.label(tl!("Font color:"));
         let theme = app.session.doc.settings.theme_colors.clone();
@@ -934,6 +1033,14 @@ fn borders_page(app: &mut WordApp, ui: &mut Ui, f: &mut StyleForm) {
 }
 
 fn numbering_page(ui: &mut Ui, f: &mut StyleForm) {
+    heading(ui, "Outline level");
+    let selected = if f.outline_level == 9 { tl!("Body text").to_string() } else { format!("{} {}", tl!("Level"), f.outline_level + 1) };
+    egui::ComboBox::from_id_salt("ms_outline_level").selected_text(selected).show_ui(ui, |ui| {
+        ui.steady_value(&mut f.outline_level, 9, tl!("Body text"));
+        for level in 0..9 {
+            ui.steady_value(&mut f.outline_level, level, format!("{} {}", tl!("Level"), level + 1));
+        }
+    });
     heading(ui, "Numbering");
     ui.label(tl!("Number paragraphs in this style with:"));
     let shown = if f.list.is_empty() {
@@ -967,6 +1074,59 @@ fn numbering_page(ui: &mut Ui, f: &mut StyleForm) {
     ui.label(egui::RichText::new(tl!("The level is linked to this style, as Define New Multilevel List's Link level to style does.")).small().weak());
 }
 
+fn asian_page(ui: &mut Ui, f: &mut StyleForm) {
+    heading(ui, "Line breaking");
+    ui.checkbox(&mut f.kinsoku, tl!("Apply East Asian line-breaking rules"));
+}
+
+fn highlight_page(ui: &mut Ui, f: &mut StyleForm) {
+    heading(ui, "Highlighting");
+    if ui.steady_label(f.highlight == Highlight::None, tl!("No Color")).clicked() {
+        f.highlight = Highlight::None;
+    }
+    egui::Grid::new("ms_highlight").spacing(vec2(4.0, 4.0)).show(ui, |ui| {
+        for (index, highlight) in Highlight::ALL.iter().enumerate().skip(1) {
+            if let Some(color) = highlight.rgb() {
+                let (rect, response) = ui.allocate_exact_size(vec2(24.0, 24.0), egui::Sense::click());
+                ui.painter().rect_filled(rect.shrink(2.0), 2.0, crate::theme::c32(color));
+                if f.highlight == *highlight {
+                    ui.painter().rect_stroke(rect, 2.0, egui::Stroke::new(1.5, crate::theme::Tokens::get(ui.ctx()).accent), egui::StrokeKind::Inside);
+                }
+                if response.on_hover_text(highlight.name()).clicked() {
+                    f.highlight = *highlight;
+                }
+            }
+            if index % 8 == 0 {
+                ui.end_row();
+            }
+        }
+    });
+}
+
+fn area_page(app: &WordApp, ui: &mut Ui, f: &mut StyleForm) {
+    heading(ui, "Area");
+    egui::Grid::new("ms_area").num_columns(2).spacing(vec2(10.0, 8.0)).show(ui, |ui| {
+        ui.label(tl!("Fill:"));
+        let theme = app.session.doc.settings.theme_colors.clone();
+        crate::dialogs::color_field(ui, &theme, &mut f.shading, "No Color", "");
+        ui.end_row();
+    });
+}
+
+fn drop_cap_page(ui: &mut Ui, f: &mut StyleForm) {
+    heading(ui, "Drop Caps");
+    let mut enabled = f.drop_cap > 0;
+    if ui.checkbox(&mut enabled, tl!("Display drop caps")).changed() {
+        f.drop_cap = if enabled { 3 } else { 0 };
+    }
+    if enabled {
+        ui.horizontal(|ui| {
+            ui.label(tl!("Lines:"));
+            ui.add(egui::DragValue::new(&mut f.drop_cap).range(2..=10));
+        });
+    }
+}
+
 fn alignment_page(ui: &mut Ui, f: &mut StyleForm) {
     heading(ui, "Alignment");
     for (v, l) in ALIGNS {
@@ -989,6 +1149,75 @@ mod tests {
 
     fn app() -> WordApp {
         WordApp::new(Session::new(wordcraft_doc::Document::from_text("หัวข้อ")), Services::default())
+    }
+
+    #[test]
+    fn outline_and_asian_line_breaking_update_style() {
+        let mut a = app();
+        let mut f = StyleForm::read(&a, "Normal").unwrap();
+        f.outline_level = 2;
+        f.kinsoku = false;
+        f.drop_cap = 3;
+        f.highlight = wordcraft_doc::props::Highlight::Yellow;
+        a.run("styles.modify", f.params()).unwrap();
+        let updated = StyleForm::read(&a, "Normal").unwrap();
+        assert_eq!(updated.outline_level, 2);
+        assert!(!updated.kinsoku);
+        assert_eq!(updated.drop_cap, 3);
+        assert_eq!(updated.highlight, wordcraft_doc::props::Highlight::Yellow);
+    }
+
+    #[test]
+    fn modify_style_pages_and_options_have_thai_translations() {
+        let th = crate::i18n::Lang::from_pref("th");
+        for (_, label, _) in super::PAGES {
+            assert!(crate::i18n::has(th, label), "missing Thai page label: {label}");
+        }
+        for label in [
+            "Modify Style",
+            "Based on:",
+            "Style for following paragraph:",
+            "Style type:",
+            "Latin text",
+            "Thai text (complex script)",
+            "Thai text like Latin text",
+            "Character spacing (pt):",
+            "Kerning for fonts (pt) and up:",
+            "Tab stops",
+            "(no tab stops)",
+            "Before (pt):",
+            "After (pt):",
+            "Pagination",
+            "Formatting exceptions",
+            "Between paragraphs",
+            "Distance from text (pt):",
+            "(no numbering)",
+            "Number paragraphs in this style with:",
+            "New list: {sample}",
+        ] {
+            assert!(crate::i18n::has(th, label), "missing Thai label: {label}");
+        }
+        for (_, label) in super::UNDERLINES.iter().chain(super::LINES.iter()) {
+            assert!(crate::i18n::has(th, label), "missing Thai option: {label}");
+        }
+    }
+
+    #[test]
+    fn built_in_style_choices_are_localized_without_renaming_document_styles() {
+        let app = app();
+        let lang = crate::i18n::current();
+        crate::i18n::set_current(crate::i18n::Lang::from_pref("th"));
+        let form = StyleForm::read(&app, "Heading1").unwrap();
+        let normal = app.session.doc.styles.get("Normal").unwrap();
+        let choice = form.styles.iter().find(|(id, _)| id == "Normal").unwrap();
+        assert_eq!(choice.1, crate::i18n::style_name(normal));
+        assert_ne!(choice.1, normal.name);
+        assert_eq!(app.session.doc.styles.get("Normal").unwrap().name, normal.name);
+        let displayed = super::style_display_name(&app, &form);
+        assert_eq!(displayed, crate::i18n::style_name(app.session.doc.styles.get("Heading1").unwrap()));
+        assert_ne!(displayed, form.name);
+        assert_eq!(form.params()["name"], form.name);
+        crate::i18n::set_current(lang);
     }
 
     /// Apply changes the style at once and keeps the window open, starting again from the change:
@@ -1019,6 +1248,99 @@ mod tests {
         assert!(form.params()["chr"].as_object().is_some_and(|c| c.is_empty()), "nothing new to send");
     }
 
+    #[test]
+    fn reset_restores_last_applied_values_without_changing_document() {
+        use egui_kittest::kittest::Queryable;
+        let mut a = app();
+        a.dialog = crate::dialogs::Dialog::modify_style(&a, "Heading1");
+        let original = a.session.doc.styles.resolve_char(Some("Heading1"), &Default::default()).size;
+        if let Some(crate::dialogs::Dialog::ModifyStyle { form, .. }) = &mut a.dialog {
+            form.size = 30.0;
+        }
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1200.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        h.get_by_label("Reset").click();
+        h.run_steps(3);
+        let Some(crate::dialogs::Dialog::ModifyStyle { form, .. }) = &h.state().dialog else { panic!("dialog should remain open") };
+        assert_eq!(form.size, original);
+        assert_eq!(h.state().session.doc.styles.resolve_char(Some("Heading1"), &Default::default()).size, original);
+    }
+
+    #[test]
+    fn reset_to_parent_is_staged_and_retains_inheritance() {
+        let mut a = app();
+        let normal = a.session.doc.styles.get_mut("Normal").unwrap();
+        normal.chr.size = Some(16.0);
+        normal.para.keep_next = Some(false);
+        let heading = a.session.doc.styles.get_mut("Heading1").unwrap();
+        heading.based_on = Some("Normal".into());
+        heading.chr.size = Some(30.0);
+        heading.para.keep_next = Some(true);
+        let original = heading.clone();
+        let mut f = StyleForm::read(&a, "Heading1").unwrap();
+        super::reset_to_parent(&mut a, &mut f);
+        assert_eq!(f.size, 16.0);
+        assert!(!f.keep_next);
+        assert_eq!(a.session.doc.styles.get("Heading1").unwrap().chr.size, Some(30.0), "reset is staged");
+        assert!(f.params()["chr"].as_object().unwrap().is_empty());
+        assert!(f.params()["para"].as_object().unwrap().is_empty());
+        a.run("styles.modify", f.params()).unwrap();
+        let heading = a.session.doc.styles.get("Heading1").unwrap();
+        assert_eq!(heading.chr.size, None);
+        assert_eq!(heading.para.keep_next, None);
+        assert_eq!(heading.based_on.as_deref(), Some("Normal"));
+        a.run("edit.undo", json!({})).unwrap();
+        assert_eq!(a.session.doc.styles.get("Heading1"), Some(&original));
+        a.run("edit.redo", json!({})).unwrap();
+        a.session.doc.styles.get_mut("Normal").unwrap().chr.size = Some(20.0);
+        assert_eq!(a.session.doc.styles.resolve_char(Some("Heading1"), &Default::default()).size, 20.0);
+    }
+
+    #[test]
+    fn reset_to_parent_can_be_cancelled_before_apply() {
+        use egui_kittest::kittest::Queryable;
+        let mut a = app();
+        a.dialog = crate::dialogs::Dialog::modify_style(&a, "Heading1");
+        let original = a.session.doc.styles.get("Heading1").unwrap().clone();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1200.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        h.get_by_label("Reset to Parent").click();
+        h.run_steps(3);
+        assert_eq!(h.state().session.doc.styles.get("Heading1"), Some(&original));
+        h.get_by_label("Reset").click();
+        h.run_steps(3);
+        let Some(crate::dialogs::Dialog::ModifyStyle { form, .. }) = &h.state().dialog else { panic!("dialog should remain open") };
+        assert!(!form.reset_formatting);
+        assert_eq!(h.state().session.doc.styles.get("Heading1"), Some(&original));
+    }
+
+    #[test]
+    fn reset_to_parent_keeps_subsequent_formatting_changes() {
+        let mut a = app();
+        let mut form = StyleForm::read(&a, "Heading1").unwrap();
+        super::reset_to_parent(&mut a, &mut form);
+        form.italic = !form.italic;
+        let expected = form.italic;
+        a.run("styles.modify", form.params()).unwrap();
+        let style = a.session.doc.styles.get("Heading1").unwrap();
+        assert_eq!(style.chr.italic, Some(expected));
+        assert_eq!(style.chr.bold, None);
+    }
+
     /// The Font page shows Latin and Thai text apart: Heading 1 with Latin 18 pt and Thai 24 pt
     /// (Modify Style before this changed only the Latin size) shows both; setting the Thai size
     /// to 18 fixes the heading, and only what changed is sent (the Latin font stays inherited).
@@ -1032,13 +1354,16 @@ mod tests {
         let mut f = StyleForm::read(&a, "Heading1").unwrap();
         assert_eq!((f.size, f.size_cs), (18.0, 24.0), "both sizes show");
         f.size_cs = 18.0;
+        f.font_ea = "Noto Sans CJK".into();
         let sent = f.params();
         assert_eq!(sent["chr"].get("sizeCs").and_then(|v| v.as_f64()), Some(18.0));
+        assert_eq!(sent["chr"].get("fontEa").and_then(|v| v.as_str()), Some("Noto Sans CJK"));
         assert!(sent["chr"].get("font").is_none() && sent["chr"].get("size").is_none(), "unchanged values aren't sent: {sent}");
         assert!(sent.get("para").is_some_and(|p| p.as_object().is_some_and(|o| o.is_empty())), "no paragraph change: {sent}");
         a.run("styles.modify", sent).unwrap();
         let h = a.session.doc.styles.resolve_char(Some("Heading1"), &Default::default());
         assert_eq!((h.size, h.size_cs), (18.0, 18.0));
+        assert_eq!(h.font_ea.as_deref(), Some("Noto Sans CJK"));
     }
 
     /// Round 2's pages: Text Flow's boxes, a double bottom border with yellow shading (and No

@@ -412,6 +412,9 @@ pub struct Tokens {
     /// The band's colour in the light theme: text on the gold accent and on the white active tab.
     pub band_ink: Color32,
     pub ribbon: Color32,
+    /// Resting ribbon button face and outline.
+    pub ribbon_button: Color32,
+    pub ribbon_button_border: Color32,
     pub tab_strip: Color32,
     pub canvas: Color32,
     pub panel: Color32,
@@ -463,7 +466,9 @@ impl Tokens {
             dark: false,
             title_bar: BAND_NAVY,
             band_ink: BAND_NAVY,
-            ribbon: Color32::WHITE,
+            ribbon: Color32::from_rgb(0xFC, 0xFC, 0xFC),
+            ribbon_button: Color32::WHITE,
+            ribbon_button_border: Color32::from_rgb(0xE2, 0xE2, 0xE2),
             tab_strip: BAND_NAVY,
             canvas: Color32::from_rgb(0xE6, 0xE6, 0xE6),
             panel: Color32::from_rgb(0xFA, 0xFA, 0xFA),
@@ -509,6 +514,8 @@ impl Tokens {
             title_bar: BAND_NAVY_DARK,
             band_ink: BAND_NAVY,
             ribbon: Color32::from_rgb(0x29, 0x29, 0x29),
+            ribbon_button: Color32::from_rgb(0x38, 0x38, 0x38),
+            ribbon_button_border: Color32::from_rgb(0x4D, 0x4D, 0x4D),
             tab_strip: BAND_NAVY_DARK,
             canvas: Color32::from_rgb(0x14, 0x14, 0x14),
             panel: Color32::from_rgb(0x26, 0x26, 0x26),
@@ -759,7 +766,6 @@ pub fn font_definitions_language(prefer_hans: bool, prefer_korean: bool, system_
     let _ = system_cjk;
     // The embedded faces have no Thai: document text shown in the interface (Navigation pane
     // headings, file names, style names) would draw as `?`. An installed Thai face after them.
-    #[cfg(not(target_arch = "wasm32"))]
     for (fam, face) in [
         (vec![FontFamily::Proportional, FontFamily::Name("medium".into())], &thai_ui_faces().0),
         (vec![FontFamily::Name("semibold".into())], &thai_ui_faces().1),
@@ -775,8 +781,65 @@ pub fn font_definitions_language(prefer_hans: bool, prefer_korean: bool, system_
             }
         }
     }
+    apply_web_system_ui_fonts(&mut fonts, wordcraft_fonts::FontDb::global());
     // Symbols and emoji fall back to egui's defaults (kept in the families).
     fonts
+}
+
+/// Thai UI fallback for browsers that cannot expose platform font bytes.
+pub const WEB_THAI_UI_FALLBACK: &str = "Loma";
+
+/// Platform UI families used on desktop and requested by the web system-font button.
+pub const WEB_SYSTEM_UI_LATIN: &[&str] = &[
+    "SF Pro Text",
+    "SF Pro",
+    ".AppleSystemUIFont",
+    ".SF NS",
+    ".SFNS",
+    "System Font",
+    "Segoe UI Variable Text",
+    "Segoe UI Variable",
+    "Segoe UI",
+    "Helvetica Neue",
+    "Cantarell",
+    "Noto Sans",
+];
+pub const WEB_SYSTEM_UI_THAI: &[&str] = &["Thonburi UI", "Thonburi", "Leelawadee UI", "Leelawadee", "Noto Sans Thai UI", "Noto Sans Thai"];
+
+/// Prefer platform UI faces when their font bytes are available to the application.
+/// Document defaults such as TH Sarabun New never become interface faces here.
+fn apply_web_system_ui_fonts(fonts: &mut FontDefinitions, db: &wordcraft_fonts::FontDb) {
+    for (candidates, sample) in [(WEB_SYSTEM_UI_THAI, 'ก'), (WEB_SYSTEM_UI_LATIN, 'A')] {
+        let Some(family) = candidates.iter().find(|family| db.has_family(family) && db.face(family, "Regular").covers(sample)) else {
+            continue;
+        };
+        for (target, style) in
+            [(FontFamily::Proportional, "Regular"), (FontFamily::Name("medium".into()), "Medium"), (FontFamily::Name("semibold".into()), "Semibold")]
+        {
+            let face = db.face(family, style);
+            if !face.named(family) || !face.covers(sample) {
+                continue;
+            }
+            let name = format!("system-ui {} {} {}", face.family, face.style, face.id());
+            let mut data = FontData::from_owned(face.data().to_vec());
+            data.index = face.index();
+            fonts.font_data.insert(name.clone(), Arc::new(data));
+            if let Some(chain) = fonts.families.get_mut(&target) {
+                chain.insert(0, name);
+            }
+        }
+    }
+}
+
+/// Loma keeps Thai UI text readable in browsers that do not expose system font bytes.
+/// A user-granted system UI font takes precedence over it.
+#[cfg(target_arch = "wasm32")]
+fn thai_ui_faces() -> (Option<Arc<wordcraft_fonts::FontFace>>, Option<Arc<wordcraft_fonts::FontFace>>) {
+    let db = wordcraft_fonts::FontDb::global();
+    if !db.is_loaded(WEB_THAI_UI_FALLBACK) {
+        return (None, None);
+    }
+    (Some(db.face(WEB_THAI_UI_FALLBACK, "Regular")), Some(db.face(WEB_THAI_UI_FALLBACK, "Bold")))
 }
 
 /// The installed Thai faces for the interface (regular, bold), chosen once: a system interface
@@ -787,7 +850,7 @@ fn thai_ui_faces() -> &'static (Option<Arc<wordcraft_fonts::FontFace>>, Option<A
     static FACES: std::sync::OnceLock<(Option<Arc<wordcraft_fonts::FontFace>>, Option<Arc<wordcraft_fonts::FontFace>>)> = std::sync::OnceLock::new();
     FACES.get_or_init(|| {
         let db = wordcraft_fonts::FontDb::global();
-        for family in ["Thonburi", "Leelawadee UI", "Noto Sans Thai UI", "Noto Sans Thai", "Tahoma"] {
+        for family in ["Thonburi UI", "Thonburi", "Leelawadee UI", "Noto Sans Thai UI", "Noto Sans Thai", "Tahoma"] {
             if !db.has_family(family) {
                 continue;
             }
@@ -1084,6 +1147,33 @@ mod tests {
                 assert!(r >= 3.0, "dark={}: input_border on {name} is {r:.2}:1", t.dark);
             }
         }
+    }
+
+    /// Web: system interface faces the browser supplied come first in each interface font chain.
+    #[test]
+    fn available_system_ui_faces_are_preferred_over_embedded_fonts() {
+        let db = wordcraft_fonts::FontDb::with_font_dirs(wordcraft_fonts::system_font_dirs());
+        let have_local = super::WEB_SYSTEM_UI_LATIN.iter().chain(super::WEB_SYSTEM_UI_THAI).any(|name| db.has_family(name));
+        if !have_local {
+            return; // no applicable system faces on this test platform
+        }
+        let mut fonts = super::font_definitions(false, false);
+        super::apply_web_system_ui_fonts(&mut fonts, &db);
+        for family in [egui::FontFamily::Proportional, egui::FontFamily::Name("medium".into()), egui::FontFamily::Name("semibold".into())] {
+            let first = fonts.families.get(&family).and_then(|chain| chain.first()).expect("interface chain");
+            assert!(first.starts_with("system-ui "), "{family:?} did not prefer an available local UI face");
+            assert!(fonts.font_data.contains_key(first));
+        }
+    }
+
+    /// Web: without local font access the interface keeps its bundled fallback chains.
+    #[test]
+    fn unavailable_system_ui_fonts_preserve_readable_fallbacks() {
+        let db = wordcraft_fonts::FontDb::with_font_dirs(vec![]);
+        let mut fonts = super::font_definitions(false, false);
+        let families = fonts.families.clone();
+        super::apply_web_system_ui_fonts(&mut fonts, &db);
+        assert_eq!(fonts.families, families, "a browser without font access keeps its existing fallback chains");
     }
 
     /// #1148: on both rulers the text area is lighter than the margins in both themes, as in the

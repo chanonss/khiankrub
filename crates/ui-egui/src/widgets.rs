@@ -128,6 +128,42 @@ pub(crate) fn bg(ui: &Ui, r: Rect, resp: &Response, checked: bool, t: &Tokens) {
     }
 }
 
+pub(crate) const RIBBON_CONTROL_TAG: &str = "wordcraft_ribbon_controls";
+
+/// Ribbon controls have a light face, a fine outline, and a small visual gap.
+fn ribbon_control_bg(ui: &Ui, rect: Rect, response: &Response, checked: bool, t: &Tokens) {
+    if !ui.stack().iter().any(|stack| stack.tags().contains(RIBBON_CONTROL_TAG)) {
+        bg(ui, rect, response, checked, t);
+        return;
+    }
+    let pressed = response.is_pointer_button_down_on();
+    let fill = if pressed {
+        t.pressed
+    } else if checked {
+        t.checked
+    } else if response.hovered() {
+        t.hover
+    } else {
+        t.ribbon_button
+    };
+    let border = if checked || pressed {
+        t.checked_border
+    } else if response.hovered() {
+        t.border_strong
+    } else {
+        t.ribbon_button_border
+    };
+    let radius = CornerRadius::same(3);
+    let rect = rect.shrink(0.75);
+    ui.painter().rect(rect, radius, fill, Stroke::new(0.6, border), egui::StrokeKind::Inside);
+    if pressed || checked {
+        ui.painter().line_segment(
+            [pos2(rect.left() + 3.0, rect.top() + 1.5), pos2(rect.right() - 3.0, rect.top() + 1.5)],
+            Stroke::new(1.0, t.icon.gamma_multiply(0.22)),
+        );
+    }
+}
+
 /// Runs a ribbon button's command, then hands keyboard focus back to the document so typing
 /// continues without another click, as in Word (#686). Interface commands (`ui.*`) open dialogs,
 /// panes and tabs that take focus themselves, so they keep it.
@@ -169,14 +205,17 @@ pub fn label_line(ui: &Ui, cx: f32, y: f32, text: &str, font: egui::FontId, colo
 #[allow(clippy::too_many_arguments)]
 fn big_button(ui: &mut Ui, app: &mut WordApp, icon: &str, label: &str, id: &str, params: Value, menu: bool, checked: bool) -> Response {
     let label = tl!(label);
+    // Tooltips, keytips and accessible names are one line: Thai phrases join with no space.
+    let thai = label.chars().any(|c| ('\u{0E00}'..='\u{0E7F}').contains(&c));
+    let plain = label.replace('\n', if thai { "" } else { " " });
     let t = Tokens::get(ui.ctx());
     let galley_w =
         label.split('\n').map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(11.5), t.text).size().x)).fold(0.0, f32::max);
     let w = (galley_w + 12.0).max(44.0);
     let (r, resp) = ui.allocate_exact_size(vec2(w, CONTENT_H), Sense::click());
-    keytip_badge(ui, r, id, &label.replace('\n', " "));
+    keytip_badge(ui, r, id, &plain);
     let on = enabled(app, id);
-    bg(ui, r, &resp, checked, &t);
+    ribbon_control_bg(ui, r, &resp, checked, &t);
     let ic = Rect::from_center_size(pos2(r.center().x, r.min.y + BIG_ICON_Y), vec2(32.0, 32.0));
     let (c, a) = if on { (t.icon, t.accent) } else { (t.text_disabled, t.text_disabled) };
     icons::paint(ui.painter(), ic, icon, c, a);
@@ -186,7 +225,15 @@ fn big_button(ui: &mut Ui, app: &mut WordApp, icon: &str, label: &str, id: &str,
         label_line(ui, r.center().x, y, l, regular(11.5), if on { t.text } else { t.text_disabled }, menu && i + 1 == lines.len());
         y += LABEL_PITCH;
     }
-    let resp = tooltip(app, resp, &label.replace('\n', " "), id);
+    let resp = tooltip(app, resp, &plain, id);
+    resp.widget_info(|| {
+        let accessible_label = plain.clone();
+        if id == "view.navigationPane" {
+            egui::WidgetInfo::selected(egui::WidgetType::Checkbox, on && ui.is_enabled(), checked, accessible_label)
+        } else {
+            egui::WidgetInfo::labeled(egui::WidgetType::Button, on && ui.is_enabled(), accessible_label)
+        }
+    });
     command_menu(&resp, app, id);
     if resp.clicked() && on && !menu {
         run_from_ribbon(app, id, params);
@@ -196,13 +243,28 @@ fn big_button(ui: &mut Ui, app: &mut WordApp, icon: &str, label: &str, id: &str,
 
 /// A small button: 16 px icon with an optional label; `checked` draws the toggled state.
 pub fn small(ui: &mut Ui, app: &mut WordApp, icon: &str, label: Option<&str>, tip: &str, id: &str, params: Value, checked: bool) -> Response {
+    small_with_width(ui, app, icon, label, tip, id, params, checked, 0.0)
+}
+
+/// A small control that can expand to fill its share of an aligned row.
+pub fn small_with_width(
+    ui: &mut Ui,
+    app: &mut WordApp,
+    icon: &str,
+    label: Option<&str>,
+    tip: &str,
+    id: &str,
+    params: Value,
+    checked: bool,
+    min_width: f32,
+) -> Response {
     let (label, tip) = (label.map(|l| tl!(l)), tl!(tip));
     let t = Tokens::get(ui.ctx());
     let text_w = label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(11.5), t.text).size().x) + 6.0).unwrap_or(0.0);
-    let (r, resp) = ui.allocate_exact_size(vec2(SMALL_W + text_w, SMALL_H), Sense::click());
+    let (r, resp) = ui.allocate_exact_size(vec2((SMALL_W + text_w).max(min_width), SMALL_H), Sense::click());
     keytip_badge(ui, r, id, tip);
     let on = enabled(app, id);
-    bg(ui, r, &resp, checked, &t);
+    ribbon_control_bg(ui, r, &resp, checked, &t);
     let ic = Rect::from_center_size(pos2(r.min.x + SMALL_W / 2.0, r.center().y), vec2(SMALL_ICON, SMALL_ICON));
     let (c, a) = if on { (t.icon, t.accent) } else { (t.text_disabled, t.text_disabled) };
     icons::paint(ui.painter(), ic, icon, c, a);
@@ -214,7 +276,13 @@ pub fn small(ui: &mut Ui, app: &mut WordApp, icon: &str, label: Option<&str>, ti
     if resp.clicked() && on {
         run_from_ribbon(app, id, params);
     }
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, on, tip));
+    resp.widget_info(|| {
+        if matches!(id, "view.ruler" | "view.gridlines" | "view.navigationPane" | "view.hideWhiteSpace" | "view.textBoundaries") {
+            egui::WidgetInfo::selected(egui::WidgetType::Checkbox, on && ui.is_enabled(), checked, tip)
+        } else {
+            egui::WidgetInfo::labeled(egui::WidgetType::Button, on && ui.is_enabled(), tip)
+        }
+    });
     resp
 }
 
@@ -257,8 +325,8 @@ pub fn split_labeled(
         let (r, resp) = ui.allocate_exact_size(vec2(SMALL_W + text_w, SMALL_H), Sense::click());
         keytip_badge(ui, r, id, tip);
         let (ar, aresp) = ui.allocate_exact_size(vec2(11.0, SMALL_H), Sense::click());
-        bg(ui, r, &resp, checked, &t);
-        bg(ui, ar, &aresp, false, &t);
+        ribbon_control_bg(ui, r, &resp, checked, &t);
+        ribbon_control_bg(ui, ar, &aresp, false, &t);
         let ir = Rect::from_min_size(r.min, vec2(SMALL_W, SMALL_H));
         let ic = Rect::from_center_size(ir.center(), vec2(SMALL_ICON, SMALL_ICON));
         icons::paint(ui.painter(), ic, icon, t.icon, t.accent);
@@ -315,7 +383,7 @@ pub fn menu_button(
         let w = (galley_w + 22.0).max(44.0);
         let (r, resp) = ui.allocate_exact_size(vec2(w, CONTENT_H), Sense::click());
         keytip_badge(ui, r, "menu", tip);
-        bg(ui, r, &resp, false, &t);
+        ribbon_control_bg(ui, r, &resp, false, &t);
         icons::paint(ui.painter(), Rect::from_center_size(pos2(r.center().x, r.min.y + BIG_ICON_Y), vec2(32.0, 32.0)), icon, c, a);
         let lines: Vec<&str> = label.unwrap_or("").split('\n').collect();
         let mut y = r.min.y + BIG_LABEL_Y;
@@ -328,7 +396,7 @@ pub fn menu_button(
         let text_w = label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(11.5), t.text).size().x) + 6.0).unwrap_or(0.0);
         let (r, resp) = ui.allocate_exact_size(vec2(SMALL_W + text_w + 10.0, SMALL_H), Sense::click());
         keytip_badge(ui, r, "menu", tip);
-        bg(ui, r, &resp, false, &t);
+        ribbon_control_bg(ui, r, &resp, false, &t);
         icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + SMALL_W / 2.0, r.center().y), vec2(SMALL_ICON, SMALL_ICON)), icon, c, a);
         if let Some(l) = label {
             ui.painter().text(pos2(r.min.x + SMALL_W, r.center().y), Align2::LEFT_CENTER, l, regular(11.5), text);
@@ -363,7 +431,8 @@ pub fn group(ui: &mut Ui, title: &str, launcher: Option<&str>, app: &mut WordApp
 /// A ribbon group whose title is shown as is (a custom group's name, Customize Ribbon).
 pub fn group_titled(ui: &mut Ui, id_title: &str, title: &str, launcher: Option<&str>, app: &mut WordApp, add: impl FnOnce(&mut Ui, &mut WordApp)) {
     let t = Tokens::get(ui.ctx());
-    let label_w = ui.ctx().fonts_mut(|f| f.layout_no_wrap(title.to_string(), regular(11.0), t.group_label).size().x);
+    let show_name = app.ui.show_ribbon_group_names;
+    let label_w = if show_name { ui.ctx().fonts_mut(|f| f.layout_no_wrap(title.to_string(), regular(11.0), t.group_label).size().x) } else { 0.0 };
     let start = ui.cursor().min;
     let inner = ui.vertical(|ui| {
         ui.set_min_width(label_w + if launcher.is_some() { 22.0 } else { 10.0 });
@@ -381,7 +450,9 @@ pub fn group_titled(ui: &mut Ui, id_title: &str, title: &str, launcher: Option<&
     let r = inner.response.rect;
     let r = Rect::from_min_max(start, pos2(r.max.x, start.y + CONTENT_H + LABEL_H));
     let title_y = r.max.y - LABEL_H / 2.0;
-    ui.painter().text(pos2(r.center().x, title_y), Align2::CENTER_CENTER, title, regular(11.0), t.group_label);
+    if show_name {
+        ui.painter().text(pos2(r.center().x, title_y), Align2::CENTER_CENTER, title, regular(11.0), t.group_label);
+    }
     if let Some(cmd) = launcher {
         let lr = Rect::from_center_size(pos2(r.max.x - 6.0, title_y), vec2(11.0, 11.0));
         let resp = ui.interact(lr, ui.id().with(("launch", id_title)), Sense::click());
@@ -530,7 +601,7 @@ pub fn combo(
     items: &[String],
     preview: Option<&dyn Fn(&mut Ui, &str) -> Response>,
 ) -> Option<String> {
-    combo_impl(ui, id, width, current, items, preview, false)
+    combo_impl(ui, id, width, current, items, preview, false, None)
 }
 
 /// What [`font_combo`] returns when its list's last entry, Add Font…, is chosen (#582): the
@@ -554,7 +625,42 @@ pub fn font_combo(
     items: &[String],
     preview: Option<&dyn Fn(&mut Ui, &str) -> Response>,
 ) -> Option<String> {
-    combo_impl(ui, id, width, current, items, preview, true)
+    combo_impl(ui, id, width, current, items, preview, true, None)
+}
+
+/// [`font_combo`] for a `current` font that may not be installed: with `shown_as` (the families
+/// its text is drawn in instead) the box carries a warning mark, and its hover note says so (from
+/// WordCraft #4770).
+pub fn font_combo_warned(
+    ui: &mut Ui,
+    id: &str,
+    width: f32,
+    current: &str,
+    items: &[String],
+    preview: Option<&dyn Fn(&mut Ui, &str) -> Response>,
+    shown_as: Option<&str>,
+) -> Option<String> {
+    combo_impl(ui, id, width, current, items, preview, true, shown_as)
+}
+
+/// The hover note for a font that isn't installed, `shown_as` drawn instead.
+pub fn missing_font_tip(font: &str, shown_as: &str) -> String {
+    crate::i18n::fmt(
+        tl!(
+            "{font} isn't installed on this computer, so its text is shown in {shown}. Line breaks and page count can differ from where the document was made. If you have the font file, add it with Add Font… at the end of this list."
+        ),
+        &[("font", font), ("shown", shown_as)],
+    )
+}
+
+/// The missing-font mark: an amber warning triangle with a white bar and dot, drawn in `r`
+/// (original artwork in code).
+pub fn paint_font_warning(p: &egui::Painter, r: Rect) {
+    let s = r.width().min(r.height()) / 20.0;
+    let at = |x: f32, y: f32| pos2(r.center().x + (x - 10.0) * s, r.center().y + (y - 10.0) * s);
+    p.add(egui::Shape::convex_polygon(vec![at(10.0, 2.5), at(18.5, 17.5), at(1.5, 17.5)], Color32::from_rgb(0xE0, 0x7B, 0x1F), Stroke::NONE));
+    p.line_segment([at(10.0, 7.5), at(10.0, 12.5)], Stroke::new((1.6 * s).max(1.0), Color32::WHITE));
+    p.circle_filled(at(10.0, 15.0), (1.0 * s).max(0.8), Color32::WHITE);
 }
 
 /// Indices of the `items` matching `query`, ignoring case: exact matches, then the names starting
@@ -608,6 +714,7 @@ fn combo_impl(
     items: &[String],
     preview: Option<&dyn Fn(&mut Ui, &str) -> Response>,
     search: bool,
+    shown_as: Option<&str>,
 ) -> Option<String> {
     let mut out = None;
     let edit_id = ui.id().with(("combo_text", id));
@@ -639,10 +746,27 @@ fn combo_impl(
                 }
             });
         }
-        let te = egui::TextEdit::singleline(&mut text).id(te_id).desired_width(width - 16.0).font(regular(12.0)).margin(vec2(4.0, 3.0));
+        // A font that isn't installed: room at the field's right end for the warning mark.
+        let mark = shown_as.filter(|_| !current.is_empty());
+        let right = if mark.is_some() { 18 } else { 4 };
+        let te = egui::TextEdit::singleline(&mut text).id(te_id).desired_width(width - 16.0).font(regular(12.0)).margin(egui::Margin {
+            left: 4,
+            right,
+            top: 3,
+            bottom: 3,
+        });
         // The arrow's box is painted here, under the field, once its size is known.
         let arrow_bg = ui.painter().add(egui::Shape::Noop);
         let resp = ui.add(te);
+        let resp = match mark {
+            Some(shown) => {
+                paint_font_warning(ui.painter(), Rect::from_center_size(pos2(resp.rect.right() - 9.0, resp.rect.center().y), vec2(12.0, 12.0)));
+                let note = missing_font_tip(current, shown);
+                resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, note.as_str()));
+                resp.on_hover_text(note)
+            }
+            None => resp,
+        };
         keytip_badge(ui, resp.rect, "combo", id);
         focused = resp.has_focus();
         let enter = resp.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
@@ -878,15 +1002,37 @@ pub fn icon_button(ui: &mut Ui, icon: &str, tip: &str) -> Response {
 /// fonts and would draw as empty boxes, so icons are painted (`icons.rs`) rather than typed.
 /// It looks and reacts like `ui.button` (see [`drawn_state`]).
 pub fn icon_text_button(ui: &mut Ui, icon: &str, text: &str, font: egui::FontId) -> Response {
-    icon_text_button_with(ui, icon, text, font, false)
+    icon_text_button_with(ui, icon, text, font, false, None)
+}
+
+/// A framed icon-and-text toggle with an accessible checked state.
+pub fn icon_text_toggle_button(ui: &mut Ui, icon: &str, text: &str, font: egui::FontId, checked: bool) -> Response {
+    icon_text_button_with(ui, icon, text, font, false, Some(checked))
+}
+
+/// A framed icon-only button: `text` is its accessible name and tooltip. `checked` makes it a
+/// toggle (with an accessible checked state), drawn pressed while on.
+pub fn icon_only_button(ui: &mut Ui, icon: &str, text: &str, checked: Option<bool>) -> Response {
+    let t = Tokens::of(ui);
+    let (r, resp) = ui.allocate_exact_size(vec2(26.0, 24.0), Sense::click());
+    resp.widget_info(|| match checked {
+        Some(value) => egui::WidgetInfo::selected(egui::WidgetType::Checkbox, ui.is_enabled(), value, text),
+        None => egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), text),
+    });
+    let st = drawn_state(ui, &resp, true);
+    let r = r.expand(st.expansion);
+    let (fill, stroke) = if checked == Some(true) { (t.checked, Stroke::new(1.0, t.accent)) } else { (st.fill, st.stroke) };
+    ui.painter().rect(r, ui.visuals().widgets.inactive.corner_radius, fill, stroke, egui::StrokeKind::Inside);
+    icons::paint(ui.painter(), Rect::from_center_size(r.center(), vec2(16.0, 16.0)), icon, t.icon, t.accent);
+    resp.on_hover_text(text)
 }
 
 /// [`icon_text_button`] that opens a menu: the drop-down marker follows the text.
 pub fn icon_text_menu_button(ui: &mut Ui, icon: &str, text: &str, font: egui::FontId) -> Response {
-    icon_text_button_with(ui, icon, text, font, true)
+    icon_text_button_with(ui, icon, text, font, true, None)
 }
 
-fn icon_text_button_with(ui: &mut Ui, icon: &str, text: &str, font: egui::FontId, marker: bool) -> Response {
+fn icon_text_button_with(ui: &mut Ui, icon: &str, text: &str, font: egui::FontId, marker: bool, checked: Option<bool>) -> Response {
     let t = Tokens::of(ui);
     let galley = ui.painter().layout_no_wrap(text.to_string(), font, Color32::PLACEHOLDER);
     let pad = ui.spacing().button_padding;
@@ -894,10 +1040,14 @@ fn icon_text_button_with(ui: &mut Ui, icon: &str, text: &str, font: egui::FontId
     let marker_w = if marker { DROPDOWN + 4.0 } else { 0.0 };
     let size = vec2(pad.x + icon_w + 4.0 + galley.size().x + marker_w + pad.x, galley.size().y.max(icon_w) + 2.0 * pad.y);
     let (r, resp) = ui.allocate_exact_size(size, Sense::click());
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), text));
+    resp.widget_info(|| match checked {
+        Some(value) => egui::WidgetInfo::selected(egui::WidgetType::Checkbox, ui.is_enabled(), value, text),
+        None => egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), text),
+    });
     let st = drawn_state(ui, &resp, true);
     let r = r.expand(st.expansion);
-    ui.painter().rect(r, ui.visuals().widgets.inactive.corner_radius, st.fill, st.stroke, egui::StrokeKind::Inside);
+    let (fill, stroke) = if checked == Some(true) { (t.checked, Stroke::new(1.0, t.accent)) } else { (st.fill, st.stroke) };
+    ui.painter().rect(r, ui.visuals().widgets.inactive.corner_radius, fill, stroke, egui::StrokeKind::Inside);
     icons::paint(
         ui.painter(),
         Rect::from_center_size(pos2(r.min.x + pad.x + icon_w / 2.0, r.center().y), vec2(icon_w, icon_w)),

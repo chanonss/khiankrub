@@ -178,3 +178,56 @@ fn own_margins_and_resize_to_fit_keep_the_text_in_view() {
     let (shown, ..) = two(20.0, TextBody { inset: Some([u32::MAX; 4]), ..Default::default() });
     assert!(shown >= 1);
 }
+
+/// Whether `draws` has text drawn directly (not inside a turned group).
+fn upright_glyphs(draws: &[crate::display::Draw]) -> bool {
+    draws.iter().any(|d| matches!(d, crate::display::Draw::Glyphs { .. }))
+}
+
+/// The turns of the groups in `draws` that hold text.
+fn turned_glyphs(draws: &[crate::display::Draw]) -> Vec<f32> {
+    draws
+        .iter()
+        .filter_map(|d| match d {
+            crate::display::Draw::Rotated { spin, items, .. } if upright_glyphs(items) => Some(spin.deg),
+            _ => None,
+        })
+        .collect()
+}
+
+/// A turned shape's text turns with it, as in Word, about the shape's centre; mirroring the shape
+/// doesn't mirror the text. While the box is being edited its text is drawn upright, where the
+/// caret and the selection are.
+#[test]
+fn a_turned_shapes_text_turns_with_it() {
+    use crate::display::{DisplayOptions, page_display};
+    let mut d = Document::from_text("");
+    let id = text_box(&mut d, 0, "ข้อความภาษาไทย", 200.0, 100.0, TextBody::default());
+    let turn = |d: &mut Document, rot: f32, flip_h: bool| {
+        let p = d.para_mut(StoryRef::Body, &Path::top(0)).unwrap();
+        let Some(InlineObject::Shape { float, .. }) = p.objects.iter_mut().find(|o| o.text_box() == Some(id)) else { panic!("no text box") };
+        float.rot = rot;
+        float.flip_h = flip_h;
+    };
+    let draws = |d: &Document, upright: Option<u32>| {
+        let l = lay(d);
+        page_display(d, &l.pages[0], &DisplayOptions { upright_box: upright, ..Default::default() })
+    };
+    let flat = draws(&d, None);
+    assert!(turned_glyphs(&flat).is_empty() && upright_glyphs(&flat), "an upright shape's text is drawn as it is");
+
+    turn(&mut d, 45.0, false);
+    let turned = draws(&d, None);
+    assert_eq!(turned_glyphs(&turned), vec![45.0], "the text turns with its shape");
+    assert!(!upright_glyphs(&turned));
+
+    turn(&mut d, 45.0, true);
+    let mirrored = draws(&d, None);
+    assert!(
+        mirrored.iter().any(|x| matches!(x, crate::display::Draw::Rotated { spin, items, .. } if upright_glyphs(items) && !spin.flip_h)),
+        "text isn't mirrored"
+    );
+
+    let editing = draws(&d, Some(id));
+    assert!(turned_glyphs(&editing).is_empty() && upright_glyphs(&editing), "upright while it is edited");
+}

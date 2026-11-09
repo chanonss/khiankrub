@@ -13,6 +13,10 @@
 //! with equations as MathML (#816; pasting into Word and LibreOffice not yet verified). arboard sets HTML with a
 //! text alternative on every desktop platform; formats of other names (Word's "Office Open XML"
 //! with OMML, #1297) it can't, so they aren't offered.
+//!
+//! RTF goes beside them on Windows ("Rich Text Format") and macOS (`public.rtf`), added after
+//! arboard's HTML, for programs that read RTF rather than HTML (from WordCraft #2630). Reading
+//! another program's RTF works on Windows, macOS and Wayland.
 
 use wordcraft_engine::cmd::paste::MAX_PASTE_BYTES;
 use wordcraft_ui_egui::paste_picture::ClipboardPicture;
@@ -26,19 +30,30 @@ thread_local! {
     static WRITER: std::cell::RefCell<Option<arboard::Clipboard>> = const { std::cell::RefCell::new(None) };
 }
 
-/// Put `html` on the clipboard with `text` as its plain-text alternative. `false` when it couldn't
-/// (the caller copies the text alone), including a Wayland session without the data-control
-/// protocol, where arboard would fall back to X11 and native Wayland programs might not see it.
-pub fn set_html(html: &str, text: &str) -> bool {
+/// Put a copy on the clipboard: `text`, with `html` and `rtf` beside it where the platform takes
+/// them (an empty one isn't offered). `false` when the text and HTML couldn't be set (the caller
+/// copies the text alone), including a Wayland session without the data-control protocol, where
+/// arboard would fall back to X11 and native Wayland programs might not see it. RTF that can't be
+/// added is logged: the HTML still carries the copy.
+pub fn set_rich(text: &str, html: &str, rtf: &str) -> bool {
     if !platform::can_set() {
         return false;
     }
+    let set = set_html_text(html, text);
+    if set && !rtf.is_empty() {
+        platform::add_rtf(rtf);
+    }
+    set
+}
+
+fn set_html_text(html: &str, text: &str) -> bool {
     WRITER.with(|w| {
         let Ok(mut slot) = w.try_borrow_mut() else { return false };
         if slot.is_none() {
             *slot = open();
         }
-        match slot.as_mut().map(|c| c.set().html(html, Some(text))) {
+        let set = slot.as_mut().map(|c| if html.is_empty() { c.set_text(text) } else { c.set().html(html, Some(text)) });
+        match set {
             Some(Ok(())) => true,
             Some(Err(e)) => {
                 log::warn!("clipboard: {e}");
@@ -138,6 +153,9 @@ mod platform {
     }
 
     /// Whether arboard sets the clipboard natively: X11, or Wayland with data-control.
+    /// Not added on Linux and the BSDs yet: arboard serves its own targets only.
+    pub fn add_rtf(_rtf: &str) {}
+
     pub fn can_set() -> bool {
         !wayland()
             || !matches!(
@@ -193,10 +211,62 @@ mod platform {
     pub fn can_set() -> bool {
         true
     }
+
+    /// Add "Rich Text Format" to what arboard just set, NUL-terminated as is usual.
+    pub fn add_rtf(rtf: &str) {
+        let Some(format) = raw::register_format("Rich Text Format") else { return };
+        let Ok(_open) = Clipboard::new_attempts(10) else { return };
+        let mut bytes = Vec::with_capacity(rtf.len().saturating_add(1));
+        bytes.extend_from_slice(rtf.as_bytes());
+        bytes.push(0);
+        if let Err(e) = raw::set_without_clear(format.get(), &bytes) {
+            log::warn!("clipboard RTF: {e}");
+        }
+    }
 }
 
-#[cfg(not(any(target_os = "windows", all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten"))))))]
+#[cfg(target_os = "macos")]
 mod platform {
+    use objc2_app_kit::NSPasteboard;
+    use objc2_foundation::{NSData, NSString};
+
+    /// RTF's pasteboard type (`NSPasteboardTypeRTF`, whose extern static needs unsafe to read).
+    const RTF: &str = "public.rtf";
+
+    pub fn formats() -> Vec<String> {
+        Vec::new()
+    }
+
+    /// Another program's RTF (TextEdit, Pages, Word for Mac), if not too large.
+    pub fn rtf() -> Option<Vec<u8>> {
+        let data = NSPasteboard::generalPasteboard().dataForType(&NSString::from_str(RTF))?;
+        (data.len() <= super::MAX_PASTE_BYTES).then(|| data.to_vec())
+    }
+
+    pub fn encoded_picture() -> Option<Vec<u8>> {
+        None
+    }
+
+    pub fn can_set() -> bool {
+        true
+    }
+
+    /// Add RTF to the pasteboard item arboard just wrote (it cleared the pasteboard first).
+    pub fn add_rtf(rtf: &str) {
+        if !NSPasteboard::generalPasteboard().setData_forType(Some(&NSData::with_bytes(rtf.as_bytes())), &NSString::from_str(RTF)) {
+            log::warn!("clipboard: the RTF couldn't be added");
+        }
+    }
+}
+
+#[cfg(not(any(
+    target_os = "windows",
+    target_os = "macos",
+    all(unix, not(any(target_os = "macos", target_os = "android", target_os = "emscripten")))
+)))]
+mod platform {
+    pub fn add_rtf(_rtf: &str) {}
+
     pub fn formats() -> Vec<String> {
         Vec::new()
     }

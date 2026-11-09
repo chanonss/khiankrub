@@ -115,7 +115,7 @@ pub fn page(app: &mut WordApp, ui: &mut Ui) {
     ui.horizontal_top(|ui| {
         ui.vertical(|ui| {
             ui.set_width(170.0);
-            for id in PANES {
+            for id in PANES.into_iter().filter(|id| *id != "agents") {
                 let label = tl!(pane_label(id));
                 let active = current == id;
                 let (r, resp) = ui.allocate_exact_size(vec2(170.0, 30.0), egui::Sense::click());
@@ -125,9 +125,20 @@ pub fn page(app: &mut WordApp, ui: &mut Ui) {
                 } else if resp.hovered() {
                     ui.painter().rect_filled(r, 4.0, t.hover);
                 }
+                let icon = match id {
+                    "display" => "optionsDisplay",
+                    "proofing" => "optionsProofing",
+                    "save" => "optionsSave",
+                    "language" => "optionsLanguage",
+                    "accessibility" => "optionsAccessibility",
+                    "advanced" => "optionsAdvanced",
+                    _ => "optionsGeneral",
+                };
+                let icon_rect = egui::Rect::from_center_size(egui::pos2(r.min.x + 19.0, r.center().y), vec2(18.0, 18.0));
+                crate::icons::paint(ui.painter(), icon_rect, icon, t.icon, t.accent);
                 let font = if active { semibold(14.0) } else { crate::theme::regular(14.0) };
                 // Long translations stay inside the row; WidgetInfo above keeps the full name.
-                ui.painter().with_clip_rect(r).text(egui::pos2(r.min.x + 12.0, r.center().y), egui::Align2::LEFT_CENTER, label, font, t.text);
+                ui.painter().with_clip_rect(r).text(egui::pos2(r.min.x + 34.0, r.center().y), egui::Align2::LEFT_CENTER, label, font, t.text);
                 if resp.clicked() {
                     app.ui.options_pane = id.to_string();
                 }
@@ -183,6 +194,18 @@ fn general(app: &mut WordApp, ui: &mut Ui) {
     theme_picker(app, ui);
     band_pickers(app, ui);
     interface_size_picker(app, ui);
+    if let Some(load) = &app.services.load_system_ui_fonts {
+        if ui.button(tl!("Use system interface fonts")).clicked() {
+            load();
+        }
+        ui.label(tl!("Your browser may ask for access to local fonts. Font files stay on this computer."));
+    }
+    #[cfg(target_arch = "wasm32")]
+    if app.services.load_system_ui_fonts.is_none() {
+        ui.label(tl!("This browser cannot load system interface fonts. Bundled interface fonts are used."));
+    }
+    ui.checkbox(&mut app.ui.show_ribbon_tab_numbers, tl!("Show numbers on ribbon tabs"));
+    ui.checkbox(&mut app.ui.show_ribbon_group_names, tl!("Show ribbon group names"));
     ui.checkbox(&mut app.ui.mini_toolbar, tl!("Show the mini toolbar when text is selected"));
     let mut dark_page = app.session.view.dark_mode;
     if ui
@@ -193,6 +216,19 @@ fn general(app: &mut WordApp, ui: &mut Ui) {
         let _ = app.run("view.darkMode", json!({"value": dark_page}));
     }
     default_app_button(app, ui);
+    if app.services.browser_recovery.is_some() {
+        ui.add_space(8.0);
+        section(ui, "Recovery on this device");
+        let mut enabled = app.ui.local_recovery;
+        if ui.checkbox(&mut enabled, tl!("Keep recovery drafts on this device")).changed() {
+            let _ = app.run("ui.localRecovery", json!({"value": enabled}));
+        }
+        ui.label(tl!("Drafts stay in this browser. Clearing site data can remove them. On shared devices, discard drafts when finished."));
+        ui.label(tl!("Turning recovery off stops new snapshots; existing drafts remain until discarded."));
+        if ui.button(tl!("Manage recovery drafts")).clicked() {
+            let _ = app.run("ui.recoveryDrafts", json!({}));
+        }
+    }
     ui.add_space(8.0);
     section(ui, "Start-up");
     let mut start = app.ui.start_screen;
@@ -831,6 +867,10 @@ mod tests {
         .unwrap();
         a.ui.recent_count = 30;
         a.ui.print_backgrounds = true;
+        assert!(a.ui.show_ribbon_tab_numbers);
+        a.ui.show_ribbon_tab_numbers = false;
+        assert!(!a.ui.show_ribbon_group_names);
+        a.ui.show_ribbon_group_names = true;
         let saved = serde_json::to_vec(&a.prefs()).unwrap();
         let mut b = app();
         b.apply_prefs(UiState::from_json(&saved).unwrap());
@@ -838,6 +878,8 @@ mod tests {
         assert_eq!(b.session.prefs.units, Some(Unit::Centimeters));
         assert_eq!(b.session.initials, "VK");
         assert_eq!((b.ui.recent_count, b.ui.print_backgrounds), (30, true));
+        assert!(!b.ui.show_ribbon_tab_numbers);
+        assert!(b.ui.show_ribbon_group_names);
         assert!(wordcraft_engine::proof::user_dictionary().contains(&"zqxoptionsword".to_string()));
 
         let junk = br#"{"theme": "dark", "recentCount": "lots", "printBackgrounds": 7, "optionsPane": ["x"], "dark": true,
@@ -846,6 +888,8 @@ mod tests {
         assert_eq!(ui.theme, Appearance::Dark);
         assert_eq!((ui.recent_count, ui.print_backgrounds, ui.options_pane.as_str()), (12, false, "general"));
         assert_eq!(ui.legacy_dark, Some(true));
+        assert!(ui.show_ribbon_tab_numbers, "old settings keep the default");
+        assert!(!ui.show_ribbon_group_names, "old settings hide group names by default");
         assert_eq!(ui.editing.units, None);
         assert!(!ui.editing.typing_replaces_selection);
         assert!(ui.editing.marks.spaces && !ui.editing.marks.tabs);

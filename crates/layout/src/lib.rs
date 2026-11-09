@@ -18,6 +18,7 @@ pub mod math;
 pub mod outline;
 pub mod para;
 pub mod styleref;
+mod substituted;
 mod table;
 mod textbox;
 mod thai;
@@ -38,6 +39,7 @@ use wordcraft_geom::{Point, Rect, Spin};
 pub use fields::FieldCtx;
 pub use hit::VisualStep;
 pub use para::{LineEnd, ParaLayout};
+pub use substituted::MAX_SUBSTITUTED;
 pub use table::{autofit_widths, cell_margins, default_cell_margins, measure_table_columns};
 
 /// How the document is viewed.
@@ -466,7 +468,7 @@ struct Key {
     rev: u64,
     width: u32,
     label: Option<String>,
-    page: Option<(u32, u32, u32, u32, u64)>,
+    page: Option<(u32, u32, u32, u32, u64, wordcraft_doc::section::NumFormat)>,
     /// The pages a split paragraph's fields are on after its first (`FieldCtx::page_from`).
     page_from: u64,
     table: u64,
@@ -1405,36 +1407,48 @@ fn push_para(items: &mut Vec<Placed>, story: StoryRef, path: &[u32], pl: &Arc<Pa
     let (li, ri) = if pl.rp.bidi { (pl.rp.indent_right, start) } else { (start, pl.rp.indent_right) };
     let left = x + li;
     let right = x + width - ri;
+    // Every border line lies beyond its distance from the text, as in Word (#5036): a thick side
+    // border at no distance no longer covers the first letter. `room` is how far a drawn line
+    // reaches out from the text: its distance plus its width.
+    let b = pl.rp.borders.unwrap_or_default();
+    let room = |o: Option<Border>| o.filter(Border::is_visible).map_or(0.0, |b| b.space + b.width);
+    let top_line = b.top.filter(|t| l0 == 0 && t.is_visible());
+    let bottom_line = b.bottom.filter(|t| l1 >= pl.lines.len() && t.is_visible());
+    let (lx, rx) = (left - room(b.left), right + room(b.right));
+    let (top, bottom) = (y - room(top_line), y + h + room(bottom_line));
     if let Some(c) = pl.rp.shading {
         let pad = pl.rp.borders.as_ref().map(|b| b.left.map(|l| l.space).unwrap_or(4.0)).unwrap_or(0.0);
-        items.push(Placed::Fill { rect: Rect::new(left - pad, y, right - left + pad * 2.0, h), color: c });
+        // The shading fills out to the borders' outer edges, so no seam shows where they meet.
+        let (sl, sr) = (lx.min(left - pad), rx.max(right + pad));
+        items.push(Placed::Fill { rect: Rect::new(sl, y, sr - sl, h), color: c });
     }
     items.push(Placed::Lines { story, path: Path(path.to_vec()), para: pl.clone(), l0, l1, x, y, turn: TextDirection::Horizontal });
-    if let Some(b) = &pl.rp.borders {
-        let sp = |o: &Option<Border>| o.map(|b| b.space).unwrap_or(0.0);
-        let (lx, rx) = (left - sp(&b.left), right + sp(&b.right));
-        let (ty, by) = (y - sp(&b.top), y + h + sp(&b.bottom));
-        if let Some(t) = b.top.filter(|_| l0 == 0)
-            && t.is_visible()
-        {
+    if pl.rp.borders.is_some() {
+        // Top and bottom reach the corners.
+        if let Some(t) = top_line {
+            let ty = y - t.space - t.width / 2.0;
             items.push(Placed::Rule { x0: lx, y0: ty, x1: rx, y1: ty, border: t });
         }
-        if let Some(t) = b.bottom.filter(|_| l1 >= pl.lines.len())
-            && t.is_visible()
-        {
+        if let Some(t) = bottom_line {
+            let by = y + h + t.space + t.width / 2.0;
             items.push(Placed::Rule { x0: lx, y0: by, x1: rx, y1: by, border: t });
         }
         if let Some(t) = b.left.filter(Border::is_visible) {
-            items.push(Placed::Rule { x0: lx, y0: ty, x1: lx, y1: by, border: t });
+            let bx = lx + t.width / 2.0;
+            items.push(Placed::Rule { x0: bx, y0: top, x1: bx, y1: bottom, border: t });
         }
         if let Some(t) = b.right.filter(Border::is_visible) {
-            items.push(Placed::Rule { x0: rx, y0: ty, x1: rx, y1: by, border: t });
+            let bx = rx - t.width / 2.0;
+            items.push(Placed::Rule { x0: bx, y0: top, x1: bx, y1: bottom, border: t });
         }
     }
 }
 
 #[derive(Clone)]
 struct PageBuilder<'a> {
+    /// The body's top on this page: `top` moves down below the text when a continuous section
+    /// starts mid-page.
+    page_top: f32,
     pages: Vec<Page>,
     sect: &'a SectionProps,
     sect_idx: usize,
@@ -1931,6 +1945,7 @@ impl PageBuilder<'_> {
         self.col = 0;
         self.cols = s.column_boxes();
         self.top = body_top;
+        self.page_top = body_top;
         self.bottom = if self.web { f32::MAX / 8.0 } else { bottom };
         self.orig_bottom = self.bottom;
         self.y = self.top;
@@ -1969,6 +1984,12 @@ impl PageBuilder<'_> {
     }
     fn at_top(&self) -> bool {
         self.y <= self.top + 0.01
+    }
+    /// At the top with nothing above on this page, so moving on gains no room. A continuous
+    /// section starting mid-page is at its top but not fresh: what doesn't fit there goes to the
+    /// next page (WordCraft #3907).
+    fn fresh(&self) -> bool {
+        self.at_top() && self.top <= self.page_top + 0.01
     }
     /// Move to the next column or page.
     fn advance(&mut self, block: usize, body_top: f32) {
@@ -2135,6 +2156,7 @@ fn layout_pass(
         cols: Vec::new(),
         y: 0.0,
         top: 0.0,
+        page_top: 0.0,
         bottom: 0.0,
         number: 0,
         web,
@@ -3032,9 +3054,9 @@ fn place_objects(
                 wrap: float.wrap,
                 origin: Point::new(at.col.0, at.para_y),
             });
-            // Its text (a group: its text boxes', each where the group's turn carries it; the
-            // text itself stays upright), unless the box budget says no (a box inside itself,
-            // too deep, too many).
+            // Its text (a group: its text boxes', each where the group's turn carries it), unless
+            // the box budget says no (a box inside itself, too deep, too many). It is laid out
+            // upright here, where it is edited; the display turns a turned shape's text with it.
             let centre = Point::new(rect.x + rect.w / 2.0, rect.y + rect.h / 2.0);
             let boxes: Vec<(u32, Rect)> = match obj {
                 InlineObject::Group { .. } => group_members(obj, rect)
@@ -3233,7 +3255,7 @@ fn place_para_in_flow(ctx: &mut Ctx, pb: &mut PageBuilder, p: &Paragraph, block:
     if pl.rp.keep_lines || (pl.rp.keep_next && pb.y + pl.height <= pb.bottom + 0.01) {
         let need = pl.height + if pl.rp.keep_next { next_first_line(ctx, block, width, 0) } else { 0.0 };
         // (Against the whole column: balanced columns grow to hold it.)
-        if pb.y + need > pb.bottom && !pb.at_top() && need <= pb.uncapped_bottom() - pb.top {
+        if pb.y + need > pb.bottom && !pb.fresh() && need <= pb.uncapped_bottom() - pb.top {
             pb.advance(block, body_top);
             pb.y += pl.rp.space_before.min(0.0);
             applied_before = pl.rp.space_before.min(0.0);
@@ -3377,7 +3399,7 @@ fn place_para_in_flow(ctx: &mut Ctx, pb: &mut PageBuilder, p: &Paragraph, block:
             // An empty paragraph closing a section before a new page: measured in Word, it stays
             // on a full page instead of starting one of its own.
             let closing_mark = pb.next_starts_page && p.section.is_some() && p.text.is_empty();
-            if over && l1 == l0 && !pb.at_top() && !split && !only_break && !closing_mark {
+            if over && l1 == l0 && !pb.fresh() && !split && !only_break && !closing_mark {
                 break;
             }
             new_notes.extend(line_notes);
@@ -3396,11 +3418,11 @@ fn place_para_in_flow(ctx: &mut Ctx, pb: &mut PageBuilder, p: &Paragraph, block:
         }
         // Widow/orphan control (2-line minimum at either end).
         if forced_break.is_none() && l1 < n && pl.rp.widow_control && n >= 2 {
-            if l1 - l0 == 1 && l0 == 0 && !pb.at_top() {
+            if l1 - l0 == 1 && l0 == 0 && !pb.fresh() {
                 l1 = l0; // orphan: move the first line to the next page
             } else if n - l1 == 1 && (l1 - l0 >= 3 || (l0 > 0 && l1 - l0 >= 2)) {
                 l1 -= 1; // widow: take one more line along
-            } else if n - l1 == 1 && l0 == 0 && l1 - l0 == 2 && !pb.at_top() {
+            } else if n - l1 == 1 && l0 == 0 && l1 - l0 == 2 && !pb.fresh() {
                 // Neither split of a three-line paragraph is allowed (two and a widow, or an
                 // orphan and two): it moves whole, as in Word.
                 l1 = l0;
@@ -3411,7 +3433,7 @@ fn place_para_in_flow(ctx: &mut Ctx, pb: &mut PageBuilder, p: &Paragraph, block:
             l1 -= 1;
         }
         if l1 == l0 {
-            if pb.at_top() {
+            if pb.fresh() {
                 l1 = l0 + 1; // can't fit even one line on an empty page: overflow
             } else {
                 pb.advance(block, body_top);

@@ -801,11 +801,17 @@ fn delete_inner(s: &mut Session, _: &Value) -> CmdResult {
             }
             return sel_result(s);
         }
+        let next_props = if para.is_empty() { s.doc.para_at(&b).map(|p| p.props.clone()) } else { None };
         let at = s.doc.delete_range(&f, &b)?;
+        if let Some(props) = next_props {
+            let joined = s.doc.para_mut(at.story, &at.path)?;
+            joined.props = props;
+            joined.touch();
+        }
         s.sel = Selection::caret(at);
     } else if let Some(Block::Table(_)) = s.doc.block(f.story, &next) {
         // An empty paragraph before a table is removed; else nothing.
-        if para.is_empty() && f.path.last() > 0 {
+        if para.is_empty() && para.section.is_none() {
             s.doc.remove_block(f.story, &f.path)?;
             let mut path = next.0.clone();
             if let Some(l) = path.last_mut() {

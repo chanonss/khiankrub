@@ -1,10 +1,10 @@
 # WordCraft roadmap: milestones and what's next
 
-> **KhianKrub status — 2026-11-02:** UP12.1: stability sweep. Selected v0.12 fixes implemented; remaining stability/corpus work is unchanged.
+> **KhianKrub status — 2026-10-29:** UP12.1: stability sweep. Selected v0.12 fixes implemented for the web fork; remaining stability/corpus work is unchanged.
 
-> **KhianKrub status — 2026-11-02:** UP12.2/3: selected PDF, layout, encryption and editing improvements from v0.12 are implemented alongside the stability fixes.
+> **KhianKrub status — 2026-10-29:** UP12.2/3: selected PDF, layout, encryption and editing improvements from v0.12 are implemented alongside the stability fixes.
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-02 · **Change:** minor (Czech proofing review fixes; previously minor: Portuguese proofing; previously minor: Polish interface and Polish proofing; previously trivial: M7: formatting revisions landed, #41; previously trivial: M5: Draw Table and Eraser landed, #303; previously minor: beta distance restated: ~15 points, ~150–230 h; previously: alpha gate checked: six core workflows pass; previously major: milestones moved here from ROADMAP.md; Current focus set from the re-measured gaps) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-29 · **Change:** minor (Czech proofing review fixes; previously minor: Portuguese proofing; previously minor: Polish interface and Polish proofing; previously trivial: M7: formatting revisions landed, #41; previously trivial: M5: Draw Table and Eraser landed, #303; previously minor: beta distance restated: ~15 points, ~150–230 h; previously: alpha gate checked: six core workflows pass; previously major: milestones moved here from ROADMAP.md; Current focus set from the re-measured gaps) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
 
 Forward-looking plan. The summary is [`ROADMAP.md`](../ROADMAP.md); the ranked work list is
 [`gaps.md`](gaps.md); the numbers are in [`target-app-parity.md`](target-app-parity.md). Hours are
@@ -78,8 +78,8 @@ languages, screen-reader access, ecosystem decisions (VBA, add-ins, cloud), an i
 
 | Date | Change | Summary |
 |---|---|---|
-| 2026-11-02 | minor | UP12.2/3: selected PDF, layout, encryption and editing improvements from v0.12 are implemented alongside the stability fixes. |
-| 2026-11-02 | minor | UP12.1: stability sweep. Selected v0.12 fixes implemented; remaining stability/corpus work is unchanged. |
+| 2026-10-29 | minor | UP12.2/3: selected PDF, layout, encryption and editing improvements from v0.12 are implemented alongside the stability fixes. |
+| 2026-10-29 | minor | UP12.1: stability sweep. Selected v0.12 fixes implemented for the web fork; remaining stability/corpus work is unchanged. |
 | 2026-10-12 | minor | Czech proofing review: short-word splits rank after deletion, NOSUGGEST excludes suggestions while accepting typed forms, affix comments apply only to headers, ratios keep spaces and repeated-word messages use Czech quotes; synthetic engine end-to-end and latency checks |
 | 2026-10-12 | minor | Czech spelling from the installed Hunspell dictionary, runtime-table suggestions and generic checks; Czech interface writes cs-CZ documents; no Czech hyphenation patterns bundled; estimates unchanged |
 | 2026-10-12 | minor | M15: Portuguese proofing (pt-BR spelling from the installed VERO dictionary, suggestions, grammar, hyphenation; Review › Language gains Português (Brasil)) |

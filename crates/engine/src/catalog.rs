@@ -468,6 +468,19 @@ Header & Footer|Navigation|Go to Footer|insert.editFooter
 Header & Footer|Navigation|Previous Section|hf.previous
 Header & Footer|Navigation|Next Section|hf.next
 Header & Footer|Position|Header from Top|hf.position
+Header & Footer|Position|Footer from Bottom|hf.position
+Header & Footer|Header & Footer|Header|insert.header
+Header & Footer|Header & Footer|Footer|insert.footer
+Header & Footer|Header & Footer|Page Number|insert.pageNumber
+Header & Footer|Insert|Date & Time|insert.dateTime
+Header & Footer|Insert|Field|insert.field
+Header & Footer|Insert|Picture from File|insert.picture
+Header & Footer|Navigation|Link to Previous|layout.linkToPrevious
+Header & Footer|Options|Different First Page|layout.differentFirstPage
+Header & Footer|Options|Different Odd & Even Pages|layout.differentOddEven
+Header & Footer|Options|Show Document Text|hf.showDocumentText
+Header & Footer|Close|Close Header and Footer|insert.closeHeader
+Header & Footer|Page Number|Format Page Numbers|layout.pageNumberFormat
 Editing|Keyboard|Type Text|text.insert
 Editing|Keyboard|New Paragraph|text.newParagraph
 Editing|Keyboard|Line Break|text.lineBreak
@@ -576,6 +589,6 @@ mod tests {
         let p = parity(&reg);
         let pct = p["percent"].as_f64().unwrap();
         // The floor only ever rises.
-        assert!(pct >= 90.4, "parity {pct}%");
+        assert!(pct >= 97.1, "parity {pct}%");
     }
 }

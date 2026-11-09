@@ -8,6 +8,11 @@ description = "WordCraft document model: stories, paragraphs, runs, tables, sect
 [lints]
 workspace = true
 
+[features]
+# Test inputs other crates' tests share (`cfb_guard::repeating_difat_sample`); turned on only as a
+# dev-dependency, so never built into the app.
+test-support = []
+
 [dependencies]
 wordcraft-geom = { workspace = true }
 serde = { workspace = true }

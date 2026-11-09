@@ -25,12 +25,11 @@ mod print;
 mod region;
 #[cfg(target_os = "macos")]
 mod traffic_lights;
-mod update_check;
 
 use wordcraft_engine::Session;
 use wordcraft_ui_egui::{
     Services, UiState, WordApp,
-    window_geometry::{WindowGeometry, take_rescue},
+    window_geometry::{Monitors, WindowGeometry, reachable, take_rescue},
 };
 
 /// The app, the restored window geometry (or, with none, the default: no position) until the
@@ -65,7 +64,9 @@ impl eframe::App for App {
         // The first frame, once the monitor is known (as `take_rescue` waits for): maximize a
         // window that opened at its normal size so it never flashed on screen half-opened.
         let maximize = self.1.and_then(|g| g.maximize_after_open()).filter(|_| ctx.input(|i| i.viewport().monitor_size.is_some()));
-        if let Some(pos) = ctx.input(|i| take_rescue(&mut self.1, i.viewport())) {
+        // Only while the restored geometry is still pending: the rescue below is the one reader.
+        let monitors = if self.1.is_some() { monitor_geometry(frame, ctx.pixels_per_point()) } else { Monitors::default() };
+        if let Some(pos) = ctx.input(|i| take_rescue(&mut self.1, i.viewport(), monitors)) {
             ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(pos));
         }
         if let Some(command) = maximize {
@@ -118,6 +119,37 @@ impl eframe::App for App {
             key_file.remove();
         }
     }
+}
+
+/// Whether a grippable part of the window is on a monitor, and the primary monitor's bounds (from
+/// WordCraft #4742). Winit reports physical pixels; egui positions use points. Unknown where the
+/// platform can't report the window or its monitors (Wayland, headless).
+fn monitor_geometry(frame: &eframe::Frame, pixels_per_point: f32) -> Monitors {
+    let Some(w) = frame.winit_window() else {
+        return Monitors::default();
+    };
+    if !pixels_per_point.is_finite() || pixels_per_point <= 0.0 {
+        return Monitors::default();
+    }
+    let Some(pos) = w.outer_position().ok() else {
+        return Monitors::default();
+    };
+    let size = w.outer_size();
+    let physical_rect = |(x, y): (i32, i32), (width, height): (u32, u32)| {
+        egui::Rect::from_min_size(egui::pos2(x as f32, y as f32), egui::vec2(width as f32, height as f32))
+    };
+    let monitors: Vec<egui::Rect> =
+        w.available_monitors().map(|m| physical_rect((m.position().x, m.position().y), (m.size().width, m.size().height))).collect();
+    let on_a_monitor = (!monitors.is_empty()).then(|| reachable(physical_rect((pos.x, pos.y), (size.width, size.height)), &monitors));
+    let primary = w.primary_monitor().map(|m| {
+        let pos = m.position();
+        let size = m.size();
+        egui::Rect::from_min_size(
+            egui::pos2(pos.x as f32, pos.y as f32) / pixels_per_point,
+            egui::vec2(size.width as f32, size.height as f32) / pixels_per_point,
+        )
+    });
+    Monitors { on_a_monitor, primary }
 }
 
 /// Quit the way Command-Q does, on the next turn of the main queue.
@@ -259,7 +291,6 @@ fn write_prefs(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
 fn services(file_dialog: file_dialogs::Hook, ctx: &egui::Context) -> Services {
     Services {
         file_dialog: Some(file_dialog),
-        browser_info: Some(format!("KhianKrub desktop / {} / {}", std::env::consts::OS, std::env::consts::ARCH)),
         printers: Some(print::discover()),
         print_native: Some(print::submit()),
         clipboard_picture: Some(Box::new(clipboard::picture)),
@@ -267,11 +298,14 @@ fn services(file_dialog: file_dialogs::Hook, ctx: &egui::Context) -> Services {
         animations_enabled: Some(animations::hook(ctx)),
         clipboard_text: Some(Box::new(clipboard::text)),
         clipboard_html: Some(Box::new(clipboard::html)),
-        set_clipboard_html: Some(Box::new(clipboard::set_html)),
+        set_clipboard_rich: Some(Box::new(clipboard::set_rich)),
         clipboard_rtf: Some(Box::new(clipboard::rtf)),
         clipboard_formats: Some(Box::new(clipboard::formats)),
         new_window: Some(Box::new(new_window)),
-        latest_release: Some(Box::new(update_check::ask)),
+        // No update check of its own: it asked about the old chanonss/khiankrub releases. KhianKrub's desktop
+        // build ships inside KrubOffice, whose new versions are announced on kruboffice.app (as PhutKrub's
+        // and KhitKrub's checks are off). Without a service the option, Help item and question stay hidden.
+        latest_release: None,
         ..Default::default()
     }
 }

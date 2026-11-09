@@ -63,24 +63,43 @@ pub fn specs() -> Vec<CommandSpec> {
             r#"{"value"?: "horizontal|down|up"} (also lrTb|tbRl|btLr; down: rotate all text 90°, lines top to bottom stacking right to left; up: 270°; default: the next after the current). In a table cell it turns the selected cells, in a text box the box; anywhere else the section(s) of the selection"#,
         ),
         CommandSpec::new("layout.differentFirstPage", "Different First Page", "Header & Footer › Options", |s, v| {
-            let on = p::bool(v, "value").unwrap_or(!sect(s).title_page);
-            with_sect(s, |x| x.title_page = on)
-        }),
+            let on = p::bool(v, "value").unwrap_or(!sect_here(s).title_page);
+            let at = super::hf::context(s);
+            let r = with_sect(s, |x| x.title_page = on)?;
+            super::hf::follow_page(s, at);
+            Ok(r)
+        })
+        .params(r#"{"value"?: bool (default: toggle)} — the section being edited (or the caret's)"#),
         CommandSpec::new("layout.differentOddEven", "Different Odd & Even Pages", "Header & Footer › Options", |s, v| {
             s.doc.settings.even_odd_headers = p::bool(v, "value").unwrap_or(!s.doc.settings.even_odd_headers);
+            let at = super::hf::context(s);
+            super::hf::follow_page(s, at);
             sel_result(s)
-        }),
+        })
+        .params(r#"{"value"?: bool (default: toggle)} — the whole document"#),
         CommandSpec::new("layout.pageNumberFormat", "Format Page Numbers", "Insert › Header & Footer › Page Number", |s, v| {
             let fmt = p::str(v, "format").map(wordcraft_doc::section::NumFormat::from_ooxml);
-            let start = p::u64(v, "start").map(|x| x.min(100_000) as u32);
+            // Left out: as it is; null (or `"continue": true`): continue from the previous section.
+            let start = match v.get("start") {
+                _ if p::bool(v, "continue") == Some(true) => Some(None),
+                Some(Value::Null) => Some(None),
+                Some(_) => Some(Some(p::u64(v, "start").ok_or_else(|| CmdError::Params("`start` must be a whole number from 0".into()))?.min(100_000) as u32)),
+                None => None,
+            };
+            if fmt.is_none() && start.is_none() {
+                return Ok(serde_json::to_value(sect_here(s)).unwrap_or(Value::Null));
+            }
             with_sect(s, |x| {
                 if let Some(f) = fmt {
                     x.page_num_format = f;
                 }
-                x.page_num_start = start;
+                if let Some(st) = start {
+                    x.page_num_start = st;
+                }
+                x.page_num_set = true;
             })
         })
-        .params(r#"{"format"?: "decimal|lowerRoman|upperRoman|lowerLetter|upperLetter", "start"?: n}"#),
+        .params(r#"{"format"?: "decimal|lowerRoman|upperRoman|lowerLetter|upperLetter|thaiNumbers|thaiLetters|…" (ST_NumberFormat), "start"?: n|null (null: continue from the previous section), "continue"?: bool} — the section being edited (or the caret's); left out stays; none returns the section"#),
         CommandSpec::new("layout.documentGrid", "Document Grid", "Layout › Page Setup › Document Grid", document_grid).params(
             r#"{"type"?: "none|lines|linesAndChars|snapToChars", "linesPerPage"?: n (sets the line pitch from the text height), "charsPerLine"?: n (sets the character pitch from the text width), "linePitch"?: pt, "charSpace"?: n (4096ths of a point added to the default font size: the character pitch)} — left out stays as it is; returns the grid with its lines per page and characters per line"#,
         ),
@@ -234,8 +253,22 @@ fn selected_section_ends(s: &Session) -> Vec<usize> {
     (first..=last).map(|k| ends.get(k).copied().unwrap_or(0)).collect()
 }
 
-/// Apply to the section(s) of the selection.
+/// The section commands act on: while a header or footer is edited, the section of the page it
+/// is on; else the caret's.
+pub fn sect_here(s: &mut Session) -> SectionProps {
+    match super::hf::editing_section_end(s) {
+        Some(end) => s.doc.sections().into_iter().find(|(e, _)| *e == end).map(|(_, x)| x.clone()).unwrap_or_default(),
+        None => sect(s),
+    }
+}
+
+/// Apply to the section(s) of the selection, or to the section of the header or footer being
+/// edited.
 pub(crate) fn with_sect(s: &mut Session, f: impl Fn(&mut SectionProps)) -> CmdResult {
+    if let Some(end) = super::hf::editing_section_end(s) {
+        f(s.doc.section_mut(end));
+        return Ok(serde_json::to_value(sect_here(s)).unwrap_or(Value::Null));
+    }
     for block in selected_section_ends(s) {
         f(s.doc.section_mut(block));
     }

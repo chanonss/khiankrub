@@ -1,4 +1,52 @@
 # Thai (th) interface catalog. Columns, separated by a TAB:
+	Google Drive	Google Drive
+	Connected	เชื่อมต่อแล้ว
+	Not connected	ยังไม่ได้เชื่อมต่อ
+	Loading Google Drive…	กำลังโหลด Google Drive…
+	Click Connect to sign in	กดเชื่อมต่อเพื่อลงชื่อเข้าใช้
+	Signing in…	กำลังลงชื่อเข้าใช้…
+	Working with Google Drive…	กำลังทำงานกับ Google Drive…
+	Connect Google Drive	เชื่อมต่อ Google Drive
+	Save a new copy to Google Drive	บันทึกสำเนาใหม่ไปยัง Google Drive
+	Google Drive copies currently support .docx documents only.	ขณะนี้สำเนาใน Google Drive รองรับเฉพาะเอกสาร .docx
+	Could not load Google Drive. Check your connection and try again.	ไม่สามารถโหลด Google Drive ได้ โปรดตรวจสอบการเชื่อมต่อแล้วลองใหม่
+	Could not start Google sign-in.	ไม่สามารถเริ่มลงชื่อเข้าใช้ Google ได้
+	Please connect Google Drive first.	โปรดเชื่อมต่อ Google Drive ก่อน
+	Could not open the Google Drive file.	ไม่สามารถเปิดไฟล์จาก Google Drive ได้
+	Could not open Google Picker.	ไม่สามารถเปิดตัวเลือกไฟล์ Google ได้
+	A new copy was saved to Google Drive.	บันทึกสำเนาใหม่ไปยัง Google Drive แล้ว
+	Could not save the copy to Google Drive.	ไม่สามารถบันทึกสำเนาไปยัง Google Drive ได้
+	Google Drive sign-in was not completed.	การลงชื่อเข้าใช้ Google Drive ไม่เสร็จสมบูรณ์
+	Each save creates a new file. Changes remain unsaved in the editor.	การบันทึกแต่ละครั้งจะสร้างไฟล์ใหม่ การเปลี่ยนแปลงยังคงไม่ได้บันทึกในตัวแก้ไข
+	Google Drive copies are limited to 5 MiB.	สำเนาใน Google Drive จำกัดขนาดไม่เกิน 5 MiB
+	The document changed while Google Drive was loading. Open the file again.	เอกสารเปลี่ยนแปลงระหว่างโหลด Google Drive โปรดเปิดไฟล์อีกครั้ง
+	Files available to KhianKrub (up to 100):	ไฟล์ที่ KhianKrub เข้าถึงได้ (สูงสุด 100 ไฟล์):
+	No available Word documents found.	ไม่พบเอกสาร Word ที่เข้าถึงได้
+	Could not list Google Drive files.	ไม่สามารถแสดงรายการไฟล์ Google Drive ได้
+	Try signing in again	ลองลงชื่อเข้าใช้อีกครั้ง
+	A new version of KhianKrub is ready. Save your work, then reload the page to use it.	เขียนครับเวอร์ชันใหม่พร้อมใช้งานแล้ว โปรดบันทึกงานของคุณ แล้วโหลดหน้านี้ใหม่เพื่อใช้เวอร์ชันใหม่
+	Saved to Google Drive	บันทึกใน Google Drive แล้ว
+	Press Save again to sign in to Google Drive and save.	กดบันทึกอีกครั้งเพื่อลงชื่อเข้าใช้ Google Drive และบันทึก
+	Google Drive is busy. Try saving again in a moment.	Google Drive กำลังทำงานอยู่ โปรดลองบันทึกอีกครั้งในอีกสักครู่
+	Signing in to Google Drive to save…	กำลังลงชื่อเข้าใช้ Google Drive เพื่อบันทึก…
+	This device	เครื่องนี้
+	Choose a file stored on this computer or iPad.	เลือกไฟล์ที่เก็บอยู่ในคอมพิวเตอร์หรือ iPad เครื่องนี้
+	Browse files on this device…	เรียกดูไฟล์ในเครื่อง…
+	Choose a file stored on this computer.	เลือกไฟล์ที่เก็บอยู่ในคอมพิวเตอร์เครื่องนี้
+	Download a copy to this computer or iPad.	ดาวน์โหลดสำเนาลงในคอมพิวเตอร์หรือ iPad เครื่องนี้
+	Download a copy…	ดาวน์โหลดสำเนา…
+	Choose where to save on this computer.	เลือกตำแหน่งที่จะบันทึกในคอมพิวเตอร์เครื่องนี้
+	Save to your Google Drive.	บันทึกลงใน Google Drive ของคุณ
+	Open a Word document from your Google Drive and save it back there.	เปิดเอกสาร Word จาก Google Drive ของคุณ แล้วบันทึกกลับไปที่เดิมได้
+	Choose from Google Drive…	เลือกไฟล์จาก Google Drive…
+	Opened from Google Drive: {name}	เปิดจาก Google Drive: {name}
+	Replaces the file on Google Drive. Drive keeps earlier versions for a while.	แทนที่ไฟล์ใน Google Drive โดย Drive จะเก็บเวอร์ชันก่อนหน้าไว้ระยะหนึ่ง
+	Save to this file on Google Drive	บันทึกทับไฟล์นี้ใน Google Drive
+	Saved to Google Drive.	บันทึกลง Google Drive แล้ว
+	This file changed on Google Drive after you opened it. Save a new copy instead.	ไฟล์นี้ถูกแก้ไขใน Google Drive หลังจากที่คุณเปิด โปรดบันทึกเป็นสำเนาใหม่แทน
+	Google Drive saves are limited to 5 MiB.	การบันทึกลง Google Drive จำกัดขนาดไม่เกิน 5 MiB
+	Could not save to Google Drive.	ไม่สามารถบันทึกลง Google Drive ได้
+	Could not save interface settings in this browser.	ไม่สามารถบันทึกการตั้งค่าหน้าจอในเบราว์เซอร์นี้ได้
 #   context <TAB> English source <TAB> translation
 #   context    usually empty. `preview` words sample text inside rendered previews; `template` words
 #              a template's name on File › New. Both fall back to the plain entry.
@@ -201,6 +249,7 @@
 	Help	วิธีใช้
 	Hide\nInk	ซ่อน\nหมึก
 	Hide White Space	ซ่อนพื้นที่ว่าง
+	Available in single-column Print Layout outside headers and footers.	ใช้ได้ในมุมมองเค้าโครงเหมือนพิมพ์แบบคอลัมน์เดียวเมื่อไม่ได้แก้ไขหัวกระดาษหรือท้ายกระดาษ
 	Highlight\nMerge Fields	เน้นสี\nเขตข้อมูลผสาน
 	Highlighter	ปากกาเน้นข้อความ
 	Home	หน้าแรก
@@ -240,6 +289,7 @@
 	Insert Rows Below	แทรกแถวด้านล่าง
 	Insert Table of Authorities	แทรกสารบัญแหล่งอ้างอิงทางกฎหมาย
 	Insert Table of Figures	แทรกสารบัญภาพ
+	Insert Table of Tables	แทรกสารบัญตาราง
 	Insert a new equation (Alt+=)	แทรกสมการใหม่ (Alt+=)
 	Intense Emphasis	เน้นมาก
 	Intense Quote	คำพูดเน้นมาก
@@ -284,6 +334,18 @@
 	Move with Text	ย้ายไปกับข้อความ
 	Multilevel List	รายการหลายระดับ
 	Multiple Pages	หลายหน้า
+	Print Preview	ตัวอย่างก่อนพิมพ์
+	Open Print Preview	เปิดตัวอย่างก่อนพิมพ์
+	Close Preview	ปิดตัวอย่าง
+	Page grid	ตารางหน้า
+	Plain Tables	ตารางธรรมดา
+	Grid Tables	ตารางแบบมีเส้น
+	List Tables	ตารางแบบรายการ
+	More	เพิ่มเติม
+	Continuous scroll	เลื่อนต่อเนื่อง
+	Facing pages	หน้าคู่
+	Facing pages with cover	หน้าคู่พร้อมปก
+	Fit pages	พอดีหน้า
 	Navigation Pane	บานหน้าต่างนำทาง
 	New	สร้าง
 	New\nComment	ข้อคิดเห็น\nใหม่
@@ -355,6 +417,9 @@
 	Quote	คำพูด
 	Read\nAloud	อ่าน\nออกเสียง
 	Read\nMode	โหมด\nการอ่าน
+	Navigation\nPane	บานหน้าต่าง\nนำทาง
+	Page\nWidth	ความกว้าง\nหน้า
+	Print\nPreview	ตัวอย่าง\nก่อนพิมพ์
 	Read Mode	โหมดการอ่าน
 	Recent	ล่าสุด
 	Recover	กู้คืน
@@ -447,6 +512,9 @@
 	Table Row Height	ความสูงแถวตาราง
 	Table Style Options	ตัวเลือกสไตล์ตาราง
 	Table Styles	สไตล์ตาราง
+	Modify Table Style…	แก้ไขสไตล์ตาราง…
+	New Table Style…	สไตล์ตารางใหม่…
+	Delete Table Style	ลบสไตล์ตาราง
 	Table of\nContents	สารบัญ
 	Table of Authorities	สารบัญแหล่งอ้างอิงทางกฎหมาย
 	Table of Contents	สารบัญ
@@ -493,7 +561,7 @@
 	Voice	เสียง
 	Watermark	ลายน้ำ
 	Web\nLayout	เค้าโครง\nเว็บ
-	Web Layout	เค้าโครงเว็บ
+	Web Layout	เว็บ
 	Web page (*.html)	หน้าเว็บ (*.html)
 	Width:	ความกว้าง:
 	Window	หน้าต่าง
@@ -580,9 +648,787 @@ template	Studio handbook (sample)	คู่มือสตูดิโอ (ต�
 	Results	ผลลัพธ์
 	Search document	ค้นหาในเอกสาร
 	Page {page}	หน้า {page}
+
+	Use system interface fonts	ใช้ฟอนต์ระบบสำหรับเมนู
+	Your browser may ask for access to local fonts. Font files stay on this computer.	เบราว์เซอร์อาจขออนุญาตเข้าถึงฟอนต์ในเครื่อง ไฟล์ฟอนต์จะอยู่ในคอมพิวเตอร์เครื่องนี้
+	This browser cannot load system interface fonts. Bundled interface fonts are used.	เบราว์เซอร์นี้ไม่รองรับการโหลดฟอนต์ระบบสำหรับเมนู จึงใช้ฟอนต์ที่มาพร้อมโปรแกรม
+	Available system interface fonts are now in use.	กำลังใช้ฟอนต์ระบบสำหรับเมนูที่มีอยู่ในเครื่อง
+	System interface fonts were not available. Bundled interface fonts are used.	ไม่พบฟอนต์ระบบสำหรับเมนู จึงใช้ฟอนต์ที่มาพร้อมโปรแกรม
+	Recovery on this device	การกู้คืนในอุปกรณ์นี้
+	Keep recovery drafts on this device	เก็บฉบับกู้คืนในอุปกรณ์นี้
+	Drafts stay in this browser. Clearing site data can remove them. On shared devices, discard drafts when finished.	ฉบับกู้คืนเก็บในเบราว์เซอร์นี้ การล้างข้อมูลเว็บไซต์อาจลบฉบับกู้คืน หากใช้อุปกรณ์ร่วมกับผู้อื่น ควรลบฉบับกู้คืนเมื่อใช้งานเสร็จ
+	Turning recovery off stops new snapshots; existing drafts remain until discarded.	เมื่อปิดการกู้คืน โปรแกรมจะหยุดบันทึกฉบับใหม่ ฉบับเดิมจะอยู่จนกว่าจะเลือกทิ้ง
+	Manage recovery drafts	จัดการฉบับกู้คืน
+	Recovery drafts are available on this device.	พบฉบับกู้คืนในอุปกรณ์นี้
+	Drafts are kept on this device	ฉบับร่างจะเก็บไว้ในอุปกรณ์นี้
+	Saving draft on this device…	กำลังบันทึกฉบับร่างในอุปกรณ์นี้…
+	Draft saved on this device	บันทึกฉบับร่างในอุปกรณ์นี้แล้ว
+	Drafts are off	ปิดการเก็บฉบับร่างอยู่
+	Draft not saved—download a copy now	บันทึกฉบับร่างไม่ได้ กรุณาดาวน์โหลดสำเนาทันที
+	Protected document: save a copy manually	เอกสารที่มีรหัสผ่าน: กรุณาบันทึกสำเนาด้วยตนเอง
+	The current document changed. Choose Restore again.	เอกสารปัจจุบันเปลี่ยนไปแล้ว กรุณาเลือกกู้คืนอีกครั้ง
+	draft	ฉบับร่าง
+	Recovery drafts on this device	ฉบับกู้คืนในอุปกรณ์นี้
+	Recovery does not update your original file or Google Drive. Downloads do not delete drafts.	การกู้คืนไม่เปลี่ยนไฟล์ต้นฉบับหรือไฟล์ใน Google Drive การดาวน์โหลดจะไม่ลบฉบับกู้คืน
+	Working…	กำลังดำเนินการ…
+	Refresh drafts	โหลดรายการใหม่
+	No recovery drafts on this device.	ไม่มีฉบับกู้คืนในอุปกรณ์นี้
+	Download a copy	ดาวน์โหลดสำเนา
+	Restore previous copy	กู้คืนฉบับก่อนหน้า
+	Permanently discard this recovery draft and its previous copy?	ทิ้งฉบับกู้คืนนี้และฉบับก่อนหน้าอย่างถาวรหรือไม่
+	Discard draft	ทิ้งฉบับกู้คืน
+	The latest copy could not be read. The previous copy was recovered.	อ่านฉบับล่าสุดไม่ได้ จึงกู้คืนจากฉบับก่อนหน้า
+	Recovery download started. The draft has been kept.	เริ่มดาวน์โหลดสำเนากู้คืนแล้ว โดยยังเก็บฉบับกู้คืนไว้
+	Checking this browser's storage…	กำลังตรวจสอบพื้นที่เก็บข้อมูลของเบราว์เซอร์…
+	Could not complete the recovery action.	ดำเนินการกับฉบับกู้คืนไม่สำเร็จ
+	Restore	กู้คืน
+	Discard	ทิ้ง
 	Report a problem	แจ้งปัญหา
 	Tell the developer about a problem (opens a form)	แจ้งปัญหาให้ผู้พัฒนาทราบ (เปิดแบบฟอร์ม)
+
+	A free word processor for Thai and English.\nBased on WordCraft by the ArtCraft team. Fork by Chanon Sarasuk.	โปรแกรมประมวลผลคำฟรีสำหรับภาษาไทยและภาษาอังกฤษ\nพัฒนาจาก WordCraft โดยทีม ArtCraft ปรับปรุงโดย Chanon Sarasuk
 	Restart at 1	เริ่มใหม่ที่ 1
+	Continue Numbering	กำหนดลำดับเลขต่อเนื่อง
+	Modify Multilevel List…	แก้ไขรายการหลายระดับ…
 	Define New Multilevel List…	กำหนดรายการหลายระดับใหม่…
+
+	Disconnect Google Drive	ยกเลิกการเชื่อมต่อ Google Drive
+	Google Drive disconnected.	ยกเลิกการเชื่อมต่อ Google Drive แล้ว
+	Could not disconnect Google Drive. Check your connection and try again.	ไม่สามารถยกเลิกการเชื่อมต่อ Google Drive ได้ โปรดตรวจสอบการเชื่อมต่อแล้วลองใหม่
+	Google Drive connection changed. Reopen the Drive file before saving back to it.	การเชื่อมต่อ Google Drive เปลี่ยนไป โปรดเปิดไฟล์จาก Drive อีกครั้งก่อนบันทึกกลับไปยังไฟล์เดิม
+	Could not restore Google Drive. Check your connection and try again.	ไม่สามารถกู้คืนการเชื่อมต่อ Google Drive ได้ โปรดตรวจสอบการเชื่อมต่อแล้วลองใหม่
+# File › Home on the web: drafts kept in the browser
+	Drafts on this device	ฉบับร่างในอุปกรณ์นี้
+	Kept only in this browser on this device. Save to Google Drive or download a copy to keep it anywhere else.	เก็บไว้เฉพาะในเบราว์เซอร์ของอุปกรณ์นี้ บันทึกลง Google Drive หรือดาวน์โหลดสำเนา หากต้องการเก็บไว้ที่อื่น
+	Kept only in this browser on this device. Download a copy to keep it anywhere else.	เก็บไว้เฉพาะในเบราว์เซอร์ของอุปกรณ์นี้ ดาวน์โหลดสำเนา หากต้องการเก็บไว้ที่อื่น
+	This browser may remove drafts by itself: when it runs short of space, after a long time without a visit, or when a private window closes.	เบราว์เซอร์อาจลบฉบับร่างเอง เมื่อพื้นที่ไม่พอ เมื่อไม่ได้เข้าใช้เป็นเวลานาน หรือเมื่อปิดหน้าต่างส่วนตัว
+	Saved on this device	บันทึกในอุปกรณ์นี้แล้ว
+	Recovery is off. Turn it on in File › Options › General.	ปิดการกู้คืนอยู่ เปิดได้ที่ ไฟล์ › ตัวเลือก › ทั่วไป
+	Loading drafts…	กำลังโหลดฉบับร่าง…
+	Documents you write here are kept in this browser, so you can pick up where you left off.	เอกสารที่เขียนที่นี่จะเก็บไว้ในเบราว์เซอร์นี้ กลับมาเขียนต่อได้ทุกเมื่อครับ
+	More options	ตัวเลือกเพิ่มเติม
+	Keep writing	เขียนต่อ
+	Discard draft…	ทิ้งฉบับร่าง…
+	Untitled document	เอกสารไม่มีชื่อ
+# Web start screen
+	KhianKrub	เขียนครับ
+	KrubOffice apps	แอปของ KrubOffice
+	KhitKrub	คิดครับ
+	PhutKrub	พูดครับ
+	Documents	เอกสาร
+	Coming soon	รอว่างก่อนนะครับ
+	Here	ที่นี่
+	See all apps at kruboffice.app	ดูแอปทั้งหมดที่ kruboffice.app
+	Open file	เปิดไฟล์
+	Hello! What would you like to write?	สวัสดีครับ เริ่มเขียนอะไรดีครับ
+	Pick a template, or pick up a draft where you left off.	เลือกแม่แบบ หรือกลับไปเขียนต่อจากฉบับร่างที่ค้างไว้นะครับ
+	Spreadsheets	ตารางคำนวณ
+	Presentations	งานนำเสนอ
 	Increase	เพิ่ม
 	Decrease	ลด
+	Saving…	กำลังบันทึก…
+	Do you want to save changes to {name}?	ต้องการบันทึกการเปลี่ยนแปลงใน {name} หรือไม่
+	Your changes will be lost if you don't save them.	หากไม่บันทึก การเปลี่ยนแปลงจะหายไป
+	Don't Save	ไม่บันทึก
+	Couldn't save {name}, so it is still open and nothing was lost: {error}	บันทึก {name} ไม่สำเร็จ เอกสารยังเปิดอยู่และไม่มีอะไรหายไป: {error}
+	(as the paragraph)	(ตามย่อหน้า)
+	(no style)	(ไม่มีสไตล์)
+	(none)	(ไม่มี)
+	(normal text)	(ข้อความปกติ)
+	1/4 Em Space	ช่องว่าง 1/4 เอ็ม
+	3-D	สามมิติ
+	Add	เพิ่ม
+	Add line numbering	ใส่หมายเลขบรรทัด
+	Add tab stop at:	เพิ่มแท็บหยุดที่:
+	Address:	ที่อยู่:
+	Aligned at:	จัดตำแหน่งที่:
+	Alignment:	การจัดแนว:
+	All caps	ตัวพิมพ์ใหญ่ทั้งหมด
+	Allow row to break across pages	ให้แถวแยกข้ามหน้าได้
+	Animate the caret (it glides and fades)	เคลื่อนไหวเคอร์เซอร์ (เลื่อนนุ่มนวลและกะพริบแบบจาง)
+	Animation	ภาพเคลื่อนไหว
+	Animation effects:	เอฟเฟกต์ภาพเคลื่อนไหว:
+	Anyone who opens the document will need this password.	ทุกคนที่เปิดเอกสารนี้ต้องใช้รหัสผ่านนี้
+	Apply	นำไปใช้
+	Apply to:	นำไปใช้กับ:
+	Arabic	อาหรับ
+	As Recommended	ตามที่แนะนำ
+	As you type	ขณะพิมพ์
+	Asian Typography	การพิมพ์อักษรเอเชีย
+	At least	อย่างน้อย
+	Auto	อัตโนมัติ
+	Auto ({percent}%)	อัตโนมัติ ({percent}%)
+	AutoCorrect	แก้ไขอัตโนมัติ
+	AutoFormat As You Type	จัดรูปแบบอัตโนมัติขณะพิมพ์
+	AutoSave documents you have saved in KhianKrub	บันทึกอัตโนมัติสำหรับเอกสารที่เคยบันทึกในเขียนครับแล้ว
+	AutoSave writes your changes to the file a moment after you stop typing.	บันทึกอัตโนมัติจะเขียนการเปลี่ยนแปลงลงไฟล์หลังจากคุณหยุดพิมพ์ครู่หนึ่ง
+	Automatic	อัตโนมัติ
+	Automatic ({region})	อัตโนมัติ ({region})
+	Automatically hyphenate document	ตัดคำในเอกสารโดยอัตโนมัติ
+	Balloons	บอลลูน
+	Below the item	ใต้รายการ
+	Between	ระหว่าง
+	Bookmark name:	ชื่อที่คั่นหน้า:
+	Borders and Shading	เส้นขอบและแรเงา
+	Bottom	ล่าง
+	Bottom edge	ขอบล่าง
+	Bottom of Page	ด้านล่างของหน้า
+	Bottom:	ล่าง:
+	Box	กล่อง
+	Built-in style	สไตล์ในตัว
+	Built-in styles can't be deleted.	ลบสไตล์ในตัวไม่ได้
+	By author	ตามผู้เขียน
+	By:	โดย:
+	Capitalize first letter of sentences	ขึ้นต้นประโยคด้วยตัวพิมพ์ใหญ่
+	Capitalize first letter of table cells	ขึ้นต้นเซลล์ตารางด้วยตัวพิมพ์ใหญ่
+	Capitalize names of days	ขึ้นต้นชื่อวันด้วยตัวพิมพ์ใหญ่
+	Caption	คำอธิบายภาพ
+	Caption text	ข้อความคำอธิบายภาพ
+	Caption:	คำอธิบายภาพ:
+	Cell	เซลล์
+	Changed lines:	บรรทัดที่เปลี่ยน:
+	Character	อักขระ
+	Character code:	รหัสอักขระ:
+	Characters (no spaces)	อักขระ (ไม่รวมช่องว่าง)
+	Characters (with spaces)	อักขระ (รวมช่องว่าง)
+	Characters per line:	อักขระต่อบรรทัด:
+	Check spelling as you type	ตรวจการสะกดขณะพิมพ์
+	Chinese (Simplified)	จีน (ตัวย่อ)
+	Chinese (Traditional)	จีน (ตัวเต็ม)
+	Clear	ล้าง
+	Clear All	ล้างทั้งหมด
+	Click level to modify:	คลิกระดับที่จะปรับ:
+	Col #:	คอลัมน์ที่:
+	Color:	สี:
+	Column	คอลัมน์
+	Confirm password:	ยืนยันรหัสผ่าน:
+	Continuous	ต่อเนื่อง
+	Continuous numbering	ลำดับเลขต่อเนื่อง
+	Copyright	ลิขสิทธิ์
+	Correct TWo INitial CApitals	แก้คำที่ขึ้นต้นด้วยตัวพิมพ์ใหญ่สองตัว
+	Correct accidental usage of cAPS LOCK key	แก้การกดปุ่ม Caps Lock ค้างไว้โดยไม่ตั้งใจ
+	Count by:	นับทีละ:
+	Count words in text boxes and notes	นับคำในกล่องข้อความและเชิงอรรถด้วย
+	Create New Style	สร้างสไตล์ใหม่
+	Croatian	โครเอเชีย
+	Custom	กำหนดเอง
+	Custom Watermark	ลายน้ำแบบกำหนดเอง
+	Custom dictionary	พจนานุกรมของคุณ
+	Custom mark:	เครื่องหมายกำหนดเอง:
+	Customize	ปรับแต่ง
+	Customize…	ปรับแต่ง…
+	Czech	เช็ก
+	Danish	เดนมาร์ก
+	Dark page (white text on black)	หน้ามืด (ตัวอักษรขาวบนพื้นดำ)
+	Default cell margins	ระยะขอบเซลล์เริ่มต้น
+	Default tab stops:	แท็บหยุดเริ่มต้น:
+	Define New Multilevel List	กำหนดรายการหลายระดับใหม่
+	Modify Multilevel List	แก้ไขรายการหลายระดับ
+	Delete Label	ลบป้ายชื่อ
+	Deletions:	ส่วนที่ลบ:
+	Detect language automatically	ตรวจหาภาษาโดยอัตโนมัติ
+	Diagonal	แนวทแยง
+	Dictionaries	พจนานุกรม
+	Dictionaries folder:	โฟลเดอร์พจนานุกรม:
+	Direction:	ทิศทาง:
+	Distance:	ระยะ:
+	Do not check spelling or grammar	ไม่ตรวจการสะกดหรือไวยากรณ์
+	Document Grid	เส้นตารางเอกสาร
+	Document name	ชื่อเอกสาร
+	Don't add space between paragraphs of the same style	ไม่เว้นระยะระหว่างย่อหน้าที่ใช้สไตล์เดียวกัน
+	Don't hyphenate	ไม่ตัดคำ
+	Don't show on the first page of the section	ไม่แสดงในหน้าแรกของส่วน
+	Double Closing Quote	อัญประกาศคู่ปิด
+	Double Opening Quote	อัญประกาศคู่เปิด
+	Dutch	ดัตช์
+	Ellipsis	จุดไข่ปลา
+	Em Dash	ขีดยาว (เอ็ม)
+	Em Space	ช่องว่างเอ็ม
+	En Dash	ขีดกลาง (เอ็น)
+	En Space	ช่องว่างเอ็น
+	Encrypt with Password	เข้ารหัสด้วยรหัสผ่าน
+	End of document	ท้ายเอกสาร
+	Endnotes	อ้างอิงท้ายเรื่อง
+	English (United Kingdom)	อังกฤษ (สหราชอาณาจักร)
+	Enter formatting for number:	ใส่รูปแบบของตัวเลข:
+	Enter page number:	ใส่หมายเลขหน้า:
+	Equal column width	ความกว้างคอลัมน์เท่ากัน
+	Estonian	เอสโตเนีย
+	Exceptions…	ข้อยกเว้น…
+	Existing File or Web Page	ไฟล์หรือเว็บเพจที่มีอยู่
+	Fill	เติมสี
+	Find Next	ค้นหาถัดไป
+	Find and Replace	ค้นหาและแทนที่
+	Find what:	ค้นหา:
+	Finnish	ฟินแลนด์
+	Follow number with:	ตามหลังตัวเลขด้วย:
+	Font color:	สีตัวอักษร:
+	Font:	ฟอนต์:
+	Footnote and Endnote	เชิงอรรถและอ้างอิงท้ายเรื่อง
+	For which item:	สำหรับรายการ:
+	Formatting	การจัดรูปแบบ
+	Formatting exceptions	ข้อยกเว้นการจัดรูปแบบ
+	Formatting marks	เครื่องหมายจัดรูปแบบ
+	French (France)	ฝรั่งเศส (ฝรั่งเศส)
+	From text:	ห่างจากข้อความ:
+	From:	จาก:
+	German (Germany)	เยอรมัน (เยอรมนี)
+	Go To	ไปที่
+	Go to what:	ไปที่:
+	Greek	กรีก
+	Grey boxes are level numbers; add one from Include level number from. Type anything around them, such as a dot or ข้อ.	กล่องสีเทาคือเลขของระดับ เพิ่มได้จาก "ใส่เลขระดับจาก" พิมพ์อะไรรอบ ๆ ได้ เช่น จุด หรือคำว่า ข้อ
+	Heading	หัวเรื่อง
+	Heading text	ข้อความหัวเรื่อง
+	Hebrew	ฮีบรู
+	Hidden	ซ่อน
+	Hidden bookmarks	ที่คั่นหน้าที่ซ่อนอยู่
+	Hidden text	ข้อความที่ซ่อน
+	Hide from style lists	ซ่อนจากรายการสไตล์
+	Horizontal	แนวนอน
+	Hunspell .aff and .dic files here (pl_PL, pt_BR, it_IT, hr_HR, tr_TR) are used before the system's.	ไฟล์ Hunspell .aff และ .dic ในโฟลเดอร์นี้ (pl_PL, pt_BR, it_IT, hr_HR, tr_TR) จะถูกใช้ก่อนของระบบ
+	Hyphenate words in CAPS	ตัดคำที่เป็นตัวพิมพ์ใหญ่ด้วย
+	Hyphenation zone:	ช่วงตัดคำ:
+	Ignore web and file addresses	ข้ามที่อยู่เว็บและไฟล์
+	Ignore words in capitals	ข้ามคำที่เป็นตัวพิมพ์ใหญ่
+	Ignore words with numbers	ข้ามคำที่มีตัวเลข
+	In the margin	ในระยะขอบ
+	Inches	นิ้ว
+	Include page numbers	ใส่หมายเลขหน้า
+	Indent from left:	เยื้องจากซ้าย:
+	Indentation	การเยื้อง
+	Indents and Spacing	การเยื้องและระยะห่าง
+	Initials:	อักษรย่อ:
+	Insert Footnote	แทรกเชิงอรรถ
+	Insert Hyperlink	แทรกไฮเปอร์ลิงก์
+	Insert Table	แทรกตาราง
+	Insert reference to:	แทรกการอ้างอิงถึง:
+	Insertions and Deletions	ส่วนที่แทรกและลบ
+	Insertions:	ส่วนที่แทรก:
+	Interface	ส่วนติดต่อผู้ใช้
+	Interface size:	ขนาดเมนู:
+	Interface theme:	ธีมของโปรแกรม:
+	Italian	อิตาลี
+	Japanese	ญี่ปุ่น
+	Keep lines together	เก็บบรรทัดไว้ด้วยกัน
+	Keep the password somewhere safe: without it nobody, KhianKrub included, can open the document. Leave both boxes empty to remove the password.	เก็บรหัสผ่านไว้ในที่ปลอดภัย หากไม่มีรหัสผ่าน จะไม่มีใครเปิดเอกสารได้ รวมทั้งเขียนครับเอง เว้นว่างทั้งสองช่องเพื่อเอารหัสผ่านออก
+	Keep with next	อยู่กับย่อหน้าถัดไป
+	Keyboard shortcuts:	แป้นพิมพ์ลัด:
+	Korean	เกาหลี
+	Label:	ป้ายชื่อ:
+	Landscape	แนวนอน
+	Leave out the date and time of comments and tracked changes when saving	ไม่บันทึกวันที่และเวลาของข้อคิดเห็นและการติดตามการเปลี่ยนแปลงลงไฟล์
+	Leave the label out of the caption	ไม่ใส่ป้ายชื่อในคำอธิบายภาพ
+	Left-to-right	ซ้ายไปขวา
+	Legal style numbering	ลำดับเลขแบบเอกสารกฎหมาย
+	Levels:	ระดับ:
+	Light	สว่าง
+	Limit consecutive hyphens to:	จำกัดยัติภังค์ติดกันไม่เกิน:
+	Line and Page Breaks	การแบ่งบรรทัดและหน้า
+	Line between	เส้นคั่นกลาง
+	Line spacing:	ระยะห่างบรรทัด:
+	Lines	บรรทัด
+	Lines and characters	บรรทัดและอักขระ
+	Lines only	บรรทัดเท่านั้น
+	Lines per page:	บรรทัดต่อหน้า:
+	Link entries to their headings	ลิงก์รายการไปยังหัวเรื่อง
+	Link level to style:	ลิงก์ระดับกับสไตล์:
+	Link to:	ลิงก์ไปยัง:
+	List name:	ชื่อรายการ:
+	Location	ตำแหน่ง
+	Makes the ribbon, menus and dialogs larger or smaller. Auto follows your system's display scaling; 100% is one screen pixel per point. Document zoom is separate.	ปรับขนาดริบบิ้น เมนู และกล่องโต้ตอบให้ใหญ่หรือเล็กลง อัตโนมัติจะตามการปรับขนาดหน้าจอของระบบ 100% คือหนึ่งพิกเซลต่อหนึ่งพอยต์ การย่อ/ขยายเอกสารตั้งแยกกัน
+	Manage Styles	จัดการสไตล์
+	Manual…	กำหนดเอง…
+	Many pages	หลายหน้า
+	Mark grammar errors as you type	ทำเครื่องหมายข้อผิดพลาดไวยากรณ์ขณะพิมพ์
+	Mark selected text as:	ทำเครื่องหมายข้อความที่เลือกเป็น:
+	Match case	ตรงตามตัวพิมพ์ใหญ่-เล็ก
+	Math AutoCorrect	แก้ไขสมการอัตโนมัติ
+	Measured from the right edge to the end of the number.	วัดจากขอบขวาถึงท้ายตัวเลข
+	Measured to the baseline of the number.	วัดถึงเส้นฐานของตัวเลข
+	Measurement units:	หน่วยวัด:
+	Mirror indents	เยื้องแบบสะท้อน
+	Mirror margins	ระยะขอบแบบสะท้อน
+	Modify…	ปรับเปลี่ยน…
+	Moved objects snap to the page's edges and centre, the margins and other objects. Hold Alt to move freely.	วัตถุที่ย้ายจะดูดเข้าหาขอบและกึ่งกลางหน้า ระยะขอบ และวัตถุอื่น กด Alt ค้างไว้เพื่อย้ายได้อิสระ
+	Name	ชื่อ
+	Name:	ชื่อ:
+	New Label…	ป้ายชื่อใหม่…
+	New Style…	สไตล์ใหม่…
+	New comments and tracked changes are recorded under this name and these initials.	ข้อคิดเห็นและการเปลี่ยนแปลงที่ติดตามใหม่จะบันทึกไว้ในชื่อและอักษรย่อนี้
+	New word	คำใหม่
+	No Color	ไม่มีสี
+	No grid	ไม่มีเส้นตาราง
+	No limit	ไม่จำกัด
+	No words yet. Add to Dictionary on a misspelled word puts it here.	ยังไม่มีคำ คำที่สะกดผิดซึ่งคุณกด "เพิ่มลงในพจนานุกรม" จะมาอยู่ที่นี่
+	No-Width Non Break	อักขระไม่แบ่งแบบไม่มีความกว้าง
+	No-Width Optional Break	จุดแบ่งได้แบบไม่มีความกว้าง
+	Nonbreaking Hyphen	ยัติภังค์ไม่แบ่งบรรทัด
+	Nonbreaking Space	ช่องว่างไม่แบ่งบรรทัด
+	Norwegian (Bokmål)	นอร์เวย์ (บุ๊กมอล)
+	Not set: the system's usual places	ยังไม่ได้ตั้ง: ใช้ตำแหน่งปกติของระบบ
+	Nothing of this type in the document.	ไม่มีรายการประเภทนี้ในเอกสาร
+	Number alignment:	การจัดแนวตัวเลข:
+	Number format	รูปแบบตัวเลข
+	Number of columns:	จำนวนคอลัมน์:
+	Number of rows:	จำนวนแถว:
+	Number style for this level:	รูปแบบตัวเลขของระดับนี้:
+	Numbering:	ลำดับเลข:
+	Numbering…	ลำดับเลข…
+	Numerals:	ตัวเลข:
+	On: KhianKrub opens on File › Home, with a blank document, the templates and your recent documents. Off: it opens a blank document.	เปิด: เขียนครับจะเริ่มที่ ไฟล์ › หน้าแรก พร้อมเอกสารเปล่า แม่แบบ และเอกสารล่าสุด ปิด: จะเปิดเอกสารเปล่าทันที
+	On: the caret glides to its new place when you type or use the arrow keys, and its blink fades. Off: it jumps and blinks on and off.	เปิด: เคอร์เซอร์จะเลื่อนไปที่ใหม่อย่างนุ่มนวลเมื่อพิมพ์หรือกดปุ่มลูกศร และกะพริบแบบจาง ปิด: เคอร์เซอร์จะกระโดดไปทันทีและกะพริบติดดับ
+	One	หนึ่ง
+	Only for the selected text	เฉพาะข้อความที่เลือก
+	Optional	ไม่บังคับ
+	Optional Hyphen	ยัติภังค์ตัดได้
+	Options…	ตัวเลือก…
+	Outside border	เส้นขอบด้านนอก
+	Overtype (typing replaces the characters after the caret)	พิมพ์ทับ (ตัวอักษรที่พิมพ์จะแทนที่ตัวอักษรหลังเคอร์เซอร์)
+	Page	หน้า
+	Page Border	เส้นขอบหน้า
+	Page Number Position	ตำแหน่งหมายเลขหน้า
+	Page break before	ขึ้นหน้าใหม่ก่อนย่อหน้า
+	Page display	การแสดงหน้า
+	Page numbers at the right margin	หมายเลขหน้าชิดระยะขอบขวา
+	Page width	ความกว้างหน้า
+	Paper	กระดาษ
+	Paper size:	ขนาดกระดาษ:
+	Paragraph Mark	เครื่องหมายย่อหน้า
+	Paragraph marks	เครื่องหมายย่อหน้า
+	Paragraph style	สไตล์ย่อหน้า
+	Password:	รหัสผ่าน:
+	Paste Special	วางแบบพิเศษ
+	Paste as:	วางเป็น:
+	Personalize	ข้อมูลส่วนตัว
+	Place in This Document	ตำแหน่งในเอกสารนี้
+	Place the page number at a set distance from the edges of the paper.	วางหมายเลขหน้าห่างจากขอบกระดาษตามระยะที่กำหนด
+	Polish	โปแลนด์
+	Portrait	แนวตั้ง
+	Portuguese (Brazil)	โปรตุเกส (บราซิล)
+	Portuguese (Portugal)	โปรตุเกส (โปรตุเกส)
+	Position:	ตำแหน่ง:
+	Preferred width:	ความกว้างที่ต้องการ:
+	Presets	แบบสำเร็จรูป
+	Preview	ตัวอย่าง
+	Print the page color	พิมพ์สีพื้นหน้าด้วย
+	Printing	การพิมพ์
+	Privacy for this document	ความเป็นส่วนตัวของเอกสารนี้
+	Read Aloud	อ่านออกเสียง
+	Reading Highlight	แถบช่วยอ่าน
+	Recent documents to show:	จำนวนเอกสารล่าสุดที่แสดง:
+	Recently used symbols:	สัญลักษณ์ที่ใช้ล่าสุด:
+	Reference type:	ประเภทการอ้างอิง:
+	Region:	ภูมิภาค:
+	Registered	เครื่องหมายจดทะเบียน
+	Remove my name from comments, changes and file properties when saving	เอาชื่อของฉันออกจากข้อคิดเห็น การเปลี่ยนแปลง และคุณสมบัติไฟล์เมื่อบันทึก
+	Rename	เปลี่ยนชื่อ
+	Repeat as header row on each page	แสดงซ้ำเป็นแถวหัวตารางทุกหน้า
+	Replace All	แทนที่ทั้งหมด
+	Replace text as you type	แทนที่ข้อความขณะพิมพ์
+	Replace with:	แทนที่ด้วย:
+	Replace:	แทนที่:
+	Restart Each Page	เริ่มใหม่ทุกหน้า
+	Restart Each Section	เริ่มใหม่ทุกส่วน
+	Ribbon and Quick Access Toolbar:	ริบบิ้นและแถบเครื่องมือด่วน:
+	Right	ขวา
+	Right-to-left	ขวาไปซ้าย
+	Row	แถว
+	Russian	รัสเซีย
+	Save documents	บันทึกเอกสาร
+	Save in My Lists, for every document	บันทึกไว้ในรายการของฉัน ใช้ได้กับทุกเอกสาร
+	Search Options	ตัวเลือกการค้นหา
+	Section Mark	เครื่องหมายส่วน
+	Section direction:	ทิศทางของส่วน:
+	Serbian (Cyrillic)	เซอร์เบีย (ซีริลลิก)
+	Serbian (Latin)	เซอร์เบีย (ละติน)
+	Set As Default	ตั้งเป็นค่าเริ่มต้น
+	Setting:	การตั้งค่า:
+	Shadow	เงา
+	Shortcut key:	แป้นพิมพ์ลัด:
+	Show KeyTips (Alt or F10)	แสดงคำแนะนำแป้น (Alt หรือ F10)
+	Show alignment guides when moving pictures and shapes	แสดงเส้นนำแนวเมื่อย้ายรูปภาพและรูปร่าง
+	Show all formatting marks	แสดงเครื่องหมายจัดรูปแบบทั้งหมด
+	Show all revisions inline	แสดงการแก้ไขทั้งหมดในบรรทัด
+	Show documents with their colours inverted, like View › Switch Modes. Saving, printing and PDFs are unchanged.	แสดงเอกสารแบบกลับสี เหมือน มุมมอง › สลับโหมด การบันทึก การพิมพ์ และ PDF ไม่เปลี่ยน
+	Show in the Styles gallery	แสดงในแกลเลอรีสไตล์
+	Show only comments and formatting in balloons	แสดงเฉพาะข้อคิดเห็นและการจัดรูปแบบในบอลลูน
+	Show revisions in balloons	แสดงการแก้ไขในบอลลูน
+	Show rulers	แสดงไม้บรรทัด
+	Show the Start screen when KhianKrub starts	แสดงหน้าเริ่มต้นเมื่อเปิดเขียนครับ
+	Show numbers on ribbon tabs	แสดงหมายเลขบนแท็บริบบิ้น
+	Show ribbon group names	แสดงชื่อกลุ่มบนริบบิ้น
+	Remove custom tabs and groups and restore the default ribbon?	ลบแท็บและกลุ่มที่กำหนดเอง แล้วคืนค่าริบบิ้นเริ่มต้นหรือไม่
+	Show the mini toolbar when text is selected	แสดงแถบเครื่องมือย่อเมื่อเลือกข้อความ
+	Single	เดี่ยว
+	Single Closing Quote	อัญประกาศเดี่ยวปิด
+	Single Opening Quote	อัญประกาศเดี่ยวเปิด
+	Size:	ขนาด:
+	Skip citations & bibliography	ข้ามการอ้างอิงและบรรณานุกรม
+	Small caps	ตัวพิมพ์ใหญ่ขนาดเล็ก
+	Smooth scrolling and zooming, and menus and buttons that fade in. Off shows every change at once.	เลื่อนและย่อ/ขยายอย่างนุ่มนวล และเมนูกับปุ่มค่อย ๆ ปรากฏ หากปิด ทุกการเปลี่ยนแปลงจะแสดงทันที
+	Sort by:	เรียงตาม:
+	Sort order:	ลำดับการเรียง:
+	Spaces	ช่องว่าง
+	Spacing (pt):	ระยะห่าง (pt):
+	Spacing:	ระยะห่าง:
+	Spanish (Mexico)	สเปน (เม็กซิโก)
+	Spanish (Spain)	สเปน (สเปน)
+	Special Characters	อักขระพิเศษ
+	Special:	พิเศษ:
+	Specify height:	กำหนดความสูง:
+	Speed	ความเร็ว
+	Spelling	การสะกด
+	Spelling and grammar are checked in English (United States).	ตรวจการสะกดและไวยากรณ์เป็นภาษาอังกฤษ (สหรัฐอเมริกา)
+	Start at:	เริ่มที่:
+	Start-up	การเริ่มโปรแกรม
+	Style based on:	สไตล์ที่ใช้เป็นฐาน:
+	Style:	สไตล์:
+	Subset:	กลุ่มย่อย:
+	Suppress line numbers	ไม่ใส่หมายเลขบรรทัด
+	Swedish	สวีเดน
+	Tab character	อักขระแท็บ
+	Tab characters	อักขระแท็บ
+	Tab leader:	เส้นนำแท็บ:
+	Tab stops to be cleared:	แท็บหยุดที่จะล้าง:
+	Table direction:	ทิศทางตาราง:
+	Tabs…	แท็บ…
+	Text indent at:	เยื้องข้อความที่:
+	Text snaps to characters	ข้อความชิดตามช่องอักขระ
+	Text to display:	ข้อความที่แสดง:
+	Text:	ข้อความ:
+	The clipboard is empty.	คลิปบอร์ดว่างเปล่า
+	The document you are editing keeps the names and dates; only the saved file leaves them out.	เอกสารที่แก้ไขอยู่ยังเก็บชื่อและวันที่ไว้ มีเพียงไฟล์ที่บันทึกเท่านั้นที่ไม่มี
+	The new style takes the formatting of the current paragraph.	สไตล์ใหม่จะใช้รูปแบบของย่อหน้าปัจจุบัน
+	These marks show even when Show/Hide ¶ is off.	เครื่องหมายเหล่านี้จะแสดงแม้ปิด แสดง/ซ่อน ¶ อยู่
+	This section	ส่วนนี้
+	Three	สาม
+	To open Word documents with KhianKrub by default: select one in Finder, choose File › Get Info, pick KhianKrub under Open with, then click Change All.	หากต้องการเปิดเอกสาร Word ด้วยเขียนครับเป็นค่าเริ่มต้น: เลือกไฟล์หนึ่งใน Finder เลือก ไฟล์ › รับข้อมูล เลือกเขียนครับที่ "เปิดด้วย" แล้วคลิก "เปลี่ยนทั้งหมด"
+	Top	บน
+	Top edge	ขอบบน
+	Top:	บน:
+	Track Changes Options	ตัวเลือกการติดตามการเปลี่ยนแปลง
+	Track formatting	ติดตามการจัดรูปแบบ
+	Trademark	เครื่องหมายการค้า
+	Turkish	ตุรกี
+	Two	สอง
+	Type +2 or -1 to move from the page you are on.	พิมพ์ +2 หรือ -1 เพื่อเลื่อนจากหน้าปัจจุบัน
+	Typing replaces selected text	พิมพ์ทับข้อความที่เลือก
+	Ukrainian	ยูเครน
+	Update fields before printing	ปรับปรุงฟิลด์ก่อนพิมพ์
+	Use system setting	ใช้การตั้งค่าของระบบ
+	Use the Insert key to switch overtype on and off	ใช้ปุ่ม Insert เพื่อเปิด/ปิดการพิมพ์ทับ
+	Use wildcards	ใช้อักขระตัวแทน
+	User name:	ชื่อผู้ใช้:
+	Vertical alignment:	การจัดแนวตั้ง:
+	Visual effects	เอฟเฟกต์ภาพ
+	Whole document	ทั้งเอกสาร
+	Whole page	ทั้งหน้า
+	Whole words	ทั้งคำ
+	Widow/Orphan control	ป้องกันบรรทัดเดียวค้างหน้า
+	Width and spacing	ความกว้างและระยะห่าง
+	With:	ด้วย:
+	Your system doesn't report an animation setting, so animation effects stay on.	ระบบไม่ได้แจ้งการตั้งค่าภาพเคลื่อนไหว จึงยังเปิดเอฟเฟกต์ภาพเคลื่อนไหวไว้
+	from Unicode (hex)	จาก Unicode (ฐานสิบหก)
+	{language}: no dictionary found	{language}: ไม่พบพจนานุกรม
+	Remove	เอาออก
+	Word template (*.dotx)	แม่แบบ Word (*.dotx)
+	Load System Installed Fonts…	ใช้ฟอนต์ที่ติดตั้งในเครื่อง…
+	Add Font…	เพิ่มฟอนต์…
+	Not Now	ไว้ทีหลัง
+	This document uses {font}, which isn't loaded, so another font is shown in its place.	เอกสารนี้ใช้ฟอนต์ {font} ซึ่งยังไม่ได้โหลด จึงแสดงด้วยฟอนต์อื่นแทน
+	This document uses {font}. This browser can't use the fonts on your computer, so another font is shown in its place. Add Font… loads a {font} file you have.	เอกสารนี้ใช้ฟอนต์ {font} เบราว์เซอร์นี้ใช้ฟอนต์ที่ติดตั้งในเครื่องไม่ได้ จึงแสดงด้วยฟอนต์อื่นแทน กด เพิ่มฟอนต์… เพื่อโหลดไฟล์ฟอนต์ {font} ที่คุณมี
+	Contributors	ผู้ร่วมพัฒนา
+	Models	โมเดล
+	Version {version} ({build})	เวอร์ชัน {version} ({build})
+	development build	รุ่นพัฒนา
+	A free, open-source word processor for Thai and English.\nBased on WordCraft by the ArtCraft team. Fork by Chanon Sarasuk.	โปรแกรมประมวลผลคำฟรีและโอเพนซอร์สสำหรับภาษาไทยและภาษาอังกฤษ\nพัฒนาจาก WordCraft โดยทีม ArtCraft ปรับปรุงโดย Chanon Sarasuk
+	KrubOffice: github.com/chanonss/kruboffice-desktop	KrubOffice: github.com/chanonss/kruboffice-desktop
+	Original project: github.com/storytold/wordcraft	โครงการต้นฉบับ: github.com/storytold/wordcraft
+	MIT OR Apache-2.0. Copyright (c) 2026 ArtCraft Team and the WordCraft contributors. Modifications copyright (c) 2026 Chanon Sarasuk.	MIT OR Apache-2.0 ลิขสิทธิ์ (c) 2026 ทีม ArtCraft และผู้ร่วมพัฒนา WordCraft ส่วนที่ปรับปรุงลิขสิทธิ์ (c) 2026 Chanon Sarasuk
+	About KhianKrub	เกี่ยวกับเขียนครับ
+# Header & Footer tab (shown while a header or footer is edited) and the page's header tags.
+	Close Header\nand Footer	ปิดหัวกระดาษ\nและท้ายกระดาษ
+	Close Header and Footer	ปิดหัวกระดาษและท้ายกระดาษ
+	Date &\nTime	วันที่และ\nเวลา
+	Different First Page	หน้าแรกแยกต่างหาก
+	Different Odd & Even Pages	หน้าคี่และหน้าคู่ต่างกัน
+	Editing header/footer	กำลังแก้ไขหัวกระดาษ/ท้ายกระดาษ
+	Field	เขตข้อมูล
+	Footer from Bottom:	ท้ายกระดาษห่างจากขอบล่าง:
+	Header from Top:	หัวกระดาษห่างจากขอบบน:
+	Go to\nFooter	ไปที่\nท้ายกระดาษ
+	Go to\nHeader	ไปที่\nหัวกระดาษ
+	Link to Previous	เชื่อมกับส่วนก่อนหน้า
+	Next Section	ส่วนถัดไป
+	Previous Section	ส่วนก่อนหน้า
+	First Page Header	หัวกระดาษหน้าแรก
+	First Page Footer	ท้ายกระดาษหน้าแรก
+	Even Page Header	หัวกระดาษหน้าคู่
+	Even Page Footer	ท้ายกระดาษหน้าคู่
+	Odd Page Header	หัวกระดาษหน้าคี่
+	Odd Page Footer	ท้ายกระดาษหน้าคี่
+	Picture\nfrom File	รูปภาพ\nจากไฟล์
+	Show Document Text	แสดงข้อความในเอกสาร
+	Use the previous section's header or footer; turn off to give this section its own	ใช้หัวกระดาษหรือท้ายกระดาษของส่วนก่อนหน้า ปิดเพื่อให้ส่วนนี้มีของตัวเอง
+	{kind} -Section {n}-	{kind} -ส่วนที่ {n}-
+	Same as Previous	เหมือนส่วนก่อนหน้า
+	Page Number Format	รูปแบบหมายเลขหน้า
+	Number format:	รูปแบบตัวเลข:
+	Page numbering	การนับหน้า
+	Continue from previous section	นับต่อจากส่วนก่อนหน้า
+	For this section only. Unlink its header or footer (Link to Previous) to give it its own page numbers.	ใช้กับส่วนนี้เท่านั้น ยกเลิกการเชื่อมหัวกระดาษหรือท้ายกระดาษ (เชื่อมกับส่วนก่อนหน้า) เพื่อให้ส่วนนี้มีเลขหน้าของตัวเอง
+	{font} isn't installed on this computer, so its text is shown in {shown}. Line breaks and page count can differ from where the document was made. If you have the font file, add it with Add Font… at the end of this list.	เครื่องนี้ไม่มีฟอนต์ {font} ข้อความที่ใช้ฟอนต์นี้จึงแสดงด้วย {shown} แทน การตัดบรรทัดและจำนวนหน้าอาจไม่ตรงกับเครื่องที่สร้างเอกสาร ถ้ามีไฟล์ฟอนต์ เพิ่มได้ที่ เพิ่มฟอนต์… ท้ายรายการนี้
+	1 font not installed	ไม่ได้ติดตั้งฟอนต์ 1 ตัว
+	{n} fonts not installed	ไม่ได้ติดตั้งฟอนต์ {n} ตัว
+	Shown in substitute fonts. Click for details.	แสดงด้วยฟอนต์อื่นแทน คลิกเพื่อดูรายละเอียด
+	Not installed — shown as	ไม่ได้ติดตั้ง — แสดงด้วย
+	…and {n} more	…และอีก {n} ตัว
+	Missing Fonts	ฟอนต์ที่ไม่ได้ติดตั้ง
+	Every font the document shows is installed	ฟอนต์ทุกตัวที่เอกสารใช้ติดตั้งไว้แล้ว
+	Fonts that aren't installed are shown in fonts that measure the same: line breaks don't move	ฟอนต์ที่ไม่ได้ติดตั้งแสดงด้วยฟอนต์ที่ขนาดตัวอักษรเท่ากัน การตัดบรรทัดจึงไม่เปลี่ยน
+	More tabs	แท็บเพิ่มเติม
+
+# Modify Style panel
+	Modify Style	ปรับเปลี่ยนสไตล์
+	Font Effects	เอฟเฟ็กต์อักษร
+	Indents & Spacing	การเยื้องและระยะห่าง
+	Text Flow	การไหลของข้อความ
+	Keep with next paragraph	ให้อยู่กับย่อหน้าถัดไป
+	Borders & Shading	เส้นขอบและแรเงา
+	Style	สไตล์
+	Based on:	ยึดตาม:
+	Style for following paragraph:	สไตล์ของย่อหน้าถัดไป:
+	Style type:	ชนิดสไตล์:
+	Latin text	ข้อความละติน
+	Thai text (complex script)	ข้อความไทย (อักษรซับซ้อน)
+	Thai text like Latin text	ใช้รูปแบบละตินกับข้อความไทย
+	Copy the Latin font, size, bold and italic to Thai text	คัดลอกฟอนต์ ขนาด ตัวหนา และตัวเอียงจากข้อความละตินไปยังข้อความไทย
+	Words only	เฉพาะคำ
+	Double	สองเส้น
+	Thick	เส้นหนา
+	Dotted	เส้นจุด
+	Dashed	เส้นประ
+	Dot dash	จุดสลับขีด
+	Wave	เส้นคลื่น
+	Underline color:	สีเส้นใต้:
+	Double strikethrough	ขีดทับสองเส้น
+	Emboss	ตัวนูน
+	Engrave	ตัวจม
+	Raise (+) or lower (−) by (pt):	ยกขึ้น (+) หรือลดลง (−) (พอยต์):
+	Scale width (%):	ปรับความกว้าง (%):
+	Character spacing (pt):	ระยะห่างอักขระ (พอยต์):
+	Kerning for fonts (pt) and up:	ปรับระยะคู่ตัวอักษรตั้งแต่ขนาด (พอยต์):
+	Tab stops	ตำแหน่งแท็บ
+	(no tab stops)	(ไม่มีตำแหน่งแท็บ)
+	Delete All	ลบทั้งหมด
+	Leader	อักขระนำ
+	Decimal	จุดทศนิยม
+	Bar	เส้นแนวตั้ง
+	First line	บรรทัดแรก
+	Hanging	แบบแขวน
+	Before (pt):	ก่อน (พอยต์):
+	After (pt):	หลัง (พอยต์):
+	Exactly	แน่นอน
+	Multiple	หลายเท่า
+	Lines:	บรรทัด:
+	Points:	พอยต์:
+	Pagination	การแบ่งหน้า
+	Between paragraphs	ระหว่างย่อหน้า
+	Width (pt):	ความกว้าง (พอยต์):
+	Distance from text (pt):	ระยะห่างจากข้อความ (พอยต์):
+	Fill:	สีเติม:
+	Distributed	กระจาย
+	Text direction	ทิศทางข้อความ
+	(no numbering)	(ไม่มีเลขลำดับ)
+	Number paragraphs in this style with:	กำหนดเลขลำดับย่อหน้าด้วย:
+	New list: {sample}	รายการใหม่: {sample}
+	Level:	ระดับ:
+	The level is linked to this style, as Define New Multilevel List's Link level to style does.	ระดับนี้เชื่อมโยงกับสไตล์ เช่นเดียวกับตัวเลือกเชื่อมโยงระดับกับสไตล์ในการกำหนดรายการหลายระดับใหม่
+
+	Hierarchical	แสดงตามลำดับชั้น
+	Current style: {style}	สไตล์ปัจจุบัน: {style}
+	Update to Match	อัปเดตให้ตรงกับส่วนที่เลือก
+	Manage Styles…	จัดการสไตล์…
+	Style Inspector	ตรวจสอบสไตล์
+
+	Objects	วัตถุ
+	Images	รูปภาพ
+	Drawing Objects	วัตถุรูปวาด
+	Image	รูปภาพ
+	Drawing	รูปวาด
+	Bookmarks	ที่คั่นหน้า
+
+# Shape Format and WordArt
+	Shape Format	รูปแบบรูปร่าง
+	Shape Styles	สไตล์รูปร่าง
+	Shape Fill	สีเติมรูปร่าง
+	Shape Outline	เส้นกรอบรูปร่าง
+	Shape Effects	เอฟเฟกต์รูปร่าง
+	Shadow, glow and soft edges	เงา แสงเรือง และขอบนุ่ม
+	Weight	ความหนา
+	Drawing Canvas	พื้นที่วาดรูป
+	Fit	พอดี
+	Expand	ขยาย
+	Scale Drawing	ปรับขนาดภาพวาด
+	WordArt Styles	สไตล์อักษรศิลป์
+	Text Fill	สีเติมข้อความ
+	Text Outline	เส้นกรอบข้อความ
+	Text Effects	เอฟเฟกต์ข้อความ
+	Rotate all text 90°	หมุนข้อความทั้งหมด 90°
+	Rotate all text 270°	หมุนข้อความทั้งหมด 270°
+	Stacked	เรียงซ้อน
+	Align Text	จัดแนวข้อความ
+	Middle	กึ่งกลาง
+	Break Link	ยกเลิกการเชื่อมโยง
+	Create Link	สร้างการเชื่อมโยง
+	Alt\nText	ข้อความ\nแสดงแทน
+	Alt Text	ข้อความแสดงแทน
+	W:	กว้าง:
+	H:	สูง:
+	Rotation:	การหมุน:
+	No Shadow	ไม่มีเงา
+	Glow	แสงเรือง
+	No Glow	ไม่มีแสงเรือง
+	Glow Colors	สีแสงเรือง
+	Soft Edges	ขอบนุ่ม
+	No Soft Edges	ไม่มีขอบนุ่ม
+	Reflection	เงาสะท้อน
+	No Reflection	ไม่มีเงาสะท้อน
+	Transform	แปลงรูปร่างข้อความ
+	No Transform	ไม่แปลงรูปร่างข้อความ
+	No Fill	ไม่มีสีเติม
+	No Outline	ไม่มีเส้นกรอบ
+	Offset: Bottom Right	เยื้อง: ล่างขวา
+	Offset: Bottom	เยื้อง: ด้านล่าง
+	Offset: Bottom Left	เยื้อง: ล่างซ้าย
+	Offset: Right	เยื้อง: ด้านขวา
+	Offset: Center	เยื้อง: กึ่งกลาง
+	Offset: Left	เยื้อง: ด้านซ้าย
+	Offset: Top Right	เยื้อง: บนขวา
+	Offset: Top	เยื้อง: ด้านบน
+	Offset: Top Left	เยื้อง: บนซ้าย
+	Solid Accent	สีเน้นทึบ
+	Light with Outline	สีอ่อนพร้อมเส้นกรอบ
+	Hollow	ตัวอักษรโปร่ง
+	Accent Gradient	สีเน้นแบบไล่ระดับ
+	Dark with Shadow	สีเข้มพร้อมเงา
+	Soft Glow	แสงเรืองนุ่ม
+	Accent with Reflection	สีเน้นพร้อมเงาสะท้อน
+	Warm Gradient with Outline	ไล่ระดับสีอุ่นพร้อมเส้นกรอบ
+	Arch Up	โค้งขึ้น
+	Arch Down	โค้งลง
+	Circle	วงกลม
+	Slant Up	เอียงขึ้น
+	Slant Down	เอียงลง
+	Inflate	พองออก
+	Deflate	บีบเข้า
+	Chevron Up	บั้งขึ้น
+	Chevron Down	บั้งลง
+	Triangle Up	สามเหลี่ยมขึ้น
+	Triangle Down	สามเหลี่ยมลง
+
+# Chart Design and SmartArt picker
+	Chart Design	ออกแบบแผนภูมิ
+	Chart Layouts	เค้าโครงแผนภูมิ
+	Chart Title	ชื่อแผนภูมิ
+	Above Chart	เหนือแผนภูมิ
+	Legend	คำอธิบายแผนภูมิ
+	Data Labels	ป้ายชื่อข้อมูล
+	Edit\nData	แก้ไข\nข้อมูล
+	Change\nChart Type	เปลี่ยนชนิด\nแผนภูมิ
+	Type	ชนิด
+	Insert SmartArt	แทรก SmartArt
+	All	ทั้งหมด
+	List	รายการ
+	Process	กระบวนการ
+	Cycle	วงจร
+	Hierarchy	ลำดับชั้น
+	Relationship	ความสัมพันธ์
+	Matrix	เมทริกซ์
+	Pyramid	พีระมิด
+	Basic List	รายการพื้นฐาน
+	Basic Process	กระบวนการพื้นฐาน
+	Basic Cycle	วงจรพื้นฐาน
+	Basic Pyramid	พีระมิดพื้นฐาน
+	Basic Radial	รัศมีพื้นฐาน
+	Basic Matrix	เมทริกซ์พื้นฐาน
+	Basic Venn	เวนน์พื้นฐาน
+	Shows items of equal weight as blocks in rows.	แสดงรายการที่มีความสำคัญเท่ากันเป็นกล่องเรียงแถว
+	Shows steps in order, left to right, with arrows between them.	แสดงขั้นตอนตามลำดับจากซ้ายไปขวา พร้อมลูกศรเชื่อม
+	Shows steps that repeat, around a circle.	แสดงขั้นตอนที่เกิดซ้ำเป็นวงจร
+	Shows a tree: each item below the item it belongs to.	แสดงลำดับชั้นโดยวางรายการไว้ใต้รายการที่เกี่ยวข้อง
+	Shows parts that build on each other, largest at the bottom.	แสดงส่วนที่ต่อยอดกัน โดยส่วนใหญ่ที่สุดอยู่ด้านล่าง
+	Shows items around a central idea: the first item is the centre.	แสดงรายการรอบแนวคิดหลัก โดยใช้รายการแรกเป็นศูนย์กลาง
+	Shows parts of a whole as quadrants.	แสดงส่วนประกอบของภาพรวมเป็นสี่ส่วน
+	Shows overlapping ideas as overlapping circles.	แสดงแนวคิดที่ทับซ้อนกันด้วยวงกลมที่ซ้อนกัน
+
+# Home ribbon menus
+	Advanced Find…	ค้นหาขั้นสูง…
+	Go To…	ไปที่…
+	Select All	เลือกทั้งหมด
+	Select Paragraph	เลือกย่อหน้า
+	Select Sentence	เลือกประโยค
+	Dot-dash	เส้นจุดประ
+	Small Caps	ตัวพิมพ์ใหญ่ขนาดเล็ก
+	All Caps	ตัวพิมพ์ใหญ่ทั้งหมด
+	Double Strikethrough	ขีดทับสองเส้น
+	Standard Colors	สีมาตรฐาน
+	More Colors…	สีเพิ่มเติม…
+	Add Space Before Paragraph	เพิ่มระยะห่างก่อนย่อหน้า
+	Remove Space After Paragraph	เอาระยะห่างหลังย่อหน้าออก
+	Line Spacing Options…	ตัวเลือกระยะห่างบรรทัด…
+	Bottom Border	เส้นขอบล่าง
+	Top Border	เส้นขอบบน
+	Left Border	เส้นขอบซ้าย
+	Right Border	เส้นขอบขวา
+	No Border	ไม่มีเส้นขอบ
+	All Borders	เส้นขอบทั้งหมด
+	Outside Borders	เส้นขอบภายนอก
+	Inside Borders	เส้นขอบภายใน
+	Inside Horizontal Border	เส้นขอบภายในแนวนอน
+	Inside Vertical Border	เส้นขอบภายในแนวตั้ง
+	Diagonal Down Border	เส้นขอบทแยงลง
+	Diagonal Up Border	เส้นขอบทแยงขึ้น
+	Horizontal Line	เส้นแนวนอน
+	Draw Table	วาดตาราง
+	Borders and Shading…	เส้นขอบและแรเงา…
+	Keep Text Only	เก็บเฉพาะข้อความ
+	Merge Formatting	ผสานการจัดรูปแบบ
+	Paste Special…	วางแบบพิเศษ…
+
+# Header/footer menus and print ranges
+	Blank	ว่าง
+	Blank (Three Columns)	ว่าง (สามคอลัมน์)
+	Document Title	ชื่อเอกสาร
+	Edit Header	แก้ไขหัวกระดาษ
+	Remove Header	เอาหัวกระดาษออก
+	Edit Footer	แก้ไขท้ายกระดาษ
+	Remove Footer	เอาท้ายกระดาษออก
+	Top of Page	ด้านบนของหน้า
+	Page X of Y	หน้า X จาก Y
+	Current Position	ตำแหน่งปัจจุบัน
+	Format Page Numbers…	จัดรูปแบบหมายเลขหน้า…
+	Page Number Position…	ตำแหน่งหมายเลขหน้า…
+	Current page	หน้าปัจจุบัน
+	Selected pages	หน้าที่เลือก
+	Custom range	ช่วงที่กำหนดเอง
+	Odd pages only	เฉพาะหน้าคี่
+	Even pages only	เฉพาะหน้าคู่
+	Outline level	ระดับเค้าร่าง
+	Body text	เนื้อความ
+	Level	ระดับ
+	Line breaking	การตัดบรรทัด
+	Apply East Asian line-breaking rules	ใช้กฎการตัดบรรทัดภาษาเอเชียตะวันออก
+	Paste cancelled because the selection changed.	ยกเลิกการวางเนื่องจากตำแหน่งที่เลือกเปลี่ยนไป
+	Could not read the clipboard. Use the paste keyboard shortcut.	ไม่สามารถอ่านคลิปบอร์ดได้ โปรดใช้แป้นพิมพ์ลัดสำหรับวาง
+	Cannot read the clipboard. Allow clipboard access or use Ctrl+V / ⌘V.	ไม่สามารถอ่านคลิปบอร์ดได้ โปรดอนุญาตให้เข้าถึงคลิปบอร์ด หรือใช้ Ctrl+V / ⌘V
+	Drop Caps	อักษรตัวแรกขนาดใหญ่
+	Display drop caps	แสดงอักษรตัวแรกขนาดใหญ่
+	Reset	คืนค่า
+	East Asian font:	ฟอนต์ภาษาเอเชียตะวันออก:
+	Highlighting	การเน้นข้อความ
+	Area	พื้นหลัง
+	Reset to Parent	คืนค่าตามสไตล์ต้นแบบ
+	Background	พื้นหลัง
+	Mixed	หลายค่า
+	Table borders	เส้นขอบตาราง

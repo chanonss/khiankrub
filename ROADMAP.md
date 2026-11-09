@@ -1,18 +1,32 @@
 # WordCraft roadmap
 
-> **KhianKrub status — 2026-11-02:** UP12.1: WordCraft v0.12 stability and editing fixes. Backported selected-paragraph Tab indentation, style-set preservation including Thai defaults, DOCX attribute limits, font preflight/face/colour-glyph limits, and bounded picture/text-box/table-header layout.
+> **2026-11-08 · Print preview:** A dedicated preview offers page grids, facing-page arrangements, navigation and independent zoom, alongside the existing print settings.
 
-> **KhianKrub status — 2026-11-02:** UP12.2/3: shaping and PDF caching, manual-break justification, bookmark/NBSP line layout, picture context-menu Crop, Standard-encrypted package opening, and regex replacement groups.
+> **2026-11-07 · Ribbon integration:** Centered ribbon tabs with optional number badges, icon-only right actions, updated controls and aligned View groups. Hide White Space also collapses a single page and automatically arranged pages.
+
+> **2026-11-06 · HF.1:** Header & Footer contextual tab (shown while a header or footer is edited): Header, Footer, Page Number, Date & Time, Field, Picture from File; Go to Header/Footer, Previous/Next section, **Link to Previous** (unlink gives the section its own copy; link takes it away); Different First Page, Different Odd & Even Pages, Show Document Text; Header from Top / Footer from Bottom; Close. Section commands act on the section of the header being edited. Page tags "Header -Section N-" and "Same as Previous". Format Page Numbers… dialog (continue or start at, roman/letters/Thai digits) per section; a PAGE field's cached layout now follows the section's number format. Round-trip test: two sections, i–ii then 1–3, through `.docx` (`crates/engine/tests/hf_sections.rs`). Icons drawn in `crates/ui-egui/src/icons.rs`; Thai labels added.
+
+> **2026-11-01 · ICON.6:** Approved square ท icon replaces the old Thai Distribution mark in KhianKrub; shared geometry is synchronized across all three apps.
+
+> **2026-11-01 · ICON.3:** Approved Balanced toolbar gold: `#F2B705`, 230/255 primary alpha and 107/255 soft-surface alpha, multiplied by caller transparency. Flat and disabled icons remain monochrome; stored document/workbook artwork is unchanged. See [icon design](docs/icon-design.md).
+
+> **KhianKrub status — 2026-10-30:** WEB.4: the web start screen opens a new or recent (draft) document in a new tab (`./?new=<template>`, `./?draft=<id>`) and keeps itself; the draft list refreshes when its tab is visited again; the KrubOffice launcher's app tile opens in a new tab; the top bar's "All apps" text button is an app switcher (grid button; menu with KhianKrub marked, KhitKrub and PhutKrub faded as coming soon, and a link to kruboffice.app).
+>
+> **KhianKrub status — 2026-10-30:** WEB.3: the web bundle adds eight TLWG Thai families (Garuda, Kinnari, Laksaman, Loma, Norasi, Sawasdee, Umpush, Waree; TLWG 0.7.4, 38 faces, unmodified) loaded on request, with their licence texts and the GPL source release shipped beside them.
+>
+> **KhianKrub status — 2026-10-30:** WEB.2: khiankrub.app opens the editor on its start screen (old /khian/ links redirect); the KrubOffice launcher moved to kruboffice.app (not installable) and All apps opens it; fonts load on request, and a PDF or print is refused with "Fonts are still loading" until the document's fonts have arrived.
+>
+> **KhianKrub status — 2026-10-29:** WEB.1: khiankrub.app opens a KrubOffice launcher (เขียนครับ, with คิดครับ and พูดครับ marked รอว่างก่อนนะครับ); the editor moved to /khian/ and opens on a web start screen (top bar with Open file, Google Drive, Options and All apps; greeting; every template; the drafts kept in this browser with keep writing, download and discard).
+
+> **KhianKrub status — 2026-10-29:** UP12.1: WordCraft v0.12 stability and editing fixes. Backported selected-paragraph Tab indentation, style-set preservation including Thai defaults, DOCX attribute limits, font preflight/face/colour-glyph limits, and bounded picture/text-box/table-header layout.
+
+> **KhianKrub status — 2026-10-29:** UP12.2/3: shaping and PDF caching, manual-break justification, bookmark/NBSP line layout, picture context-menu Crop, Standard-encrypted package opening, and regex replacement groups.
 
 **Stage: alpha** · next: beta, ~15 points (60% → 75% ready for real work) and ~150–230 h away
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-02 · **Change:** trivial (table style editor formats every part, #714); previously trivial: VML freeforms read and kept on save; previously trivial: progress log: consistent preferred cell widths; previously trivial: multi-paragraph field instructions no longer add blank lines; previously trivial: page-break-only list paragraphs hide their labels; previously trivial: progress log: grouped `flowChartOr` shapes draw their circle and crossing spokes; previously trivial: progress log: copies keep their formatting in other programs, #1523; previously trivial: progress log: privacy options on save, #1062; previously trivial: progress log: equation pictures in theme colours on Windows, #1002; previously trivial: symbol fonts, #776; previously trivial: the save prompt answers from the keyboard, #861; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously trivial: formatting revisions landed, #41; previously trivial: Draw tab ink, #307, and Draw Table and Eraser, #303, landed: catalog 402/434; previously minor: readiness table with hours per audience; full number back to the additive weighted sum, 60%; mainstream and essentials numbers added; alpha gate checked; previously major: full re-measure against Word for Mac 16.113.4; restructured to the craftrules progress-docs standard) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-01 · **Change:** trivial (table style editor formats every part, #714); previously trivial: VML freeforms read and kept on save; previously trivial: progress log: consistent preferred cell widths; previously trivial: multi-paragraph field instructions no longer add blank lines; previously trivial: page-break-only list paragraphs hide their labels; previously trivial: progress log: grouped `flowChartOr` shapes draw their circle and crossing spokes; previously trivial: progress log: copies keep their formatting in other programs, #1523; previously trivial: progress log: privacy options on save, #1062; previously trivial: progress log: equation pictures in theme colours on Windows, #1002; previously trivial: symbol fonts, #776; previously trivial: the save prompt answers from the keyboard, #861; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously trivial: formatting revisions landed, #41; previously trivial: Draw tab ink, #307, and Draw Table and Eraser, #303, landed: catalog 402/434; previously minor: readiness table with hours per audience; full number back to the additive weighted sum, 60%; mainstream and essentials numbers added; alpha gate checked; previously major: full re-measure against Word for Mac 16.113.4; restructured to the craftrules progress-docs standard) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
 > **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-14 · **Change:** trivial (progress log: print-area strings translated in every catalog; previously trivial: progress log: ODT sections, #1379; previously trivial: progress log: table deletes, Change Case and Unlink Fields respect Track Changes and locked content controls, #1329; previously trivial: progress log: rounded rectangle corners, #1476; previously trivial: progress log: Save As type list, #1399; previously trivial: progress log: privacy options on save, #1062; previously trivial: progress log: equation pictures in theme colours on Windows, #1002; previously trivial: symbol fonts, #776; previously trivial: the save prompt answers from the keyboard, #861; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously trivial: formatting revisions landed, #41; previously trivial: Draw tab ink, #307, and Draw Table and Eraser, #303, landed: catalog 402/434; previously minor: readiness table with hours per audience; full number back to the additive weighted sum, 60%; mainstream and essentials numbers added; alpha gate checked; previously major: full re-measure against Word for Mac 16.113.4; restructured to the craftrules progress-docs standard) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
 > **Printing update:** 2026-10-12 · direct desktop printing through craft-print; details below.
-
-Desktop sync (2026-10-28): ported the web File-tab fix, document context-menu icons and numbering actions, and problem-report form. See [desktop sync notes](docs/desktop-sync.md).
-
-Desktop sync (2026-11-02): ported WordCraft v0.12 fixes (UP12), the x-height font menu and the character spacing up/down buttons. See [desktop sync notes](docs/desktop-sync.md).
 
 Upstream (2026-11-02): WordCraft v0.13.2 and v0.14.0 fixes ported by hand: printing documents with links, macOS launch arguments, PDF glyph ids, page parameters, heading outline levels, undefined styles, PAGEREF TOC numbers, Format Painter double-click, per-run font size steps, Table Properties on the whole selection. See [upstream-v0.14.md](docs/upstream-v0.14.md).
 
@@ -145,7 +159,6 @@ Ranked, to beta (detail and remaining milestones in [docs/roadmap.md](docs/roadm
 ## Progress log
 
 | Date | What landed |
-| 2026-10-28 | Desktop sync: context-menu icons and numbering actions, empty-window File access, problem reports; see docs/desktop-sync.md. |
 | 2026-10-14 | DOCX row table border exceptions render and survive saving. Explicit cell borders win; a row exception does not change other rows. |
 | 2026-10-14 | Tab stops edited on the ruler: the corner selector picks Left/Center/Right/Decimal/Bar, a click sets a stop (Alt skips the snap), dragging moves it with a guide line and position tooltip, dragging off the ruler clears it; markers draw per kind and mirror for RTL; one `para.tabs` call and one undo step per gesture |
 | 2026-10-12 | Fields keep `w:dirty` through DOCX saves (#877): a begin marker flagged by a generator that couldn't compute a result (pandoc-style TOC placeholders) keeps the flag on open/save — as a buffered field or a range field — so Word still refreshes it on open; computing a result (Update Field, Update Table) clears it, like Word's F9 |
@@ -412,12 +425,13 @@ Ranked, to beta (detail and remaining milestones in [docs/roadmap.md](docs/roadm
 
 ## Revision history
 
-2026-10-28 · minor · Desktop web-update port; see desktop sync notes.
-
 | Date | Change | Summary |
 |---|---|---|
-| 2026-11-02 | minor | UP12.2/3: shaping and PDF caching, manual-break justification, bookmark/NBSP line layout, picture context-menu Crop, Standard-encrypted package opening, and regex replacement groups. |
-| 2026-11-02 | minor | UP12.1: WordCraft v0.12 stability and editing fixes. Backported selected-paragraph Tab indentation, style-set preservation including Thai defaults, DOCX attribute limits, font preflight/face/colour-glyph limits, and bounded picture/text-box/table-header layout. |
+| 2026-10-30 | minor | WEB.4: start screen templates and drafts open in a new browser tab (the page reads `?new=` and `?draft=` on startup); the KrubOffice launcher opens an app in a new tab; the top bar gets an app switcher (menu of the KrubOffice apps) in place of "All apps". |
+| 2026-10-30 | minor | WEB.3: eight TLWG font families join the on-request web fonts (pinned manifest `packaging/web/tlwg-fonts.json`, publisher's prebuilt TTFs, licences and the source release kept in `fonts/`). |
+| 2026-10-30 | minor | WEB.2: the web editor is the root of khiankrub.app (/khian/ redirects, same origin so drafts, Drive and installs carry on); the KrubOffice launcher is kruboffice.app and All apps opens it; PDF export and print wait for on-request fonts instead of using the fallback. |
+| 2026-10-29 | minor | UP12.2/3: shaping and PDF caching, manual-break justification, bookmark/NBSP line layout, picture context-menu Crop, Standard-encrypted package opening, and regex replacement groups. |
+| 2026-10-29 | minor | UP12.1: WordCraft v0.12 stability and editing fixes. Backported selected-paragraph Tab indentation, style-set preservation including Thai defaults, DOCX attribute limits, font preflight/face/colour-glyph limits, and bounded picture/text-box/table-header layout. |
 | 2026-10-14 | trivial | Progress log: row table border exceptions |
 | 2026-10-12 | minor | Czech proofing review: short-word splits rank after deletion, NOSUGGEST excludes suggestions while accepting typed forms, affix comments apply only to headers, ratios keep spaces and repeated-word messages use Czech quotes; synthetic engine end-to-end and latency checks |
 | 2026-10-12 | minor | Czech spelling from the installed Hunspell dictionary, runtime-table suggestions and generic checks; Czech interface writes cs-CZ documents; no Czech hyphenation patterns bundled; estimates unchanged |
@@ -605,3 +619,17 @@ Ranked, to beta (detail and remaining milestones in [docs/roadmap.md](docs/roadm
 | 2026-10-09 | minor | Recently landed: RTL, Ukrainian and Brazilian Portuguese |
 | 2026-10-06 | major | First honest estimate: 88% catalog, ~62% real parity, alpha ~85% of the way |
 | 2026-10-12 | trivial | Progress log: recipient filter and sort, .xls and legacy-encoding recipient lists (#778) |
+
+### KrubOffice revision history
+
+| Date | Change |
+|---|---|
+| 2026-11-01 | ICON.1: working preview; icon standardization remains partial. |
+
+| 2026-11-01 | ICON.2: all UI icon catalogs consolidated, common-action geometry unified, specialized symbols restyled. |
+
+| 2026-11-01 | ICON.3: approved Balanced gold roles; preserve dimmed alpha and monochrome flat/disabled states. |
+
+| 2026-11-01 | LOCAL.1: fresh full web previews verified for all three apps; Khian install-icon manifest paths corrected. |
+
+| 2026-11-01 | ICON.6: approved square ท icon and PhutKrub Thai Distribution control. |

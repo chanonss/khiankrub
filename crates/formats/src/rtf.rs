@@ -185,9 +185,19 @@ impl Writer {
     }
 
     fn picture(&mut self, img: &model::Img, out: &mut String) {
+        // A metafile's `\picw`/`\pich` are its size in 0.01 mm (#4259).
+        let hundredths = ((img.w * 2540.0 / 72.0).round() as i64, (img.h * 2540.0 / 72.0).round() as i64);
         let (data, blip) = match img.ext.as_str() {
             "png" => (img.data.to_vec(), "\\pngblip"),
             "jpeg" | "jpg" => (img.data.to_vec(), "\\jpegblip"),
+            // The bytes decide, as on reading: an EMF starts with its header record, type 1 (a
+            // DOCX may store one under `.wmf`).
+            "emf" | "wmf" if img.data.starts_with(&[1, 0, 0, 0]) => (img.data.to_vec(), "\\emfblip"),
+            // RTF holds a WMF without its 22-byte placeable header.
+            "emf" | "wmf" => {
+                let data = if img.data.starts_with(&[0xD7, 0xCD, 0xC6, 0x9A]) { img.data.get(22..).unwrap_or_default() } else { img.data.as_slice() };
+                (data.to_vec(), "\\wmetafile8")
+            }
             _ => {
                 // Re-encode other formats as PNG, bounding the decode so a tiny file declaring
                 // huge dimensions can't exhaust memory on export.
@@ -199,7 +209,14 @@ impl Writer {
                 (buf, "\\pngblip")
             }
         };
-        let (pw, ph) = model::image_px(&data).unwrap_or((1, 1));
+        // A placeable header with nothing after it leaves no picture to write.
+        if data.is_empty() {
+            return;
+        }
+        let (pw, ph) = match blip {
+            "\\emfblip" | "\\wmetafile8" => hundredths,
+            _ => model::image_px(&data).map(|(a, b)| (i64::from(a), i64::from(b))).unwrap_or((1, 1)),
+        };
         out.push_str(&format!(
             "{{\\pict{blip}\\picw{pw}\\pich{ph}\\picwgoal{}\\pichgoal{}\n",
             (img.w * 20.0).round() as i64,
@@ -860,6 +877,10 @@ struct Reader {
     pict_h: Option<f32>,
     pict_sx: f32,
     pict_sy: f32,
+    /// `\picw`/`\pich` as written, read for metafiles (0 when absent).
+    pict_nat: (i32, i32),
+    /// The mapping mode `N` of `\wmetafileN`.
+    pict_mm: i32,
     bkmk: Option<(usize, String)>,
     /// Authors of tracked changes (`\revtbl`), and the entry being read.
     rev_authors: Vec<String>,
@@ -1109,7 +1130,28 @@ impl Reader {
         let sy = if self.pict_sy > 0.0 { self.pict_sy / 100.0 } else { 1.0 };
         let w = self.pict_w.map(|v| v * sx);
         let h = self.pict_h.map(|v| v * sy);
-        if let Some(img) = make_img(data, w, h, "") {
+        // The control word only says "a metafile": the bytes decide what it is (#4259).
+        let img = if matches!(self.pict_kind, 3 | 4) && wordcraft_metafile::is_metafile(&data) {
+            // An EMF starts with its header record, type 1.
+            let ext = if data.get(..4) == Some(&[1, 0, 0, 0]) { "emf" } else { "wmf" };
+            // `\picw`/`\pich` are in the units of the `\wmetafileN` mapping mode; 0.01 mm for the
+            // isotropic and anisotropic modes and for EMF.
+            let unit = match (self.pict_kind, self.pict_mm) {
+                (3, 1) => 0.75,         // MM_TEXT: pixels
+                (3, 2) => 72.0 / 254.0, // MM_LOMETRIC: 0.1 mm
+                (3, 4) => 0.72,         // MM_LOENGLISH: 0.01 in
+                (3, 5) => 0.072,        // MM_HIENGLISH: 0.001 in
+                (3, 6) => 0.05,         // MM_TWIPS
+                _ => 72.0 / 2540.0,     // MM_HIMETRIC, MM_ISOTROPIC, MM_ANISOTROPIC
+            };
+            let pt = |v: i32| (v > 0).then(|| v.min(1_000_000) as f32 * unit);
+            // `\picscalex`/`\picscaley` scale the natural size too, when no goal size is given.
+            let natural = pt(self.pict_nat.0).zip(pt(self.pict_nat.1)).map(|(a, b)| (a * sx, b * sy));
+            Some(model::sized_img(std::sync::Arc::new(data), ext, natural, w, h, ""))
+        } else {
+            make_img(data, w, h, "")
+        };
+        if let Some(img) = img {
             self.para.inlines.push(Inline::Image(img));
             self.para_has = true;
         }
@@ -1451,6 +1493,8 @@ impl Reader {
                     self.pict_h = None;
                     self.pict_sx = 0.0;
                     self.pict_sy = 0.0;
+                    self.pict_nat = (0, 0);
+                    self.pict_mm = 0;
                 }
                 Dest::FldInst if self.st.field.is_none() => self.start_field(),
                 _ => {}
@@ -1574,6 +1618,14 @@ impl Reader {
                 match w {
                     "pngblip" => self.pict_kind = 1,
                     "jpegblip" => self.pict_kind = 2,
+                    // Windows and Enhanced Metafiles (#4259): drawn by the metafile renderer.
+                    "wmetafile" => {
+                        self.pict_kind = 3;
+                        self.pict_mm = pv;
+                    }
+                    "emfblip" => self.pict_kind = 4,
+                    "picw" => self.pict_nat.0 = pv,
+                    "pich" => self.pict_nat.1 = pv,
                     "picwgoal" => self.pict_w = Some(pv.clamp(1, 31_680) as f32 / 20.0),
                     "pichgoal" => self.pict_h = Some(pv.clamp(1, 31_680) as f32 / 20.0),
                     "picscalex" => self.pict_sx = pv.clamp(1, 1000) as f32,
@@ -1728,15 +1780,24 @@ impl Reader {
             "clbrdrb" => self.cell_side = Some('b'),
             "clbrdrr" => self.cell_side = Some('r'),
             "brdrs" | "brdrth" | "brdrsh" | "brdrdb" | "brdrdot" | "brdrdash" | "brdrdashsm" | "brdrdashd" | "brdrdashdd" | "brdrhair"
-            | "brdrtriple" | "brdrthtnsg" | "brdrtnthsg" | "brdrthtnmg" | "brdrtnthmg" | "brdrwavy" | "brdrwavydb" | "brdrnone" | "brdrnil"
-            | "brdrtbl"
+            | "brdrtriple" | "brdrthtnsg" | "brdrtnthsg" | "brdrtnthtnsg" | "brdrthtnmg" | "brdrtnthmg" | "brdrtnthtnmg" | "brdrthtnlg"
+            | "brdrtnthlg" | "brdrtnthtnlg" | "brdrwavy" | "brdrwavydb" | "brdrnone" | "brdrnil" | "brdrtbl"
                 if self.cell_side.is_some() || self.st.border_side.is_some() =>
             {
                 use wordcraft_doc::props::{Border, BorderStyle};
                 let style = match w {
                     "brdrnone" | "brdrnil" | "brdrtbl" => BorderStyle::None,
                     "brdrth" => BorderStyle::Thick,
-                    "brdrdb" | "brdrthtnsg" | "brdrtnthsg" | "brdrthtnmg" | "brdrtnthmg" | "brdrwavydb" => BorderStyle::Double,
+                    "brdrdb" | "brdrwavydb" => BorderStyle::Double,
+                    "brdrtnthsg" => BorderStyle::ThinThickSmallGap,
+                    "brdrthtnsg" => BorderStyle::ThickThinSmallGap,
+                    "brdrtnthtnsg" => BorderStyle::ThinThickThinSmallGap,
+                    "brdrtnthmg" => BorderStyle::ThinThickMediumGap,
+                    "brdrthtnmg" => BorderStyle::ThickThinMediumGap,
+                    "brdrtnthtnmg" => BorderStyle::ThinThickThinMediumGap,
+                    "brdrtnthlg" => BorderStyle::ThinThickLargeGap,
+                    "brdrthtnlg" => BorderStyle::ThickThinLargeGap,
+                    "brdrtnthtnlg" => BorderStyle::ThinThickThinLargeGap,
                     "brdrdot" => BorderStyle::Dotted,
                     "brdrdash" | "brdrdashsm" => BorderStyle::Dashed,
                     "brdrdashd" | "brdrdashdd" => BorderStyle::DotDash,
@@ -2425,6 +2486,94 @@ mod tests {
         Ok(())
     }
 
+    /// #4259: `\wmetafile8` and `\emfblip` pictures are kept as WMF/EMF media (they were dropped),
+    /// sized from `\picwgoal`/`\pichgoal` and `\picscalex`/`\picscaley`, else from `\picw`/`\pich`
+    /// (0.01 mm for a metafile). As Word writes a floating picture: the `\shprslt` copy is read.
+    #[test]
+    fn metafile_pictures_are_imported() -> Result<(), String> {
+        // A plain WMF: the 9-word header (type 1, version 0x300, 12 words, max record 3), then EOF.
+        let wmf: Vec<u8> = [1u16, 9, 0x300, 12, 0, 0, 3, 0, 0, 3, 0, 0].iter().flat_map(|w| w.to_le_bytes()).collect();
+        let hex: String = wmf.iter().map(|b| format!("{b:02x}")).collect();
+        let images = |rtf: String| -> Result<Vec<model::Img>, String> {
+            let f = parse(rtf.as_bytes())?;
+            Ok(f.blocks
+                .iter()
+                .filter_map(|b| match b {
+                    FBlock::Para(p) => Some(p.inlines.clone()),
+                    FBlock::Table(_) => None,
+                })
+                .flatten()
+                .filter_map(|i| match i {
+                    Inline::Image(img) => Some(img),
+                    _ => None,
+                })
+                .collect())
+        };
+        let pict = format!("{{\\pict\\wmetafile8\\picw38761\\pich12832\\picwgoal21972\\pichgoal7272\\picscalex45\\picscaley45 {hex}}}");
+        let shape = format!("{{\\shp{{\\*\\shpinst{{\\sp{{\\sn pib}}{{\\sv {pict}}}}}}}{{\\shprslt{pict}}}}}");
+        let got = images(format!("{{\\rtf1\\ansi Before{shape}After\\par}}"))?;
+        let [img] = got.as_slice() else { return Err(format!("{} pictures", got.len())) };
+        assert_eq!((img.ext.as_str(), img.data.as_ref()), ("wmf", &wmf));
+        // 21972 twips at 45% is 494.4 pt, shrunk to the 468 pt column like every imported picture.
+        assert_eq!(img.w, 468.0);
+        assert!((img.h - 7272.0 / 20.0 * 0.45 * 468.0 / 494.37).abs() < 0.1, "{}", img.h);
+        // No goal size: the natural size, 2540 × 1270 hundredths of a millimetre = 72 × 36 pt; under
+        // MM_TEXT (`\wmetafile1`) the same numbers are pixels.
+        let hex_of = |b: &[u8]| -> String { b.iter().map(|b| format!("{b:02x}")).collect() };
+        let mut emf = vec![0u8; 88];
+        emf[0] = 1;
+        emf[4] = 88;
+        emf[40..44].copy_from_slice(b" EMF");
+        let emf_hex = hex_of(&emf);
+        let got = images(format!("{{\\rtf1\\ansi{{\\pict\\emfblip\\picw2540\\pich1270 {emf_hex}}}\\par}}"))?;
+        let [img] = got.as_slice() else { return Err(format!("{} pictures", got.len())) };
+        assert_eq!((img.ext.as_str(), img.w, img.h, img.data.as_ref()), ("emf", 72.0, 36.0, &emf));
+        let got = images(format!("{{\\rtf1\\ansi{{\\pict\\wmetafile1\\picw96\\pich48 {hex}}}\\par}}"))?;
+        let [img] = got.as_slice() else { return Err(format!("{} pictures", got.len())) };
+        assert_eq!((img.ext.as_str(), img.w, img.h), ("wmf", 72.0, 36.0));
+        // `\picscalex`/`\picscaley` scale the natural size when there is no goal size.
+        let got = images(format!("{{\\rtf1\\ansi{{\\pict\\wmetafile8\\picw2540\\pich1270\\picscalex50\\picscaley200 {hex}}}\\par}}"))?;
+        let [img] = got.as_slice() else { return Err(format!("{} pictures", got.len())) };
+        assert_eq!((img.w, img.h), (36.0, 72.0));
+        // The other mapping modes use their own units: 0.1 mm, 0.01 in, 0.001 in and twips.
+        for (mode, w, h) in [(2, 254, 127), (4, 100, 50), (5, 1000, 500), (6, 1440, 720)] {
+            let got = images(format!("{{\\rtf1\\ansi{{\\pict\\wmetafile{mode}\\picw{w}\\pich{h} {hex}}}\\par}}"))?;
+            let [img] = got.as_slice() else { return Err(format!("{} pictures", got.len())) };
+            assert!((img.w - 72.0).abs() < 0.01 && (img.h - 36.0).abs() < 0.01, "mode {mode}: {} x {}", img.w, img.h);
+        }
+        // Hostile: a zero or negative natural size falls back to the default 72 pt square, and bytes
+        // that are no picture at all are dropped, whatever the control word says.
+        let got = images(format!("{{\\rtf1\\ansi{{\\pict\\wmetafile8\\picw0\\pich-5 {hex}}}\\par}}"))?;
+        let [img] = got.as_slice() else { return Err(format!("{} pictures", got.len())) };
+        assert_eq!((img.w, img.h), (72.0, 72.0));
+        for blip in ["wmetafile8", "emfblip"] {
+            assert!(images(format!("{{\\rtf1\\ansi{{\\pict\\{blip}\\picw2540\\pich1270 0123456789abcdef}}\\par}}"))?.is_empty(), "{blip}");
+        }
+        // Saved as RTF and read back: the same picture, the EMF byte for byte, the WMF without the
+        // placeable header RTF has no room for.
+        let placeable: Vec<u8> = [0xD7u8, 0xCD, 0xC6, 0x9A].into_iter().chain([0u8; 18]).chain(wmf.iter().copied()).collect();
+        for (blip, data, want, ext) in [("emfblip", &emf, &emf, "emf"), ("wmetafile8", &wmf, &wmf, "wmf"), ("wmetafile8", &placeable, &wmf, "wmf")] {
+            let rtf = format!("{{\\rtf1\\ansi{{\\pict\\{blip}\\picw2540\\pich1270 {}}}\\par}}", hex_of(data));
+            let got = images(export(&import(rtf.as_bytes())?))?;
+            let [img] = got.as_slice() else { return Err(format!("{blip}: {} pictures", got.len())) };
+            assert_eq!((img.ext.as_str(), img.data.as_ref(), img.w, img.h), (ext, want, 72.0, 36.0), "{blip}");
+        }
+        // An EMF stored under `.wmf` (a DOCX can) is written as the EMF its bytes are.
+        let mut doc = import(format!("{{\\rtf1\\ansi{{\\pict\\wmetafile8\\picw2540\\pich1270 {hex}}}\\par}}").as_bytes())?;
+        let (key, bytes) = doc.media.iter_mut().next().ok_or("no media")?;
+        assert!(key.ends_with(".wmf"), "{key}");
+        *bytes = std::sync::Arc::new(emf.clone());
+        let rtf = export(&doc);
+        assert!(rtf.contains("\\emfblip") && !rtf.contains("\\wmetafile"), "{rtf}");
+        let got = images(rtf)?;
+        let [img] = got.as_slice() else { return Err(format!("{} pictures", got.len())) };
+        assert_eq!((img.ext.as_str(), img.data.as_ref()), ("emf", &emf));
+        // A placeable header with no records after it has nothing to write: no empty picture group.
+        *doc.media.values_mut().next().ok_or("no media")? = std::sync::Arc::new(placeable[..22].to_vec());
+        assert!(!export(&doc).contains("\\pict"), "an empty metafile is not written");
+        Ok(())
+    }
+
     #[test]
     fn unicode_in_info_bookmarks_and_field_instructions() {
         // #435: `\uN` (with its `\ucN` fallback skipped) decodes in every text destination.
@@ -2679,6 +2828,30 @@ mod tests {
     fn rejects_non_rtf() {
         assert!(parse(b"hello").is_err());
         assert!(parse(b"{\\rtf1").is_ok());
+    }
+
+    /// The compound border lines read as themselves (from WordCraft #5499): four of them were read
+    /// as a double line, the others not at all.
+    #[test]
+    fn compound_border_lines_are_read_as_themselves() {
+        use wordcraft_doc::props::BorderStyle;
+        for (word, want) in [
+            ("brdrtnthsg", BorderStyle::ThinThickSmallGap),
+            ("brdrthtnsg", BorderStyle::ThickThinSmallGap),
+            ("brdrtnthtnsg", BorderStyle::ThinThickThinSmallGap),
+            ("brdrtnthmg", BorderStyle::ThinThickMediumGap),
+            ("brdrthtnmg", BorderStyle::ThickThinMediumGap),
+            ("brdrtnthtnmg", BorderStyle::ThinThickThinMediumGap),
+            ("brdrtnthlg", BorderStyle::ThinThickLargeGap),
+            ("brdrthtnlg", BorderStyle::ThickThinLargeGap),
+            ("brdrtnthtnlg", BorderStyle::ThinThickThinLargeGap),
+            ("brdrdb", BorderStyle::Double),
+        ] {
+            let rtf = format!(r"{{\rtf1\ansi\pard\brdrt\{word}\brdrw15 Boxed\par}}");
+            let d = import(rtf.as_bytes()).unwrap();
+            let top = d.body.iter().find_map(|b| b.as_para()).and_then(|p| p.props.borders.as_ref()).and_then(|b| b.top.as_ref()).map(|b| b.style);
+            assert_eq!(top, Some(want), "{word}");
+        }
     }
 
     #[test]

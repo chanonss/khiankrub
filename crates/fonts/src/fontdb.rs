@@ -12,6 +12,7 @@ use skrifa::raw::FileRef;
 use skrifa::string::StringId;
 use skrifa::{GlyphId, MetadataProvider};
 
+mod on_request;
 mod user;
 pub use user::{FONT_FILE_EXTS, FontFormat, Installed, MAX_FONT_FILE_BYTES, UserFont, UserFontError, decode_font_file, is_font_file_name, sniff};
 
@@ -191,7 +192,7 @@ impl FontFace {
     }
     /// Is `family` this face's typographic or legacy family name?
     pub fn named(&self, family: &str) -> bool {
-        self.family.eq_ignore_ascii_case(family) || self.legacy_family.eq_ignore_ascii_case(family)
+        same_family(&self.family, family) || same_family(&self.legacy_family, family)
     }
     /// Does the face map `c` to a glyph?
     pub fn covers(&self, c: char) -> bool {
@@ -320,6 +321,8 @@ pub struct FontDb {
     catalog: RwLock<Vec<CatalogEntry>>,
     /// Fonts the user added at run time, and the folder they are stored in (#582).
     user: RwLock<user::UserFonts>,
+    /// Families a host loads on request (the web's bundled fonts, [`FontDb::announce_families`]).
+    on_request: RwLock<on_request::OnRequest>,
     /// Bumped whenever user fonts are added or removed ([`FontDb::generation`]).
     generation: AtomicU64,
     /// The folders the system font scan reads (the platform's font folders for [`FontDb::global`]).
@@ -887,6 +890,19 @@ fn norm(s: &str) -> String {
     s.chars().filter(|c| c.is_alphanumeric()).flat_map(|c| c.to_lowercase()).collect()
 }
 
+/// TH Sarabun IT9 is distributed under several names, including `TH SarabunIT๙`.
+fn is_th_sarabun_it9(family: &str) -> bool {
+    norm(family).replace('๙', "9") == "thsarabunit9"
+}
+
+fn same_family(a: &str, b: &str) -> bool {
+    a.eq_ignore_ascii_case(b) || is_th_sarabun_it9(a) && is_th_sarabun_it9(b)
+}
+
+fn list_family_name(family: String) -> String {
+    if is_th_sarabun_it9(&family) { "TH Sarabun IT9".to_string() } else { family }
+}
+
 /// Weight implied by a style name.
 fn style_weight(style: &str) -> f32 {
     let s = norm(style);
@@ -939,6 +955,7 @@ impl FontDb {
             #[cfg(not(target_arch = "wasm32"))]
             catalog: RwLock::new(Vec::new()),
             user: RwLock::new(user::UserFonts::default()),
+            on_request: RwLock::new(on_request::OnRequest::default()),
             generation: AtomicU64::new(0),
             font_dirs,
             #[cfg(not(target_arch = "wasm32"))]
@@ -993,9 +1010,10 @@ impl FontDb {
     /// Word's font list, this holds each face's legacy family name too ("Roboto Light", "Inter
     /// SemiBold"), which [`FontDb::face`] resolves to that face.
     pub fn families(&self) -> Vec<String> {
-        let mut v: Vec<String> = self.read_faces().iter().flat_map(|f| [f.family.clone(), f.legacy_family.clone()]).collect();
+        let mut v: Vec<String> = self.read_faces().iter().flat_map(|f| [f.family.clone(), f.legacy_family.clone()]).map(list_family_name).collect();
         #[cfg(not(target_arch = "wasm32"))]
-        v.extend(self.read_catalog().iter().flat_map(|c| [c.family.clone(), c.legacy.clone()]));
+        v.extend(self.read_catalog().iter().flat_map(|c| [c.family.clone(), c.legacy.clone()]).map(list_family_name));
+        v.extend(self.announced_families().into_iter().map(list_family_name));
         v.sort_by_key(|a| a.to_lowercase());
         v.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
         v
@@ -1073,7 +1091,7 @@ impl FontDb {
     fn styles_named(&self, family: &str) -> Vec<String> {
         let mut v: Vec<(bool, f32, String)> = Vec::new();
         for legacy in [false, true] {
-            let named = |typographic: &str, legacy_name: &str| (if legacy { legacy_name } else { typographic }).eq_ignore_ascii_case(family);
+            let named = |typographic: &str, legacy_name: &str| same_family(if legacy { legacy_name } else { typographic }, family);
             v.extend(
                 self.read_faces()
                     .iter()
@@ -1217,11 +1235,8 @@ impl FontDb {
     #[cfg(not(target_arch = "wasm32"))]
     fn family_paths(&self, family: &str) -> Vec<std::path::PathBuf> {
         let cat = self.read_catalog();
-        let families: Vec<&str> = cat
-            .iter()
-            .filter(|c| c.family.eq_ignore_ascii_case(family) || c.legacy.eq_ignore_ascii_case(family))
-            .map(|c| c.family.as_str())
-            .collect();
+        let families: Vec<&str> =
+            cat.iter().filter(|c| same_family(&c.family, family) || same_family(&c.legacy, family)).map(|c| c.family.as_str()).collect();
         let mut p: Vec<_> = cat.iter().filter(|c| families.iter().any(|f| c.family.eq_ignore_ascii_case(f))).map(|c| c.path.clone()).collect();
         p.sort();
         p.dedup();
@@ -1257,6 +1272,8 @@ impl FontDb {
                 }
             }
         }
+        // A family the host loads on request: ask for it, and draw in the fallback until it loads.
+        self.request_family(family);
         self.find(FALLBACK_FAMILY, style)
             .or_else(|| self.find(FALLBACK_FAMILY, "Regular"))
             .or_else(|| self.read_faces().first().cloned())
@@ -1281,6 +1298,8 @@ impl FontDb {
         if let Some(f) = self.unshared_face(family).or_else(|| english.as_deref().and_then(|en| self.unshared_face(en))) {
             return Some(f);
         }
+        // Browsing the font list asks for a family the host loads on request.
+        self.request_family(family);
         None
     }
 
@@ -1290,9 +1309,9 @@ impl FontDb {
     fn unshared_face(&self, family: &str) -> Option<Arc<FontFace>> {
         let (path, fam, style) = {
             let cat = self.read_catalog();
-            let mut cands: Vec<&CatalogEntry> = cat.iter().filter(|c| c.family.eq_ignore_ascii_case(family)).collect();
+            let mut cands: Vec<&CatalogEntry> = cat.iter().filter(|c| same_family(&c.family, family)).collect();
             if cands.is_empty() {
-                cands = cat.iter().filter(|c| c.legacy.eq_ignore_ascii_case(family)).collect();
+                cands = cat.iter().filter(|c| same_family(&c.legacy, family)).collect();
             }
             let score = |c: &CatalogEntry| {
                 if matches!(norm(&c.style).as_str(), "regular" | "normal" | "book" | "roman") {
@@ -1337,7 +1356,10 @@ impl FontDb {
             return true;
         }
         #[cfg(not(target_arch = "wasm32"))]
-        if self.read_catalog().iter().any(|c| c.family.eq_ignore_ascii_case(family) || c.legacy.eq_ignore_ascii_case(family)) {
+        if self.read_catalog().iter().any(|c| same_family(&c.family, family) || same_family(&c.legacy, family)) {
+            return true;
+        }
+        if self.is_announced(family) {
             return true;
         }
         self.english_family(family).is_some()
@@ -1401,10 +1423,10 @@ impl FontDb {
             return self.instance(family, style);
         }
         let faces = self.read_faces();
-        let mut cands: Vec<&Arc<FontFace>> = faces.iter().filter(|f| f.family.eq_ignore_ascii_case(family)).collect();
+        let mut cands: Vec<&Arc<FontFace>> = faces.iter().filter(|f| same_family(&f.family, family)).collect();
         if cands.is_empty() {
             // A legacy family name: choose among the faces it names (bold and italic as usual).
-            cands = faces.iter().filter(|f| f.legacy_family.eq_ignore_ascii_case(family)).collect();
+            cands = faces.iter().filter(|f| same_family(&f.legacy_family, family)).collect();
         }
         if cands.is_empty() {
             return None;
@@ -1825,6 +1847,14 @@ mod tests_sysfonts;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn thai_sarabun_it9_spellings_resolve_as_one_family() {
+        assert!(same_family("TH Sarabun IT9", "TH SarabunIT๙"));
+        assert!(same_family("thsarabunit๙", "TH Sarabun IT9"));
+        assert!(!same_family("TH Sarabun New", "TH Sarabun IT9"));
+        assert_eq!(list_family_name("TH SarabunIT๙".into()), "TH Sarabun IT9");
+    }
 
     #[test]
     fn run_fallback_is_cached_per_char_set() {

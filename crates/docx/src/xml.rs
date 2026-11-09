@@ -118,6 +118,52 @@ pub enum Node {
     Text(String),
 }
 
+/// Elements whose markup names a relationship: the id is in an attribute of the relationship
+/// namespace (`r:id`, `r:embed`, `r:link`, `r:pict`, `r:dm`…) or VML's `o:relid`, and — from a
+/// producer that left the prefix out — in the unqualified attribute of the same local name, the
+/// alias [`El::attr`] accepts. On any other element an unqualified `id` is the element's own
+/// (a drawing's `wp:docPr`, a picture's `pic:cNvPr`, a VML shape, a page background) and names
+/// no part.
+const REL_ELEMENTS: &[&str] = &[
+    "a:blip",
+    "a:hlinkClick",
+    "a:hlinkHover",
+    "a:audioFile",
+    "a:videoFile",
+    "c:chart",
+    "cx:chart",
+    "dgm:relIds",
+    "o:OLEObject",
+    "v:fill",
+    "v:imagedata",
+    "w:attachedTemplate",
+    "w:control",
+    "w:embedBold",
+    "w:embedBoldItalic",
+    "w:embedItalic",
+    "w:embedRegular",
+    "w:footerReference",
+    "w:headerReference",
+    "w:hyperlink",
+    "w:object",
+    "w:subDoc",
+    "w14:contentPart",
+];
+
+/// The local names a relationship attribute has, so an unqualified one is recognised as the
+/// relationship id it names.
+const REL_ALIASES: &[&str] = &["id", "embed", "link", "pict", "dm", "lo", "qs", "cs", "relid"];
+
+/// Is the attribute `k` of the element named `element` a relationship id?
+///
+/// The relationship namespace (`r:`) and VML's `o:relid` always are. An unqualified attribute
+/// is one only on an element that carries a relationship ([`REL_ELEMENTS`]) and only with the
+/// local name of a relationship attribute ([`REL_ALIASES`]) — the alias [`El::attr`] accepts.
+/// Everywhere else an unqualified `id` is the element's own and names no part.
+pub fn is_rel_attr(element: &str, k: &str) -> bool {
+    k.starts_with("r:") || k == "o:relid" || (REL_ELEMENTS.contains(&element) && REL_ALIASES.contains(&k))
+}
+
 /// An element with canonical-prefixed name and attributes.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct El {
@@ -512,6 +558,26 @@ pub fn body_ns() -> Vec<(String, String)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_relationship_attribute_is_the_namespaced_one_or_the_alias_of_one() {
+        // The relationship namespace, and VML's `o:relid`.
+        assert!(is_rel_attr("w:hyperlink", "r:id"));
+        assert!(is_rel_attr("v:imagedata", "o:relid"));
+        // The unqualified alias `El::attr` accepts, on an element that carries a relationship.
+        assert!(is_rel_attr("w:hyperlink", "id"));
+        assert!(is_rel_attr("v:imagedata", "id"));
+        assert!(is_rel_attr("a:blip", "embed"));
+        assert!(is_rel_attr("dgm:relIds", "dm"));
+        // An ordinary `id` — the element's own, naming no part — is not a relationship.
+        assert!(!is_rel_attr("v:shape", "id"));
+        assert!(!is_rel_attr("pic:cNvPr", "id"));
+        assert!(!is_rel_attr("wp:docPr", "id"));
+        assert!(!is_rel_attr("v:background", "id"));
+        // An attribute that is not a relationship attribute at all.
+        assert!(!is_rel_attr("w:hyperlink", "anchor"));
+        assert!(!is_rel_attr("v:imagedata", "title"));
+    }
 
     #[test]
     fn utf16_parts_parse_and_odd_ones_never_panic() {

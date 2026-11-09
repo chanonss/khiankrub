@@ -15,6 +15,29 @@ const MAX_COORD: f32 = 32768.0;
 /// Room a window leaves on each side of its monitor for the taskbar, the Dock or a desktop panel,
 /// which the monitor size (all egui reports) includes.
 const SYSTEM_BAR: egui::Vec2 = egui::vec2(48.0, 48.0);
+/// How much of a window's top edge must be on one monitor for the pointer to drag it back.
+const GRIP: egui::Vec2 = egui::vec2(96.0, 16.0);
+
+/// What the host knows about the monitors beyond egui's [`egui::ViewportInfo`] (from WordCraft
+/// #4742). Both `None` where it can't list them (Wayland, the web, tests).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Monitors {
+    /// The host's [`reachable`] answer for the window.
+    pub on_a_monitor: Option<bool>,
+    /// The primary monitor's bounds in egui points.
+    pub primary: Option<egui::Rect>,
+}
+
+/// Whether a [`GRIP`] of `window`'s top edge lies on one of `monitors`, in one shared unit.
+/// Monitor sizes alone can't tell: a monitor that went away can leave one of the same size.
+pub fn reachable(window: egui::Rect, monitors: &[egui::Rect]) -> bool {
+    let top = egui::Rect::from_min_size(window.min, egui::vec2(window.width(), window.height().min(GRIP.y)));
+    let need = GRIP.min(top.size());
+    monitors.iter().any(|m| {
+        let on = top.intersect(*m);
+        on.is_positive() && on.width() >= need.x && on.height() >= need.y
+    })
+}
 
 /// The window as it was when the app last closed.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -89,22 +112,25 @@ impl WindowGeometry {
         }
     }
 
-    /// After a restore: where to move the window when the monitor it now reports differs from the
-    /// one it was saved on (an external monitor was unplugged, say), so a window restored to a
-    /// position no monitor covers any more doesn't open off screen. Centred on the primary
-    /// monitor, whose top-left corner is the origin. A maximized window fills whichever monitor
-    /// the system picks, so it stays put.
-    pub fn rescue_position(&self, info: &egui::ViewportInfo) -> Option<egui::Pos2> {
+    /// After a restore: where to move the window when it opened on no monitor (`monitors` says
+    /// so: a monitor of the same size replaced its own), or when the monitor it now reports
+    /// differs from the one it was saved on (an external monitor was unplugged, say), so it
+    /// doesn't open off screen. Centred on the primary monitor (its top-left corner is the origin
+    /// when the host can't say where it is). A maximized window fills whichever monitor the
+    /// system picks, so it stays put.
+    pub fn rescue_position(&self, info: &egui::ViewportInfo, monitors: Monitors) -> Option<egui::Pos2> {
         if self.maximized || self.position.is_none() {
             return None;
         }
-        let saved = egui::Vec2::from(self.monitor?);
         let now = info.monitor_size.filter(|s| s.is_finite() && s.x > 0.0 && s.y > 0.0)?;
-        if (now - saved).length() <= 1.0 {
+        let other_monitor = self.monitor.is_some_and(|saved| (now - egui::Vec2::from(saved)).length() > 1.0);
+        if !other_monitor && monitors.on_a_monitor != Some(false) {
             return None;
         }
-        let free = now - egui::vec2(self.width, self.height);
-        Some(egui::pos2((free.x / 2.0).max(0.0), (free.y / 2.0).max(0.0)))
+        let monitor =
+            monitors.primary.filter(|r| r.is_finite() && r.is_positive()).unwrap_or_else(|| egui::Rect::from_min_size(egui::Pos2::ZERO, now));
+        let free = monitor.size() - egui::vec2(self.width, self.height);
+        Some(monitor.min + (free / 2.0).max(egui::Vec2::ZERO))
     }
 
     /// Once the monitor size is known: a smaller size and a centred position for a window that
@@ -139,9 +165,9 @@ impl WindowGeometry {
 /// Checks the restored geometry in `pending` once, and only once the monitor size is known: while
 /// `info` doesn't report a usable one, `pending` is left in place for a later frame. Then it is taken
 /// and [`WindowGeometry::rescue_position`] decides where to move the window, if anywhere.
-pub fn take_rescue(pending: &mut Option<WindowGeometry>, info: &egui::ViewportInfo) -> Option<egui::Pos2> {
+pub fn take_rescue(pending: &mut Option<WindowGeometry>, info: &egui::ViewportInfo, monitors: Monitors) -> Option<egui::Pos2> {
     info.monitor_size.filter(|s| s.is_finite() && s.x > 0.0 && s.y > 0.0)?;
-    pending.take()?.rescue_position(info)
+    pending.take()?.rescue_position(info, monitors)
 }
 
 #[cfg(test)]
@@ -232,16 +258,16 @@ mod tests {
     fn a_window_whose_monitor_is_gone_is_moved_on_screen() {
         let on = egui::Rect::from_min_size(egui::pos2(2000.0, 50.0), egui::vec2(1200.0, 800.0));
         // Same monitor: stays where it was.
-        assert_eq!(saved().rescue_position(&info(on, egui::vec2(1920.0, 1080.0))), None);
+        assert_eq!(saved().rescue_position(&info(on, egui::vec2(1920.0, 1080.0)), Monitors::default()), None);
         // A different (smaller) monitor now: centred on it.
-        assert_eq!(saved().rescue_position(&info(on, egui::vec2(1600.0, 900.0))), Some(egui::pos2(200.0, 50.0)));
+        assert_eq!(saved().rescue_position(&info(on, egui::vec2(1600.0, 900.0)), Monitors::default()), Some(egui::pos2(200.0, 50.0)));
         // Larger than that monitor: its top-left corner.
-        assert_eq!(saved().rescue_position(&info(on, egui::vec2(1024.0, 768.0))), Some(egui::Pos2::ZERO));
+        assert_eq!(saved().rescue_position(&info(on, egui::vec2(1024.0, 768.0)), Monitors::default()), Some(egui::Pos2::ZERO));
         // Nothing to compare, or no saved position: no move.
-        assert_eq!(WindowGeometry { monitor: None, ..saved() }.rescue_position(&info(on, egui::vec2(1600.0, 900.0))), None);
-        assert_eq!(WindowGeometry { position: None, ..saved() }.rescue_position(&info(on, egui::vec2(1600.0, 900.0))), None);
-        assert_eq!(WindowGeometry { maximized: true, ..saved() }.rescue_position(&info(on, egui::vec2(1600.0, 900.0))), None);
-        assert_eq!(saved().rescue_position(&egui::ViewportInfo::default()), None);
+        assert_eq!(WindowGeometry { monitor: None, ..saved() }.rescue_position(&info(on, egui::vec2(1600.0, 900.0)), Monitors::default()), None);
+        assert_eq!(WindowGeometry { position: None, ..saved() }.rescue_position(&info(on, egui::vec2(1600.0, 900.0)), Monitors::default()), None);
+        assert_eq!(WindowGeometry { maximized: true, ..saved() }.rescue_position(&info(on, egui::vec2(1600.0, 900.0)), Monitors::default()), None);
+        assert_eq!(saved().rescue_position(&egui::ViewportInfo::default(), Monitors::default()), None);
     }
 
     #[test]
@@ -249,15 +275,15 @@ mod tests {
         let on = egui::Rect::from_min_size(egui::pos2(2000.0, 50.0), egui::vec2(1200.0, 800.0));
         // The first frame doesn't know the monitor yet: nothing happens and the geometry is kept.
         let mut pending = Some(saved());
-        assert_eq!(take_rescue(&mut pending, &egui::ViewportInfo::default()), None);
+        assert_eq!(take_rescue(&mut pending, &egui::ViewportInfo::default(), Monitors::default()), None);
         assert_eq!(pending, Some(saved()));
         // A later frame reports a different monitor: centred on it, and the check is done.
-        assert_eq!(take_rescue(&mut pending, &info(on, egui::vec2(1600.0, 900.0))), Some(egui::pos2(200.0, 50.0)));
+        assert_eq!(take_rescue(&mut pending, &info(on, egui::vec2(1600.0, 900.0)), Monitors::default()), Some(egui::pos2(200.0, 50.0)));
         assert_eq!(pending, None);
-        assert_eq!(take_rescue(&mut pending, &info(on, egui::vec2(1024.0, 768.0))), None);
+        assert_eq!(take_rescue(&mut pending, &info(on, egui::vec2(1024.0, 768.0)), Monitors::default()), None);
         // The same monitor: no move, and the check is done as well.
         let mut pending = Some(saved());
-        assert_eq!(take_rescue(&mut pending, &info(on, egui::vec2(1920.0, 1080.0))), None);
+        assert_eq!(take_rescue(&mut pending, &info(on, egui::vec2(1920.0, 1080.0)), Monitors::default()), None);
         assert_eq!(pending, None);
     }
 
@@ -326,5 +352,63 @@ mod tests {
         assert_eq!(system.fit_on_monitor(&i), None);
         // Wayland reports no rects.
         assert_eq!(system.fit_on_monitor(&egui::ViewportInfo { monitor_size: Some(laptop), ..Default::default() }), None);
+    }
+}
+
+#[cfg(test)]
+mod monitor_tests {
+    use super::*;
+
+    fn saved() -> WindowGeometry {
+        WindowGeometry { position: Some([2000.0, 50.0]), width: 1200.0, height: 800.0, maximized: false, monitor: Some([1920.0, 1080.0]) }
+    }
+
+    fn info(outer: egui::Rect, monitor: egui::Vec2) -> egui::ViewportInfo {
+        egui::ViewportInfo { outer_rect: Some(outer), inner_rect: Some(outer), monitor_size: Some(monitor), ..Default::default() }
+    }
+
+    /// From WordCraft #4742: a monitor of the same size replaced the window's own, so sizes alone
+    /// can't tell it is off screen; the host's monitor list can.
+    #[test]
+    fn a_window_on_no_monitor_is_moved_on_screen_when_a_same_size_monitor_replaced_its_own() {
+        let off = egui::Rect::from_min_size(egui::pos2(-1920.0, -1080.0), egui::vec2(1200.0, 800.0));
+        let lost = Monitors { on_a_monitor: Some(false), primary: None };
+        let same = info(off, egui::vec2(1920.0, 1080.0));
+        assert_eq!(saved().rescue_position(&same, lost), Some(egui::pos2(360.0, 140.0)));
+        assert_eq!(WindowGeometry { monitor: None, ..saved() }.rescue_position(&same, lost), Some(egui::pos2(360.0, 140.0)));
+        assert_eq!(WindowGeometry { maximized: true, ..saved() }.rescue_position(&same, lost), None);
+        assert_eq!(saved().rescue_position(&same, Monitors { on_a_monitor: Some(true), primary: None }), None);
+    }
+
+    #[test]
+    fn only_a_grippable_top_edge_on_a_monitor_is_reachable() {
+        let left = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0));
+        let right = egui::Rect::from_min_size(egui::pos2(1920.0, 0.0), egui::vec2(1920.0, 1080.0));
+        let monitors = [left, right];
+        let at = |x: f32, y: f32| egui::Rect::from_min_size(egui::pos2(x, y), egui::vec2(1440.0, 920.0));
+        assert!(reachable(at(100.0, 50.0), &monitors));
+        assert!(reachable(at(1000.0, 50.0), &monitors), "across both monitors");
+        assert!(reachable(at(3840.0 - 96.0, 50.0), &monitors), "just enough of the right edge");
+        assert!(!reachable(at(3840.0 - 95.0, 50.0), &monitors));
+        assert!(!reachable(at(-1920.0, -1080.0), &monitors), "the gone monitor above-left");
+        assert!(!reachable(at(100.0, -900.0), &monitors), "the top edge above every monitor");
+        assert!(!reachable(at(100.0, 50.0), &[]));
+        assert!(
+            reachable(egui::Rect::from_min_size(egui::pos2(10.0, 1072.0), egui::vec2(40.0, 8.0)), &monitors),
+            "smaller than the grip at the monitor edge"
+        );
+    }
+
+    #[test]
+    fn an_unreachable_window_is_centered_on_the_primary_monitor_when_monitor_sizes_differ() {
+        let primary = egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(1280.0, 1080.0));
+        let off = egui::Rect::from_min_size(egui::pos2(-3840.0, 0.0), egui::vec2(1200.0, 800.0));
+        let now = info(off, egui::vec2(3840.0, 2160.0));
+        assert_eq!(saved().rescue_position(&now, Monitors { on_a_monitor: Some(false), primary: Some(primary) }), Some(egui::pos2(40.0, 140.0)));
+        let primary_left = egui::Rect::from_min_size(egui::pos2(-1280.0, 120.0), egui::vec2(1280.0, 1024.0));
+        assert_eq!(
+            saved().rescue_position(&now, Monitors { on_a_monitor: Some(false), primary: Some(primary_left) }),
+            Some(egui::pos2(-1240.0, 232.0))
+        );
     }
 }

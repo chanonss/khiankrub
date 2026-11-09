@@ -63,8 +63,9 @@ impl FieldCtx {
         self.page_from.iter().rev().find(|(from, _)| *from <= off).map_or(self.page, |(_, page)| *page)
     }
     /// A key for caches: the parts of the context a page-dependent paragraph depends on.
-    pub fn page_key(&self) -> (u32, u32, u32, u32, u64) {
-        (self.page, self.pages, self.section_pages, self.section, self.bookmarks_key)
+    /// The section's page-number format is part of it: a PAGE field shows the number in it.
+    pub fn page_key(&self) -> (u32, u32, u32, u32, u64, NumFormat) {
+        (self.page, self.pages, self.section_pages, self.section, self.bookmarks_key, self.page_format)
     }
     /// A key for caches of paragraph `p` with STYLEREF fields (0 when they show their stored
     /// result): a hash of the results its STYLEREF fields have on this page, so an edit to body

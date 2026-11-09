@@ -15,11 +15,15 @@ use crate::Registry;
 
 /// The ribbon's tabs in their default order. `File` opens Backstage: it is always first and
 /// isn't part of the customizable list.
+#[cfg(not(target_arch = "wasm32"))]
 pub const TABS: [&str; 13] =
     ["File", "Home", "Insert", "Draw", "Design", "Layout", "References", "Mailings", "Review", "View", "Developer", "Zotero", "Help"];
+// Zotero requires its native desktop bridge.
+#[cfg(target_arch = "wasm32")]
+pub const TABS: [&str; 12] = ["File", "Home", "Insert", "Draw", "Design", "Layout", "References", "Mailings", "Review", "View", "Developer", "Help"];
 /// Tabs that come up with the selection; custom tabs can't take their names.
-pub const CONTEXTUAL_TABS: [&str; 7] =
-    ["Table Design", "Table Layout", "Picture Format", "Shape Format", "Equation", "Chart Design", "SmartArt Design"];
+pub const CONTEXTUAL_TABS: [&str; 8] =
+    ["Table Design", "Table Layout", "Picture Format", "Shape Format", "Equation", "Chart Design", "SmartArt Design", "Header & Footer"];
 /// The Quick Access Toolbar's commands until the user changes them.
 pub const DEFAULT_QAT: [&str; 3] = ["file.save", "edit.undo", "edit.redo"];
 
@@ -87,7 +91,11 @@ fn reserved(name: &str) -> bool {
 }
 
 fn default_tabs() -> Vec<TabEntry> {
-    TABS.iter().skip(1).map(|t| TabEntry { name: (*t).to_string(), custom: false, hidden: false, groups: Vec::new() }).collect()
+    TABS.iter().skip(1).map(|t| TabEntry { name: (*t).to_string(), custom: false, hidden: hidden_by_default(t), groups: Vec::new() }).collect()
+}
+
+fn hidden_by_default(name: &str) -> bool {
+    matches!(name, "Draw" | "Mailings" | "Developer" | "Zotero" | "Help")
 }
 
 /// `base`, or `base 2`, `base 3`… whichever `taken` doesn't have yet.
@@ -168,7 +176,7 @@ impl RibbonLayout {
                 continue;
             }
             let at = TABS.get(1..i).and_then(|before| before.iter().rev().find_map(|b| tabs.iter().position(|t| !t.custom && t.name == *b)));
-            let entry = TabEntry { name: (*name).to_string(), custom: false, hidden: false, groups: Vec::new() };
+            let entry = TabEntry { name: (*name).to_string(), custom: false, hidden: hidden_by_default(name), groups: Vec::new() };
             tabs.insert(at.map_or(0, |p| p + 1), entry);
         }
         self.tabs = if tabs == default_tabs() { Vec::new() } else { tabs };
@@ -437,6 +445,19 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    #[test]
+    fn optional_tabs_are_hidden_by_default_but_can_be_shown() {
+        let mut layout = RibbonLayout::default();
+        for name in ["Draw", "Mailings", "Developer", "Zotero", "Help"] {
+            if TABS.contains(&name) {
+                assert!(layout.tabs().iter().any(|tab| tab.name == name && tab.hidden));
+                layout.set_hidden(name, false).unwrap();
+                let restored: RibbonLayout = serde_json::from_str(&serde_json::to_string(&layout).unwrap()).unwrap();
+                assert!(restored.tabs().iter().any(|tab| tab.name == name && !tab.hidden));
+            }
+        }
+    }
 
     /// #379: custom tabs and groups, hidden and moved tabs, and the Quick Access Toolbar, changed
     /// through the command (as agents do) without opening the dialog.

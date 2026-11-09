@@ -526,24 +526,10 @@ pub fn specs() -> Vec<CommandSpec> {
             sel_result(s)
         })
         .params(r#"{"csv"?: string}"#),
-        CommandSpec::new("layout.linkToPrevious", "Link to Previous", "Header & Footer › Navigation", |s, v| {
-            let header = p::bool(v, "footer").map(|f| !f).unwrap_or(true);
-            let block = s.sel.focus.path.0.first().copied().unwrap_or(0) as usize;
-            let sect = s.doc.section_mut(block);
-            if header {
-                sect.headers = Default::default();
-            } else {
-                sect.footers = Default::default();
-            }
-            Ok(json!({"linked": true}))
-        })
-        .key(super::non_mac("Alt+Shift+R"))
-        .params(r#"{"footer"?: bool}"#),
-        CommandSpec::new("hf.next", "Next Section", "Header & Footer › Navigation", |s, _| hf_nav(s, 1)).pure(),
-        CommandSpec::new("hf.previous", "Previous Section", "Header & Footer › Navigation", |s, _| hf_nav(s, -1)).pure(),
         CommandSpec::new("hf.position", "Header/Footer Position", "Header & Footer › Position", |s, v| {
             let (h, f) = (p::f32(v, "header"), p::f32(v, "footer"));
-            let block = s.sel.focus.path.0.first().copied().unwrap_or(0) as usize;
+            // Editing a header: the section of the page it is on, else the caret's.
+            let block = super::hf::editing_section_end(s).unwrap_or_else(|| s.sel.focus.path.0.first().copied().unwrap_or(0) as usize);
             let sect = s.doc.section_mut(block);
             if let Some(h) = h {
                 sect.header = h.clamp(0.0, 300.0);
@@ -553,7 +539,7 @@ pub fn specs() -> Vec<CommandSpec> {
             }
             Ok(json!({"header": sect.header, "footer": sect.footer}))
         })
-        .params(r#"{"header"?: pt, "footer"?: pt}"#),
+        .params(r#"{"header"?: pt (Header from Top), "footer"?: pt (Footer from Bottom)} — of the section being edited (or the caret's)"#),
         CommandSpec::new("table.cellMargins", "Cell Margins", "Table Layout › Alignment", |s, v| {
             let Some((tp, _, _)) = s.sel.focus.path.cell() else { return Err(CmdError::Disabled("not in a table".into())) };
             let m = [
@@ -1571,26 +1557,6 @@ fn quick_parts(s: &mut Session, v: &Value) -> CmdResult {
         s.sel = Selection::caret(end);
     }
     Ok(json!({"parts": s.building_blocks.keys().collect::<Vec<_>>()}))
-}
-
-fn hf_nav(s: &mut Session, dir: i32) -> CmdResult {
-    let StoryRef::Part(cur) = s.sel.focus.story else { return Err(CmdError::Disabled("edit a header or footer first".into())) };
-    let mut ids: Vec<u32> = Vec::new();
-    for (_, sect) in s.doc.sections() {
-        for id in [sect.headers.default, sect.headers.first, sect.headers.even, sect.footers.default, sect.footers.first, sect.footers.even]
-            .into_iter()
-            .flatten()
-        {
-            if !ids.contains(&id) {
-                ids.push(id);
-            }
-        }
-    }
-    let i = ids.iter().position(|x| *x == cur).unwrap_or(0) as i32;
-    let n = ids.len().max(1) as i32;
-    let next = ids.get(((i + dir).rem_euclid(n)) as usize).copied().unwrap_or(cur);
-    s.sel = Selection::caret(s.doc.start_of(StoryRef::Part(next)));
-    sel_result(s)
 }
 
 fn select_similar(s: &mut Session, _: &Value) -> CmdResult {

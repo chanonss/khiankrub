@@ -1,0 +1,19 @@
+[package]
+name = "krub-drive"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Google Drive open and save for the KrubOffice web applications"
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+serde_json = { workspace = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "Location", "Navigator", "Request", "RequestInit", "RequestCredentials", "Response", "Headers", "Blob"] }

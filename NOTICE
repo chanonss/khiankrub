@@ -143,3 +143,23 @@ The backend patch prevents finalization during an unwind and rejects a writer af
 cleanup. WordCraft enables only writing; PDF import and its image decoders are not enabled.
 
 No Microsoft, Adobe, Avid or Autodesk icons, images, templates or artwork are included.
+
+KhianKrub web-only font distribution
+-----------------------------------
+The web site distributes Sarabun (The Sarabun Project Authors, SIL Open Font
+License 1.1) for its Thai interface. Original TH Sarabun New font files
+(Copyright 2010-2011 SIPA; Suppakit Chalermlarp) use GPL-2.0-or-later with
+the embedded document-font exception. Original TH SarabunPSK font files
+(Copyright 2006 DIP and SIPA; Suppakit Chalermlarp) retain their embedded
+Font Computer Program License Agreement, permitting unmodified redistribution.
+The web site also distributes eight font families of the Thai Linux Working
+Group (TLWG), version 0.7.4, exactly as TLWG publishes them: Garuda, Kinnari,
+Laksaman, Loma, Norasi, Sawasdee and Umpush (GPL-2.0-or-later with the
+document-font exception: a document that embeds the font is not covered by the
+GPL) and Waree (Bitstream Vera licence; TLWG's changes are in the public
+domain). The complete corresponding source release, fonts-tlwg-0.7.4.tar.xz
+(also at https://github.com/tlwg/fonts-tlwg/releases/tag/v0.7.4), is
+distributed beside the fonts.
+All font files are separate, unmodified build inputs. The web fonts/ directory
+contains their exact copyright/licence notices, full GPL text and checksums.
+These files are not embedded into the native desktop binaries by this change.

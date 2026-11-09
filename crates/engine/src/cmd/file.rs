@@ -190,7 +190,7 @@ fn new(s: &mut Session, v: &Value) -> CmdResult {
     sel_result(s)
 }
 
-/// A blank document on the Normal template: the region's paper (#838), written in the editing
+/// A blank document on the Normal template: written in the editing
 /// language (the templates' text is English), in the Thai fonts when [`Session::thai_defaults`].
 fn normal_document(s: &Session) -> Document {
     let mut d = s.blank_document();
@@ -198,7 +198,7 @@ fn normal_document(s: &Session) -> Document {
         d.styles.default_chr.lang = Some(lang.clone());
     }
     if s.thai_defaults {
-        d.apply_thai_defaults();
+        d.apply_khiankrub_blank_defaults();
     }
     d
 }

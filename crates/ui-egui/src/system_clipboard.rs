@@ -70,11 +70,11 @@ pub(crate) fn fill(app: &mut WordApp, id: &str, params: &mut Value) -> Option<Re
 /// Put a copy on the system clipboard: its HTML beside the text (the formatting, #1523, and
 /// equations as MathML, #816) when the host can set it, else the text through egui. egui sets its
 /// text at the end of the frame, which would replace the HTML, so only one of them runs.
-pub(crate) fn put(app: &WordApp, ctx: &egui::Context, text: &str, html: &str) {
+pub(crate) fn put(app: &WordApp, ctx: &egui::Context, text: &str, html: &str, rtf: &str) {
     if text.is_empty() {
         return;
     }
-    if !html.is_empty() && app.services.set_clipboard_html.as_ref().is_some_and(|f| f(html, text)) {
+    if !(html.is_empty() && rtf.is_empty()) && app.services.set_clipboard_rich.as_ref().is_some_and(|f| f(text, html, rtf)) {
         return;
     }
     ctx.copy_text(text.to_string());
@@ -83,7 +83,7 @@ pub(crate) fn put(app: &WordApp, ctx: &egui::Context, text: &str, html: &str) {
 /// Put what Copy or Cut returned on the system clipboard (see [`put`]).
 pub(crate) fn put_result(app: &WordApp, ctx: &egui::Context, r: &Value) {
     let s = |k: &str| r.get(k).and_then(Value::as_str).unwrap_or("");
-    put(app, ctx, s("text"), s("html"));
+    put(app, ctx, s("text"), s("html"), s("rtf"));
 }
 
 /// Format names worth showing: not the clipboard protocol's own bookkeeping targets.
@@ -216,6 +216,59 @@ mod tests {
         assert_eq!(a.session.doc.media.len(), 1);
     }
 
+    #[test]
+    fn asynchronous_menu_paste_uses_browser_clipboard() {
+        let services = Services {
+            read_clipboard_async: Some(Box::new(|| {
+                let (tx, rx) = std::sync::mpsc::channel();
+                tx.send(Ok(json!({"text": "สวัสดีครับ"}))).unwrap();
+                rx
+            })),
+            ..Default::default()
+        };
+        let mut a = app(services);
+        for id in ["edit.paste", "edit.pasteText", "edit.pasteMerge"] {
+            assert_eq!(a.run(id, json!({})).unwrap()["pending"], "clipboard");
+            a.logic(&egui::Context::default());
+        }
+        assert_eq!(first_para(&a), "สวัสดีครับสวัสดีครับสวัสดีครับ");
+    }
+
+    #[test]
+    fn asynchronous_menu_paste_keeps_html_formatting() {
+        let services = Services {
+            read_clipboard_async: Some(Box::new(|| {
+                let (tx, rx) = std::sync::mpsc::channel();
+                tx.send(Ok(json!({"text": "สวัสดีครับ", "html": "<p>สวัสดี<b>ครับ</b></p>"}))).unwrap();
+                rx
+            })),
+            ..Default::default()
+        };
+        let mut a = app(services);
+        a.run("edit.paste", json!({})).unwrap();
+        a.logic(&egui::Context::default());
+        assert_eq!(first_para(&a), "สวัสดีครับ");
+        assert!(bold_at(&a, "สวัสดี".len()));
+    }
+
+    #[test]
+    fn asynchronous_menu_paste_inserts_picture() {
+        let png = crate::paste_picture::png_from_rgba(4, 4, vec![200; 64]).unwrap();
+        let picture = wordcraft_engine::cmd::insert::base64_encode(&png);
+        let services = Services {
+            read_clipboard_async: Some(Box::new(move || {
+                let (tx, rx) = std::sync::mpsc::channel();
+                tx.send(Ok(json!({"picture": picture}))).unwrap();
+                rx
+            })),
+            ..Default::default()
+        };
+        let mut a = app(services);
+        a.run("edit.paste", json!({})).unwrap();
+        a.logic(&egui::Context::default());
+        assert_eq!(a.session.doc.media.len(), 1);
+    }
+
     /// A clipboard holding nothing WordCraft can paste says what it holds (#833); one that can't
     /// be read says why; a truly empty one says it is empty.
     #[test]
@@ -244,11 +297,11 @@ mod tests {
     #[test]
     fn copying_an_equation_puts_its_html_on_the_system_clipboard() {
         // #816: the host gets HTML with the equation as MathML beside the text.
-        let got = std::rc::Rc::new(std::cell::RefCell::new(Vec::<(String, String)>::new()));
+        let got = std::rc::Rc::new(std::cell::RefCell::new(Vec::<(String, String, String)>::new()));
         let sink = got.clone();
         let mut a = app(Services {
-            set_clipboard_html: Some(Box::new(move |h, t| {
-                sink.borrow_mut().push((h.to_string(), t.to_string()));
+            set_clipboard_rich: Some(Box::new(move |t, h, r| {
+                sink.borrow_mut().push((h.to_string(), t.to_string(), r.to_string()));
                 true
             })),
             ..Default::default()
@@ -270,5 +323,7 @@ mod tests {
         let got_now = got.borrow().clone();
         assert_eq!(got_now.len(), 2);
         assert!(got_now[1].0.contains("Speed") && !got_now[1].0.contains("<math") && got_now[1].1 == "Speed", "{got_now:?}");
+        // And RTF, for the programs that read that (from WordCraft #2630).
+        assert!(got_now[1].2.starts_with("{\\rtf1") && got_now[1].2.contains("Speed"), "{got_now:?}");
     }
 }

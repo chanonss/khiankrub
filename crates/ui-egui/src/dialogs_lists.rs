@@ -133,7 +133,7 @@ impl SavedList {
     /// How its first three levels number, as the menu shows it (`1. 1.1. 1.1.1.`).
     pub fn sample(&self) -> String {
         let levels = (0..LEVELS).map(|i| LevelForm::read(i, self.levels.get(i).unwrap_or(&Value::Null))).collect();
-        let f = ListForm { levels, level: 0, styles: Vec::new(), name: String::new(), save: false };
+        let f = ListForm { levels, level: 0, styles: Vec::new(), name: String::new(), save: false, target: None };
         (0..3).map(|k| f.sample(k)).filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" ")
     }
 
@@ -156,6 +156,8 @@ pub struct ListForm {
     pub name: String,
     /// Save in My Lists, for every document.
     pub save: bool,
+    #[serde(default)]
+    pub target: Option<u32>,
 }
 
 impl ListForm {
@@ -174,14 +176,18 @@ impl ListForm {
             .map(|st| (st.id.clone(), st.name.clone()))
             .collect();
         styles.sort_by(|a, b| a.1.cmp(&b.1));
-        ListForm { levels, level: 0, styles, name: String::new(), save: false }
+        ListForm { levels, level: 0, styles, name: String::new(), save: false, target: None }
     }
 
     /// `list.define` parameters for the whole list.
     pub fn params(&self) -> Value {
         let levels: Vec<Value> = self.levels.iter().enumerate().map(|(i, l)| l.params(i)).collect();
         let name = self.name.trim();
-        if name.is_empty() { json!({"levels": levels}) } else { json!({"levels": levels, "name": name}) }
+        let mut params = if name.is_empty() { json!({"levels": levels}) } else { json!({"levels": levels, "name": name}) };
+        if let Some(num) = self.target {
+            params["num"] = json!(num);
+        }
+        params
     }
 
     /// Save in My Lists (when asked, with a name): a list of the same name is replaced.

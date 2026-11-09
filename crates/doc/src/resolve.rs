@@ -71,7 +71,7 @@ impl ResolvedChar {
     fn from(c: &CharProps) -> ResolvedChar {
         ResolvedChar {
             font: c.font.clone().unwrap_or_else(|| crate::styles::BODY_FONT.to_string()),
-            size: c.size.unwrap_or(11.0).clamp(1.0, 1638.0),
+            size: c.size.unwrap_or(crate::props::DEFAULT_FONT_SIZE).clamp(1.0, 1638.0),
             bold: c.bold.unwrap_or(false),
             italic: c.italic.unwrap_or(false),
             underline: c.underline.unwrap_or_default(),
@@ -105,7 +105,7 @@ impl ResolvedChar {
             cs: c.cs.unwrap_or(false),
             font_cs: c.font_cs.clone().or_else(|| c.font.clone()).unwrap_or_else(|| crate::styles::BODY_FONT.to_string()),
             font_ea: c.font_ea.clone(),
-            size_cs: c.size_cs.or(c.size).unwrap_or(11.0).clamp(1.0, 1638.0),
+            size_cs: c.size_cs.or(c.size).unwrap_or(crate::props::DEFAULT_FONT_SIZE).clamp(1.0, 1638.0),
             bold_cs: c.bold_cs.or(c.bold).unwrap_or(false),
             italic_cs: c.italic_cs.or(c.italic).unwrap_or(false),
         }
@@ -141,6 +141,10 @@ impl ResolvedChar {
 }
 
 /// Concrete paragraph formatting.
+fn default_adjust_right_indent() -> bool {
+    true
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedPara {
@@ -161,6 +165,9 @@ pub struct ResolvedPara {
     pub contextual_spacing: bool,
     /// Left/right indents are inside/outside: they swap on even pages.
     pub mirror_indents: bool,
+    /// Automatically adjust the right indent for the document grid when enabled; keep the specified right indent when disabled.
+    #[serde(default = "default_adjust_right_indent")]
+    pub adjust_right_indent: bool,
     pub keep_next: bool,
     pub keep_lines: bool,
     pub page_break_before: bool,
@@ -239,6 +246,7 @@ impl ResolvedPara {
             },
             contextual_spacing: p.contextual_spacing.unwrap_or(false),
             mirror_indents: p.mirror_indents.unwrap_or(false),
+            adjust_right_indent: p.adjust_right_indent.unwrap_or(true),
             keep_next: p.keep_next.unwrap_or(false),
             keep_lines: p.keep_lines.unwrap_or(false),
             page_break_before: p.page_break_before.unwrap_or(false),

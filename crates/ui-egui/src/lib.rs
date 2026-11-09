@@ -98,11 +98,54 @@ use wordcraft_engine::Session;
 pub use control::ControlRequest;
 pub use file_dialogs::{FileDialogAnswer, FileDialogRequest, open_filters};
 
+/// Optional browser-hosted Google Drive actions (shared by the KrubOffice apps).
+pub use krub_drive::DriveServices;
+
+/// Browser-local recovery, supplied by the web host. No document bytes leave the device.
+pub struct BrowserRecoveryServices {
+    pub status: Box<dyn Fn() -> &'static str>,
+    pub has_drafts: Box<dyn Fn() -> bool>,
+    pub manage: Box<dyn Fn()>,
+    /// The drafts Home lists in place of Recent, newest first, with the time written for the
+    /// language given; `None` while the browser's storage is still being read.
+    pub drafts: Box<dyn Fn(&str) -> Option<Vec<BrowserDraft>>>,
+    /// Open, download or discard a draft (by id); the host finishes it later.
+    pub act: Box<dyn Fn(DraftAction, &str)>,
+    /// The browser may remove drafts by itself (it hasn't agreed to keep this site's storage).
+    pub fragile: Box<dyn Fn() -> bool>,
+    /// The open document is kept only as a draft in this browser (never saved as a file or to
+    /// Google Drive): `Some(true)` once its latest edit is in the draft, `Some(false)` while saving.
+    pub open_draft: Box<dyn Fn() -> Option<bool>>,
+}
+
+/// Fonts a document often asks for that a browser may not have loaded (Microsoft's, which can't be
+/// bundled): the web shows how to bring them in ([`WordApp::font_hint_bar`]).
+pub const HINTED_FONTS: &[&str] = &["Tahoma"];
+
+/// A recovery draft kept in the browser, as Home shows it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BrowserDraft {
+    pub id: String,
+    pub name: String,
+    pub saved: String,
+}
+
+/// What Home asks the web host to do with a browser draft.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DraftAction {
+    Open,
+    Download,
+    Discard,
+}
+
 /// Platform services injected by the host (file dialogs, file I/O).
 #[derive(Default)]
 pub struct Services {
-    /// Platform details included in the problem-report form.
-    pub browser_info: Option<String>,
+    /// Browser clipboard reads are asynchronous and may require permission.
+    pub read_clipboard_async: Option<Box<dyn Fn() -> std::sync::mpsc::Receiver<Result<Value, String>>>>,
+    pub browser_recovery: Option<BrowserRecoveryServices>,
+    /// Optional Google Drive support provided by a configured browser host.
+    pub google_drive: Option<DriveServices>,
     /// Desktop: discover configured printers on a worker.
     pub printers: Option<printing::Discover>,
     /// Desktop: submit the PDF with the chosen settings on a worker.
@@ -160,10 +203,11 @@ pub struct Services {
     /// Desktop: the HTML on the system clipboard — another program's formatted copy (a Word
     /// document, a web page) — if any. Paste keeps its formatting (#687); see [`system_clipboard`].
     pub clipboard_html: Option<Box<dyn Fn() -> Option<String>>>,
-    /// Desktop: put HTML on the system clipboard with its plain-text alternative (html, text), for
-    /// a copy holding an equation (as MathML, #816). `true` when both are there; otherwise the
-    /// copy's text goes through egui as usual.
-    pub set_clipboard_html: Option<Box<dyn Fn(&str, &str) -> bool>>,
+    /// Desktop: put a copy on the system clipboard as (text, html, rtf): its text, with its HTML
+    /// (equations as MathML, #816) and RTF beside it where the platform takes them, so other
+    /// programs keep the formatting (#1523; RTF from WordCraft #2630); an empty one isn't offered.
+    /// `true` when the text and HTML are there; otherwise the copy's text goes through egui.
+    pub set_clipboard_rich: Option<Box<dyn Fn(&str, &str, &str) -> bool>>,
     /// Desktop: the RTF on the system clipboard, where the platform offers it (#687).
     pub clipboard_rtf: Option<Box<dyn Fn() -> Option<String>>>,
     /// Desktop: the names of the formats on the system clipboard (MIME types, Windows format
@@ -177,6 +221,10 @@ pub struct Services {
     pub forget_font: Option<Box<dyn Fn(&str)>>,
     /// Web: request browser to query and load local installed fonts (`window.queryLocalFonts()`).
     pub load_system_fonts: Option<Box<dyn Fn()>>,
+    /// Web: request access to the local system interface fonts, only on a user click.
+    pub load_system_ui_fonts: Option<Box<dyn Fn()>>,
+    /// Web: the browser and system (its user agent), filled into the Report a problem form.
+    pub browser_info: Option<String>,
     /// Desktop: File › Options › General › Make WordCraft the default for Word documents (#295),
     /// only from that button (never a programmatic command). Windows opens the Settings app's
     /// Default apps page (apps can't set defaults themselves); Linux and BSD set it with
@@ -241,6 +289,8 @@ fn paste_target(canvas_focused: bool, backstage: bool, dialog: bool) -> bool {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct UiState {
+    /// Keep browser-local recovery drafts. Existing drafts are removed only by explicit discard.
+    pub local_recovery: bool,
     /// The ribbon tab showing. It is written to `ui.json` but not restored at startup: Word opens
     /// on Home every launch, and only going File and back to the editor keeps the tab ([`WordApp::apply_prefs`]).
     pub tab: String,
@@ -250,6 +300,10 @@ pub struct UiState {
     #[serde(skip)]
     pub print: print_page::PrintSettings,
     pub ribbon_collapsed: bool,
+    /// File › Options › General: show number badges before the ribbon tab names.
+    pub show_ribbon_tab_numbers: bool,
+    /// File › Options › General: show the labels beneath ribbon groups.
+    pub show_ribbon_group_names: bool,
     pub recent: Vec<String>,
     /// Symbols inserted from the Symbol dialog, most recent first (#321).
     pub recent_symbols: Vec<dialogs_insert::RecentSymbol>,
@@ -375,11 +429,14 @@ pub const MAX_DICTIONARY: usize = 10_000;
 impl Default for UiState {
     fn default() -> Self {
         UiState {
+            local_recovery: true,
             tab: DEFAULT_TAB.into(),
             backstage: false,
             backstage_page: "home".into(),
             print: print_page::PrintSettings::default(),
             ribbon_collapsed: false,
+            show_ribbon_tab_numbers: true,
+            show_ribbon_group_names: false,
             recent: Vec::new(),
             recent_symbols: Vec::new(),
             recent_colors: Vec::new(),
@@ -467,6 +524,7 @@ pub struct WordApp {
     pub session: Session,
     pub ui: UiState,
     pub services: Services,
+    pending_clipboard: Option<(String, u64, wordcraft_doc::Pos, wordcraft_doc::Pos, std::sync::mpsc::Receiver<Result<Value, String>>)>,
     pub printing: printing::State,
     print_feedback_seen: Option<printing::Feedback>,
     pub canvas: canvas::CanvasState,
@@ -553,10 +611,15 @@ pub struct WordApp {
     escape_free: bool,
     pub quit_requested: bool,
     pub autosave: bool,
+    /// The document's fonts that aren't installed, for the status bar and the font box, and the
+    /// layout they were read from (#4770).
+    pub missing_fonts: crate::chrome::MissingFontsMemo,
     pub word_count: (u64, usize),
     last_autosave: f64,
     /// The tab shown before the Equation tab came up (restored when editing ends).
     pub(crate) equation_prev_tab: Option<String>,
+    /// The tab before a header or footer was entered (the Header & Footer tab replaces it).
+    pub(crate) hf_prev_tab: Option<String>,
     /// SmartArt Text Pane: the item last focused (Promote, Demote and Add Shape act on it) and
     /// the item being typed in (its keystrokes join one undo step).
     pub smart_art_item: Option<usize>,
@@ -592,6 +655,12 @@ pub struct WordApp {
     /// The browser has no installed fonts to look in.
     #[cfg_attr(target_arch = "wasm32", allow(dead_code))]
     font_checked: bool,
+    /// Web: whether each document (by id) asks for a font a browser often lacks ([`HINTED_FONTS`]),
+    /// looked up once; and the documents whose hint was closed.
+    font_hint: Option<(u64, Option<&'static str>)>,
+    font_hint_closed: Vec<u64>,
+    /// The fonts hinted about: [`HINTED_FONTS`] (a test names one that is never installed).
+    hinted_fonts: &'static [&'static str],
     /// Started on the Start screen with nothing to open (#1129): the id of the placeholder
     /// blank document the session holds until the user creates or opens one. While it is still
     /// the session's document, no document is open: the window shows no page and only the File
@@ -628,6 +697,7 @@ impl WordApp {
             session,
             ui: UiState::default(),
             services,
+            pending_clipboard: None,
             printing: Default::default(),
             print_feedback_seen: None,
             canvas: canvas::CanvasState::default(),
@@ -672,9 +742,11 @@ impl WordApp {
             escape_free: false,
             quit_requested: false,
             autosave: true,
+            missing_fonts: Default::default(),
             word_count: (0, 0),
             last_autosave: 0.0,
             equation_prev_tab: None,
+            hf_prev_tab: None,
             smart_art_item: None,
             smart_art_typing: None,
             outline_prev_tab: None,
@@ -695,6 +767,9 @@ impl WordApp {
             info_editing: None,
             recovery_seen: false,
             font_checked: false,
+            font_hint: None,
+            font_hint_closed: Vec::new(),
+            hinted_fonts: HINTED_FONTS,
             no_document: None,
         }
     }
@@ -808,6 +883,14 @@ impl WordApp {
     /// Close, Envelopes, Labels and Finish & Merge on a document with unsaved changes first ask
     /// Save / Don't Save / Cancel, and the command runs once that is answered (`ui.saveChanges`).
     pub fn run(&mut self, id: &str, params: Value) -> Result<Value, String> {
+        if system_clipboard::is_paste(id)
+            && params.as_object().is_some_and(|p| p.is_empty())
+            && let Some(read) = self.services.read_clipboard_async.as_ref()
+        {
+            self.pending_clipboard =
+                Some((id.to_owned(), self.session.document_id(), self.session.sel.anchor.clone(), self.session.sel.focus.clone(), read()));
+            return Ok(json!({"pending": "clipboard"}));
+        }
         // A selected list number takes the font formatting itself ([`number_select`]).
         if let Some(r) = number_select::route(self, id, &params) {
             return r;
@@ -902,6 +985,14 @@ impl WordApp {
                 self.status(e.clone());
             }
             return r;
+        }
+        // Web: Save (menu, Ctrl+S, toolbar) of a document opened from Google Drive goes back there.
+        if id == "file.save"
+            && params.get("path").is_none()
+            && params.get("password").is_none_or(Value::is_null)
+            && let Some(name) = self.drive_file_name()
+        {
+            return self.save_to_drive(&name);
         }
         // Web: saving and exporting become downloads.
         if self.services.download.is_some() && matches!(id, "file.save" | "file.saveAs" | "file.exportPdf" | "file.exportPng") {
@@ -1037,6 +1128,10 @@ impl WordApp {
             return;
         }
         self.font_generation = generation;
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.styled = false;
+        }
         self.session.relayout();
         self.previews.fonts_changed(ctx, db.user_fonts().iter().flat_map(|f| f.families()));
         ctx.request_repaint();
@@ -1157,6 +1252,28 @@ impl WordApp {
             Some(ticket) => PromptSave::Later(ticket),
             None => PromptSave::Saved,
         })
+    }
+
+    /// The Google Drive file this document was opened from, when it can be saved back there.
+    pub(crate) fn drive_file_name(&self) -> Option<String> {
+        self.services.google_drive.as_ref().and_then(|drive| (drive.linked_name)(self.session.document_id()))
+    }
+
+    /// Replace the document's Google Drive file with it. The upload finishes later; the host marks
+    /// the document saved only then, and only if it hasn't changed meanwhile, so a Save Changes
+    /// prompt doesn't count this as saved and New/Open/Close wait.
+    pub(crate) fn save_to_drive(&mut self, name: &str) -> Result<Value, String> {
+        self.session.stamp_save();
+        let password = self.session.password.as_ref().map(wordcraft_engine::Password::as_str);
+        let opts = wordcraft_engine::cmd::file::export_options(&self.session, &json!({}));
+        let bytes = wordcraft_engine::io::save_bytes_with(name, &self.session.doc, password, &opts)?;
+        let (document, revision) = (self.session.document_id(), self.session.rev());
+        if let Some(drive) = &self.services.google_drive {
+            (drive.save_over)(document, revision, bytes);
+        }
+        self.ui.backstage = false;
+        self.canvas.want_focus = true;
+        Ok(json!({"googleDrive": name}))
     }
 
     /// Web: a save of this document is still in the browser's picker (#1315). The document
@@ -1417,6 +1534,25 @@ impl WordApp {
                 }
                 json!({"backstage": self.ui.backstage})
             }
+            "ui.printPreview" => {
+                let open = p.get("value").and_then(Value::as_bool).unwrap_or(true);
+                if open {
+                    self.ui.print.preview_return_to_print = p.get("returnToPrint").and_then(Value::as_bool).unwrap_or(false);
+                    if self.ui.backstage_page != "printPreview" {
+                        self.ui.print.preview_prev_page = self.ui.backstage_page.clone();
+                    }
+                    self.ui.backstage = true;
+                    self.ui.backstage_page = "printPreview".into();
+                } else if self.ui.print.preview_return_to_print {
+                    self.ui.backstage_page = "print".into();
+                } else {
+                    self.ui.backstage = false;
+                    // The File tab opens the page it last showed, so not the preview.
+                    let prev = std::mem::take(&mut self.ui.print.preview_prev_page);
+                    self.ui.backstage_page = if prev.is_empty() || prev == "printPreview" { "info".into() } else { prev };
+                }
+                json!({"printPreview": open})
+            }
             "ui.dialog" if s("name") == Some("colors") => {
                 // The font colour's More Colors… (#606); `tab`: standard or custom.
                 let target = colors::Target::cmd("format.color").remember(colors::Remember::FontColor);
@@ -1559,6 +1695,21 @@ impl WordApp {
                 }
                 self.read_system_animations();
                 json!({"animations": self.ui.animations.code(), "enabled": self.animations_on(), "system": self.system_animations})
+            }
+            "ui.localRecovery" => {
+                if let Some(value) = p.get("value") {
+                    let Some(enabled) = value.as_bool() else {
+                        return Some(Err("`value` must be true or false".into()));
+                    };
+                    self.ui.local_recovery = enabled;
+                }
+                json!({"enabled": self.ui.local_recovery})
+            }
+            "ui.recoveryDrafts" => {
+                if let Some(recovery) = &self.services.browser_recovery {
+                    (recovery.manage)();
+                }
+                json!({"available": self.services.browser_recovery.is_some()})
             }
             "ui.language" => {
                 // `auto` (follow the system) or a language code; anything else is an error.
@@ -1945,6 +2096,29 @@ impl WordApp {
 
     /// Per-frame logic before layout: control requests, screenshots, shortcuts, file drops.
     pub fn logic(&mut self, ctx: &egui::Context) {
+        if let Some((id, document, anchor, focus, result)) = self.pending_clipboard.take() {
+            match result.try_recv() {
+                Ok(Ok(payload)) if document == self.session.document_id() && anchor == self.session.sel.anchor && focus == self.session.sel.focus => {
+                    let (command, payload) =
+                        if id == "edit.paste" && payload.get("text").is_none() && payload.get("html").is_none() && payload.get("picture").is_some() {
+                            let mut payload = payload;
+                            payload["as"] = json!("picture");
+                            ("edit.pasteSpecial", payload)
+                        } else {
+                            (id.as_str(), payload)
+                        };
+                    if let Err(e) = self.run(command, payload) {
+                        self.status(e);
+                    }
+                }
+                Ok(Ok(_)) => self.status(tl!("Paste cancelled because the selection changed.")),
+                Ok(Err(e)) => self.status(tl!(&e)),
+                Err(std::sync::mpsc::TryRecvError::Empty) => self.pending_clipboard = Some((id, document, anchor, focus, result)),
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    self.status(tl!("Could not read the clipboard. Use the paste keyboard shortcut."))
+                }
+            }
+        }
         let lang = i18n::Lang::from_pref(&self.ui.language);
         i18n::set_current(lang);
         // New documents are written in the interface's language when WordCraft can proof it
@@ -2210,7 +2384,70 @@ impl WordApp {
         raw.events.extend(self.synthetic.drain(..n));
     }
 
+    /// Web: the font the open document asks for that isn't loaded, if it is one of [`HINTED_FONTS`].
+    /// Looked up once per document; whether the font is there is asked each time, so the hint goes
+    /// once it has been loaded.
+    fn missing_hinted_font(&mut self) -> Option<&'static str> {
+        if self.services.load_system_fonts.is_none() || !self.has_document() {
+            return None;
+        }
+        let doc = self.session.document_id();
+        if self.font_hint_closed.contains(&doc) {
+            return None;
+        }
+        if self.font_hint.is_none_or(|(d, _)| d != doc) {
+            // The document's font names, wherever they are set (runs, styles, the theme).
+            let text = serde_json::to_string(&self.session.doc).unwrap_or_default().to_lowercase();
+            let asked = self.hinted_fonts.iter().copied().find(|f| text.contains(&format!("\"{}\"", f.to_lowercase())));
+            self.font_hint = Some((doc, asked));
+        }
+        self.font_hint.and_then(|(_, f)| f).filter(|f| !wordcraft_fonts::FontDb::global().has_family(f))
+    }
+
+    /// Web: the document asks for Tahoma, which isn't loaded (the browser shows another font). Say
+    /// how to bring it in: the computer's installed fonts (Chrome, Edge) or a font file.
+    fn font_hint_bar(&mut self, ui: &mut egui::Ui) {
+        let Some(font) = self.missing_hinted_font() else { return };
+        let t = theme::Tokens::of(ui);
+        let installed = self.services.load_system_ui_fonts.is_some();
+        egui::Panel::top("font_hint_banner").frame(egui::Frame::NONE.fill(t.ribbon).inner_margin(6)).show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                let text = if installed {
+                    tl!("This document uses {font}, which isn't loaded, so another font is shown in its place.")
+                } else {
+                    tl!("This document uses {font}. This browser can't use the fonts on your computer, so another font is shown in its place. Add Font… loads a {font} file you have.")
+                };
+                ui.label(i18n::fmt(text, &[("font", font)]));
+                if installed {
+                    if ui.button(tl!("Load System Installed Fonts…")).clicked() {
+                        self.load_system_fonts();
+                    }
+                } else if ui.button(tl!("Add Font…")).clicked() {
+                    self.pick_font();
+                }
+                if ui.button(tl!("Not Now")).clicked() {
+                    self.font_hint_closed.push(self.session.document_id());
+                }
+            });
+        });
+    }
+
     /// Lay out the window.
+    fn browser_recovery_bar(&mut self, ui: &mut egui::Ui) {
+        if !self.services.browser_recovery.as_ref().is_some_and(|r| (r.has_drafts)()) {
+            return;
+        }
+        let t = theme::Tokens::of(ui);
+        egui::Panel::top("browser_recovery_banner").frame(egui::Frame::NONE.fill(t.ribbon).inner_margin(6)).show(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(tl!("Recovery drafts are available on this device."));
+                if ui.button(tl!("Manage recovery drafts")).clicked() {
+                    let _ = self.run("ui.recoveryDrafts", json!({}));
+                }
+            });
+        });
+    }
+
     pub fn ui(&mut self, ui: &mut egui::Ui) {
         let t0 = now_ms();
         let ctx = ui.ctx().clone();
@@ -2231,18 +2468,23 @@ impl WordApp {
         // Keytips are read before layout so the frame paints the new state; badges paint after
         // the ribbon so they sit on top of it.
         crate::keytips::logic(self, &ctx);
+        // Alt codes in a text box are read before the box is drawn, so it types the character.
+        crate::keys::field_alt_codes(self, &ctx);
         // Focus (View › Immersive, the status bar) keeps only the title bar and the page; Escape
         // brings the rest back, as in Word.
         if self.session.view.focus_mode && self.dialog.is_none() && ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
             let _ = self.run("view.focus", json!({"value": false}));
         }
-        if self.ui.backstage {
+        if self.ui.backstage && self.ui.backstage_page == "printPreview" {
+            print_page::show_full_preview(self, ui);
+        } else if self.ui.backstage {
             backstage::show(self, ui);
         } else if !self.has_document() {
             // No document open (#1129): the ribbon greyed out but for Help, and no page.
             chrome::title_bar(self, ui);
             ribbon::show(self, ui);
             updates::bar(self, ui);
+            self.browser_recovery_bar(ui);
             chrome::status_bar(self, ui);
             egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas)).show(ui, |_| {});
         } else {
@@ -2250,6 +2492,8 @@ impl WordApp {
             if !self.session.view.focus_mode {
                 ribbon::show(self, ui);
                 updates::bar(self, ui);
+                self.browser_recovery_bar(ui);
+                self.font_hint_bar(ui);
                 chrome::status_bar(self, ui);
                 panes::show(self, ui);
             }
@@ -2374,6 +2618,9 @@ impl WordApp {
             } else {
                 self.run("file.open", json!({"path": name, "data": wordcraft_engine::cmd::insert::base64_encode(&bytes)}))
             };
+            if let Err(e) = &r {
+                log::warn!("couldn't open {name}: {e}");
+            }
             if r.is_ok() {
                 self.ui.backstage = false;
             }
@@ -2629,6 +2876,8 @@ pub(crate) fn works_without_document(id: &str) -> bool {
             | "ui.interfaceSize"
             | "ui.animations"
             | "ui.language"
+            | "ui.localRecovery"
+            | "ui.recoveryDrafts"
             | "ui.saveChanges"
             | "ui.openFileDialog"
             | "ui.fileBrowser"
@@ -2813,6 +3062,152 @@ mod tests {
 
     fn app() -> WordApp {
         WordApp::new(Session::new(wordcraft_doc::Document::new()), Services::default())
+    }
+
+    #[test]
+    fn browser_recovery_preference_persists_without_editing_the_document() {
+        let mut a = app();
+        assert!(a.ui.local_recovery);
+        let opened = std::rc::Rc::new(std::cell::Cell::new(false));
+        let callback = opened.clone();
+        a.services.browser_recovery = Some(BrowserRecoveryServices {
+            status: Box::new(|| "Recovery ready on this device"),
+            has_drafts: Box::new(|| false),
+            fragile: Box::new(|| false),
+            open_draft: Box::new(|| None),
+            manage: Box::new(move || callback.set(true)),
+            drafts: Box::new(|_| Some(Vec::new())),
+            act: Box::new(|_, _| {}),
+        });
+        a.run("ui.localRecovery", json!({"value": false})).unwrap();
+        let prefs = serde_json::to_vec(&a.prefs()).unwrap();
+        let mut b = app();
+        b.apply_prefs(UiState::from_json(&prefs).unwrap());
+        assert!(!b.ui.local_recovery);
+        assert!(!a.session.dirty);
+        assert!(a.run("ui.localRecovery", json!({"value": "false"})).is_err());
+        a.run("ui.recoveryDrafts", json!({})).unwrap();
+        assert!(opened.get());
+    }
+
+    /// Web: a document in Tahoma, which isn't loaded, says how to bring it in, until it is loaded
+    /// or the hint is closed. Other documents, and the desktop (all installed fonts), say nothing.
+    #[test]
+    fn a_tahoma_document_on_the_web_says_how_to_load_the_font() {
+        use egui_kittest::kittest::Queryable;
+        // A face no computer has, standing in for Tahoma where the test machine has it.
+        const ABSENT: &str = "KhianKrub Absent Test Face";
+        let web = |font: &str, hinted: &'static [&'static str]| {
+            let mut a = app();
+            a.ui.language = "en".into();
+            a.hinted_fonts = hinted;
+            a.services.load_system_fonts = Some(Box::new(|| {}));
+            a.services.load_system_ui_fonts = Some(Box::new(|| {}));
+            a.run("text.insert", json!({"text": "Hello"})).unwrap();
+            a.run("select.all", json!({})).unwrap();
+            a.run("format.font", json!({"name": font})).unwrap();
+            a
+        };
+        let harness = |a: WordApp| {
+            let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+                |ui, app: &mut WordApp| {
+                    let ctx = ui.ctx().clone();
+                    app.logic(&ctx);
+                    app.ui(ui);
+                },
+                a,
+            );
+            h.run_steps(4);
+            h
+        };
+        let mut a = web(ABSENT, &[ABSENT]);
+        assert_eq!(a.missing_hinted_font(), Some(ABSENT));
+        let mut h = harness(a);
+        assert!(h.query_by_label_contains("isn't loaded, so another font is shown").is_some());
+        h.get_by_label("Not Now").click();
+        h.run_steps(3);
+        assert!(h.query_by_label("Load System Installed Fonts…").is_none(), "closed for this document");
+
+        // A browser that can't read installed fonts offers a font file instead.
+        let mut a = web(ABSENT, &[ABSENT]);
+        a.services.load_system_ui_fonts = None;
+        let h = harness(a);
+        assert!(h.query_by_label("Add Font…").is_some() && h.query_by_label("Load System Installed Fonts…").is_none());
+
+        // Tahoma itself: hinted only where it isn't loaded.
+        let installed = wordcraft_fonts::FontDb::global().has_family("Tahoma");
+        assert_eq!(web("Tahoma", HINTED_FONTS).missing_hinted_font(), (!installed).then_some("Tahoma"));
+        assert_eq!(web("Arial", HINTED_FONTS).missing_hinted_font(), None, "a document without Tahoma");
+        let mut desktop = web(ABSENT, &[ABSENT]);
+        desktop.services.load_system_fonts = None;
+        assert_eq!(desktop.missing_hinted_font(), None, "the desktop has the computer's fonts");
+    }
+
+    #[test]
+    fn browser_recovery_status_leaves_room_for_tablet_view_controls() {
+        use egui_kittest::kittest::Queryable;
+        let mut a = app();
+        a.ui.language = "en".into();
+        a.services.browser_recovery = Some(BrowserRecoveryServices {
+            status: Box::new(|| "Draft saved on this device"),
+            has_drafts: Box::new(|| false),
+            fragile: Box::new(|| false),
+            open_draft: Box::new(|| None),
+            manage: Box::new(|| {}),
+            drafts: Box::new(|_| Some(Vec::new())),
+            act: Box::new(|_, _| {}),
+        });
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(768.0, 1024.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(6);
+        let status = h.get_by_label("Draft saved on this device").rect();
+        let focus = h.get_all_by_label("Focus").map(|n| n.rect()).find(|r| r.min.y > 980.0).expect("status-bar view controls");
+        assert!(status.max.x <= focus.min.x, "recovery status must not overlap the view controls");
+        assert!(focus.max.x <= 768.0);
+    }
+
+    /// A new web document kept only as its browser draft says so in the title bar, instead of
+    /// "Edited", and says whether its latest edit is in the draft yet.
+    #[test]
+    fn title_bar_names_a_browser_draft() {
+        use egui_kittest::kittest::Queryable;
+        let saved = std::rc::Rc::new(std::cell::Cell::new(Some(false)));
+        let shown = saved.clone();
+        let mut a = app();
+        a.ui.language = "en".into();
+        a.session.file_name = Some("Trip plan".into());
+        a.session.touch();
+        a.services.browser_recovery = Some(BrowserRecoveryServices {
+            status: Box::new(|| "Draft saved on this device"),
+            has_drafts: Box::new(|| false),
+            fragile: Box::new(|| false),
+            open_draft: Box::new(move || shown.get()),
+            manage: Box::new(|| {}),
+            drafts: Box::new(|_| Some(Vec::new())),
+            act: Box::new(|_, _| {}),
+        });
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        assert!(h.query_by_label("Trip plan (draft) — Saving…").is_some());
+        saved.set(Some(true));
+        h.run_steps(2);
+        assert!(h.query_by_label("Trip plan (draft) — Saved on this device").is_some());
+        saved.set(None);
+        h.run_steps(2);
+        assert!(h.query_by_label("Trip plan — Edited").is_some(), "a document saved elsewhere is not a draft");
     }
 
     #[test]
@@ -3364,6 +3759,64 @@ mod tests {
         a.run("table.properties", json!({"cellMargins": {"top": 9999, "left": -5, "bottom": 1, "right": 2}})).unwrap();
         let t = a.session.doc.table(a.session.sel.focus.story, &tp).unwrap();
         assert_eq!(wordcraft_layout::default_cell_margins(&a.session.doc, t), [144.0, 0.0, 1.0, 2.0]);
+    }
+
+    #[test]
+    fn table_properties_backgrounds_apply_by_scope_and_undo_together() {
+        let mut a = app();
+        a.run("insert.table", json!({"rows": 2, "cols": 2})).unwrap();
+        a.run("text.insert", json!({"text": "ทดสอบตาราง"})).unwrap();
+        let basis = dialogs::TableForm::read(&a).unwrap();
+        let (table_path, _, _) = a.session.sel.focus.path.cell().unwrap();
+        let original_borders = a.session.doc.table(a.session.sel.focus.story, &table_path).unwrap().props.borders;
+        let mut form = basis.clone();
+        form.table_background = "FFFFCC".into();
+        form.row_background = "CCFFCC".into();
+        form.cell_background = "CCCCFF".into();
+        form.borders.top = Some(wordcraft_doc::props::Border::single(2.0));
+        let changes = form.changes(&basis);
+        a.run("table.properties", changes).unwrap();
+        let (tp, r, c) = a.session.sel.focus.path.cell().unwrap();
+        let table = a.session.doc.table(a.session.sel.focus.story, &tp).unwrap();
+        assert_eq!(table.props.shading, wordcraft_doc::Rgb::parse("FFFFCC"));
+        assert_eq!(table.props.borders.unwrap().top.unwrap().width, 2.0);
+        assert_eq!(table.rows[r].cells[c].props.shading, wordcraft_doc::Rgb::parse("CCCCFF"));
+        let other = if c == 0 { 1 } else { 0 };
+        assert_eq!(table.rows[r].cells[other].props.shading, wordcraft_doc::Rgb::parse("CCFFCC"));
+        a.run("edit.undo", json!({})).unwrap();
+        let table = a.session.doc.table(a.session.sel.focus.story, &tp).unwrap();
+        assert_eq!(table.props.shading, None);
+        assert_eq!(table.props.borders, original_borders);
+        assert_eq!(table.rows[r].cells[c].props.shading, None);
+        assert_eq!(table.rows[r].cells[other].props.shading, None);
+    }
+
+    #[test]
+    fn table_properties_reset_discards_pending_changes_on_all_pages() {
+        use egui_kittest::kittest::Queryable;
+        let mut a = app();
+        a.run("insert.table", json!({"rows": 2, "cols": 2})).unwrap();
+        a.run("table.properties", json!({})).unwrap();
+        if let Some(dialogs::Dialog::TableProperties { form, .. }) = &mut a.dialog {
+            form.page = 5;
+            form.cell_background = "CCCCFF".into();
+            form.borders.top = Some(wordcraft_doc::props::Border::single(2.0));
+        }
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1200.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        assert!(h.query_by_label("Table borders").is_some());
+        h.get_by_label("Reset").click();
+        h.run_steps(3);
+        let Some(dialogs::Dialog::TableProperties { form, basis }) = &h.state().dialog else { panic!("table dialog should remain open") };
+        assert_eq!(form.page, 5);
+        assert_eq!(form.changes(basis), json!({}));
     }
 
     /// Home › Font › Enclose Characters (#297): the button opens the dialog on the selected
@@ -4218,6 +4671,41 @@ mod tests {
         frame(&mut a, vec![btn(ribbon, false)]);
     }
 
+    /// #3331: Esc out of a header on a later page scrolled back to page 1.
+    #[test]
+    fn escape_from_the_header_stays_on_the_page() {
+        let ctx = egui::Context::default();
+        let mut a = app();
+        a.run("text.insert", json!({"text": "lorem ipsum dolor sit amet consectetur ".repeat(1200)})).unwrap();
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 600.0));
+        let mut t = 0.0;
+        let mut frame = |a: &mut WordApp, events: Vec<egui::Event>| {
+            t += 1.0 / 60.0;
+            let input = egui::RawInput { events, time: Some(t), screen_rect: Some(screen), ..Default::default() };
+            ctx.run_ui(input, |ui| {
+                a.logic(ui.ctx());
+                a.ui(ui);
+            })
+            .drop_without_applying_deltas();
+        };
+        for _ in 0..30 {
+            frame(&mut a, Vec::new());
+        }
+        let before = (a.session.sel.clone(), a.canvas.scroll_offset);
+        assert!(before.1.y > 1000.0, "the caret's last page is in view");
+        a.run("insert.editHeader", json!({})).unwrap();
+        for _ in 0..30 {
+            frame(&mut a, Vec::new());
+        }
+        let esc = egui::Event::Key { key: egui::Key::Escape, physical_key: None, pressed: true, repeat: false, modifiers: Default::default() };
+        frame(&mut a, vec![esc]);
+        for _ in 0..30 {
+            frame(&mut a, Vec::new());
+        }
+        assert_eq!(a.session.sel, before.0, "Esc left the header for where the caret was");
+        assert_eq!(a.canvas.scroll_offset, before.1, "the view stays on that page");
+    }
+
     /// The control channel's `ui.wheel` scrolls the canvas like a mouse wheel over it.
     #[test]
     fn control_wheel_scrolls_the_canvas() {
@@ -4744,6 +5232,49 @@ mod tests {
         assert!(h.query_by_label("Save").is_some(), "Save again is offered");
     }
 
+    /// With the Thai interface the Save Changes prompt is all Thai: its question, warning and
+    /// buttons (they were English among Thai Save and Cancel).
+    #[test]
+    fn the_save_changes_prompt_is_in_thai() {
+        use egui_kittest::kittest::Queryable;
+        let dir = scratch("thai-prompt");
+        let path = docx_on_disk(&dir, "Draft");
+        let mut a = app();
+        a.run("ui.language", json!({"value": "th"})).unwrap();
+        a.run("file.open", json!({"path": path.to_string_lossy()})).unwrap();
+        a.run("text.insert", json!({"text": "Revised "})).unwrap();
+        a.run("file.close", json!({})).unwrap();
+        assert_eq!(prompt(&a), Some("saveChanges"));
+        let mut fonts = false;
+        let mut h = egui_kittest::Harness::builder().build_ui_state(
+            move |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                i18n::set_current(i18n::Lang::from_pref(&app.ui.language));
+                if fonts {
+                    dialogs::show(app, &ctx);
+                } else {
+                    theme::install_fonts_for(&ctx, true);
+                    fonts = true;
+                }
+            },
+            a,
+        );
+        for _ in 0..3 {
+            h.step();
+        }
+        // The question and the warning are plain text, not labelled widgets: check what they say.
+        i18n::set_current(i18n::Lang::from_pref("th"));
+        let question = i18n::fmt(tl!("Do you want to save changes to {name}?"), &[("name", "Draft.docx")]);
+        assert_eq!(question, "ต้องการบันทึกการเปลี่ยนแปลงใน Draft.docx หรือไม่");
+        assert_eq!(tl!("Your changes will be lost if you don't save them."), "หากไม่บันทึก การเปลี่ยนแปลงจะหายไป");
+        for button in ["บันทึก", "ไม่บันทึก", "ยกเลิก"] {
+            assert!(h.query_by_label(button).is_some(), "{button}");
+        }
+        for english in ["Don't Save", "Save", "Cancel"] {
+            assert!(h.query_by_label(english).is_none(), "{english} is still English");
+        }
+    }
+
     /// Enter activates the focused prompt button; it means Save only when no button has focus.
     /// (Enter on a focused Cancel or Don't Save used to be overridden by a blanket Enter → Save.)
     #[test]
@@ -5256,10 +5787,11 @@ mod tests {
         type_after_click(&mut h, "empty ribbon space", " blank");
 
         // The status bar's view buttons.
-        h.get_by_role_and_label(Role::Button, "Web Layout").click();
+        // The View ribbon has a Web Layout button too; the status bar's is the lowest.
+        h.get_all_by_role_and_label(Role::Button, "Web Layout").max_by(|a, b| a.rect().min.y.total_cmp(&b.rect().min.y)).unwrap().click();
         type_after_click(&mut h, "Web Layout", " web");
         assert_eq!(h.state().session.view.mode, wordcraft_layout::ViewMode::Web);
-        h.get_by_role_and_label(Role::Button, "Print Layout").click();
+        h.get_all_by_role_and_label(Role::Button, "Print Layout").max_by(|a, b| a.rect().min.y.total_cmp(&b.rect().min.y)).unwrap().click();
         type_after_click(&mut h, "Print Layout", " print");
         assert_eq!(h.state().session.view.mode, wordcraft_layout::ViewMode::Print);
 
@@ -5270,7 +5802,10 @@ mod tests {
         h.step();
         h.step();
         assert!(egui::Popup::is_any_open(&h.ctx), "the language menu opened");
-        let elsewhere = egui::pos2(lang.max.x + 40.0, lang.center().y);
+        // Bare status bar: past the language item, and past the missing-fonts item after it when the
+        // document's fonts aren't installed (#4770), however many there are.
+        let right = h.query_by_label_contains(" not installed").map_or(lang.max.x, |n| n.rect().max.x);
+        let elsewhere = egui::pos2(right + 40.0, lang.center().y);
         for pressed in [true, false] {
             h.hover_at(elsewhere);
             h.event(egui::Event::PointerButton { pos: elsewhere, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() });
@@ -6747,6 +7282,33 @@ mod tests {
         assert_eq!(object_count(&mut a), 2);
     }
 
+    /// A file that arrives while the start screen shows (a draft reopened from the page's address)
+    /// opens, closes the start screen and leaves a document open.
+    #[test]
+    fn a_file_arriving_on_the_start_screen_opens_a_document() {
+        let mut a = app();
+        a.ui.language = "en".into();
+        a.services.browser_recovery = Some(BrowserRecoveryServices {
+            status: Box::new(|| "Recovery ready on this device"),
+            has_drafts: Box::new(|| false),
+            fragile: Box::new(|| false),
+            open_draft: Box::new(|| None),
+            manage: Box::new(|| {}),
+            drafts: Box::new(|_| Some(Vec::new())),
+            act: Box::new(|_, _| {}),
+        });
+        assert!(a.start_screen());
+        assert!(!a.has_document());
+        let doc = wordcraft_doc::Document::from_text("Reopened from a draft");
+        let bytes = wordcraft_engine::io::save_bytes("recovered.json", &doc).unwrap();
+        a.services.inbox = Some(Inbox::default());
+        a.services.inbox.as_ref().unwrap().lock().unwrap().push(("Recovered-test.json".into(), bytes));
+        a.drain_inbox();
+        assert!(a.has_document(), "the start screen gives way to the document");
+        assert!(!a.ui.backstage);
+        assert!(a.session.doc.plain_text(wordcraft_doc::StoryRef::Body).contains("Reopened from a draft"));
+    }
+
     fn paste_harness(a: WordApp) -> egui_kittest::Harness<'static, WordApp> {
         let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
             |ui, app: &mut WordApp| {
@@ -7328,7 +7890,8 @@ mod tests {
         }
         let shown = |h: &egui_kittest::Harness<WordApp>, label| h.query_by_label(label).is_some();
         assert!(shown(&h, "Ruler"), "the View tab is showing");
-        h.get_by_role_and_label(egui::accesskit::Role::Button, "Focus").click();
+        // The ribbon's Focus button (the status bar has one too; it is the lowest).
+        h.get_all_by_role_and_label(egui::accesskit::Role::Button, "Focus").min_by(|a, b| a.rect().min.y.total_cmp(&b.rect().min.y)).unwrap().click();
         h.step();
         h.step();
         assert!(h.state().session.view.focus_mode);

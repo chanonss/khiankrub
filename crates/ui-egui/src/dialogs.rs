@@ -547,6 +547,16 @@ pub enum Dialog {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TableForm {
+    /// Selected page in the properties dialog (not a document property).
+    pub page: u8,
+    pub background_scope: u8,
+    pub cell_background: String,
+    pub row_background: String,
+    pub table_background: String,
+    pub borders: wordcraft_doc::props::Borders,
+    pub border_style: String,
+    pub border_width: f32,
+    pub border_color: String,
     pub width_on: bool,
     pub width: f32,
     /// `left`, `center` or `right`.
@@ -560,6 +570,10 @@ pub struct TableForm {
     pub allow_break: bool,
     pub header_row: bool,
     pub column_width: f32,
+    /// Every grid column's width (display units), in order.
+    pub column_widths: Vec<f32>,
+    /// Every paragraph in the table keeps with the next one.
+    pub keep_with_next: bool,
     pub cell_width_on: bool,
     pub cell_width: f32,
     /// `top`, `center` or `bottom`.
@@ -581,7 +595,30 @@ impl TableForm {
         let tw = wordcraft_engine::cmd::page::sect(s).text_width();
         let width = t.props.width_pct.filter(|p| *p > 0.0).map(|p| tw * p.min(100.0) / 100.0).or(t.props.width.filter(|w| *w > 0.0));
         let fin = |v: f32| if v.is_finite() { v } else { 0.0 };
+        let row_background = t
+            .rows
+            .get(r)
+            .map(|row| {
+                let first = row.cells.first().and_then(|cell| cell.props.shading);
+                if row.cells.iter().all(|cell| cell.props.shading == first) { first.map(|c| c.hex()).unwrap_or_default() } else { "mixed".into() }
+            })
+            .unwrap_or_default();
+        let borders = t.props.borders.unwrap_or_default();
+        let line = [borders.top, borders.bottom, borders.left, borders.right, borders.between, borders.inside_v]
+            .into_iter()
+            .flatten()
+            .find(|border| border.is_visible())
+            .unwrap_or_else(|| wordcraft_doc::props::Border::single(0.5));
         Some(TableForm {
+            page: 0,
+            background_scope: 0,
+            cell_background: cell.shading.map(|c| c.hex()).unwrap_or_default(),
+            row_background,
+            table_background: t.props.shading.map(|c| c.hex()).unwrap_or_default(),
+            borders,
+            border_style: line.style.ooxml().into(),
+            border_width: fin(line.width).clamp(0.25, 6.0),
+            border_color: line.color.map(|c| c.hex()).unwrap_or_else(|| "auto".into()),
             width_on: width.is_some(),
             width: fin(width.unwrap_or(tw)) / k,
             align: match t.props.align {
@@ -598,6 +635,9 @@ impl TableForm {
             allow_break: !row.cant_split,
             header_row: row.header,
             column_width: fin(t.grid.get(t.grid_col(r, c)).copied().unwrap_or(72.0)) / k,
+            column_widths: t.grid.iter().map(|w| fin(*w) / k).collect(),
+            keep_with_next: t.rows.iter().flat_map(|r| &r.cells).flat_map(|c| &c.blocks).filter_map(|b| b.as_para()).count() > 0
+                && t.rows.iter().flat_map(|r| &r.cells).flat_map(|c| &c.blocks).filter_map(|b| b.as_para()).all(|p| p.props.keep_next == Some(true)),
             cell_width_on: cell.width.is_some(),
             cell_width: fin(cell.width.unwrap_or(72.0)) / k,
             valign: match cell.valign {
@@ -615,6 +655,22 @@ impl TableForm {
         let k = crate::options::unit().pt_per_unit();
         let moved = |a: f32, b: f32| (a - b).abs() > 1e-4;
         let mut v = serde_json::Map::new();
+        let mut background = serde_json::Map::new();
+        for (key, current, old) in [
+            ("cell", &self.cell_background, &basis.cell_background),
+            ("row", &self.row_background, &basis.row_background),
+            ("table", &self.table_background, &basis.table_background),
+        ] {
+            if current != old {
+                background.insert(key.into(), if current.is_empty() { Value::Null } else { json!(current) });
+            }
+        }
+        if !background.is_empty() {
+            v.insert("background".into(), Value::Object(background));
+        }
+        if self.borders != basis.borders {
+            v.insert("borders".into(), serde_json::to_value(self.borders).unwrap_or(Value::Null));
+        }
         if self.margins.iter().zip(&basis.margins).any(|(a, b)| moved(*a, *b)) {
             let [top, left, bottom, right] = self.margins.map(|m| m * k);
             v.insert("cellMargins".into(), json!({"top": top, "left": left, "bottom": bottom, "right": right}));
@@ -643,8 +699,13 @@ impl TableForm {
         if self.header_row != basis.header_row {
             v.insert("headerRow".into(), json!(self.header_row));
         }
-        if moved(self.column_width, basis.column_width) {
+        if self.column_widths.len() == basis.column_widths.len() && self.column_widths.iter().zip(&basis.column_widths).any(|(a, b)| moved(*a, *b)) {
+            v.insert("columnWidths".into(), json!(self.column_widths.iter().map(|w| w * k).collect::<Vec<_>>()));
+        } else if moved(self.column_width, basis.column_width) {
             v.insert("columnWidth".into(), json!(self.column_width * k));
+        }
+        if self.keep_with_next != basis.keep_with_next {
+            v.insert("keepWithNext".into(), json!(self.keep_with_next));
         }
         if self.cell_width_on != basis.cell_width_on || (self.cell_width_on && moved(self.cell_width, basis.cell_width)) {
             v.insert("cellWidth".into(), if self.cell_width_on { json!(self.cell_width * k) } else { Value::Null });
@@ -1113,6 +1174,11 @@ impl Dialog {
                 return Self::report(id, &app.session.run(id, &json!({})).unwrap_or_default());
             }
             "defineList" => Dialog::DefineList { form: Box::new(crate::dialogs_lists::ListForm::read(app)) },
+            "modifyList" => {
+                let mut form = crate::dialogs_lists::ListForm::read(app);
+                form.target = wordcraft_engine::cmd::lists::caret_list(&app.session);
+                Dialog::DefineList { form: Box::new(form) }
+            }
             "trackChangesOptions" => Dialog::TrackOptions { form: Box::new(crate::dialogs_lists::TrackForm::read(app)) },
             "customizeKeyboard" => Dialog::CustomizeKeyboard { form: Box::new(crate::dialogs_keyboard::KeyboardForm::read(app)) },
             "customizeRibbon" => {
@@ -1279,7 +1345,13 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
         Dialog::TableProperties { .. } => "Table Properties",
         Dialog::Password { .. } => "Password",
         Dialog::EncryptPassword { .. } => "Encrypt with Password",
-        Dialog::DefineList { .. } => "Define New Multilevel List",
+        Dialog::DefineList { form } => {
+            if form.target.is_some() {
+                "Modify Multilevel List"
+            } else {
+                "Define New Multilevel List"
+            }
+        }
         Dialog::TrackOptions { .. } => "Track Changes Options",
         Dialog::Review(d) => d.title(),
         Dialog::CustomizeKeyboard { .. } => "Customize Keyboard",
@@ -1445,29 +1517,6 @@ pub(crate) fn buttons(ui: &mut Ui, ok: &str) -> (bool, bool) {
     r
 }
 
-/// [`buttons`] with Apply between them: (OK, Apply, Cancel). Apply changes the document and
-/// keeps the dialog open.
-pub(crate) fn buttons_with_apply(ui: &mut Ui, ok: &str) -> (bool, bool, bool) {
-    let mut r = (false, false, false);
-    ui.add_space(8.0);
-    ui.horizontal(|ui| {
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            let keys = !crate::colors::is_open(ui.ctx());
-            if ui.button(tl!("Cancel")).clicked() || (keys && ui.input(|i| i.key_pressed(egui::Key::Escape))) {
-                r.2 = true;
-            }
-            if ui.button(tl!("Apply")).clicked() {
-                r.1 = true;
-            }
-            let okb = ui.add(crate::widgets::primary_button(ui, ok));
-            if okb.clicked() || (keys && ui.input(|i| i.key_pressed(egui::Key::Enter))) {
-                r.0 = true;
-            }
-        });
-    });
-    r
-}
-
 /// The character properties the Font dialog's fields stand for.
 fn font_props(d: &Dialog) -> serde_json::Map<String, Value> {
     let Dialog::Font { font, font_ea, size, bold, italic, underline, strike, sup, sub, small_caps, caps, hidden, color, spacing, .. } = d else {
@@ -1590,7 +1639,10 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 if *asian {
                     ui.label(tl!("Asian text font:"));
                     let fams = app.previews.east_asian_families();
-                    if let Some(f) = crate::widgets::font_combo(ui, "fontdlg_asian", 220.0, font_ea, &fams, Some(&*prev)) {
+                    let stored = app.previews.font_stored(font_ea);
+                    let latin = app.previews.font_stored(font);
+                    let warning = app.east_asian_font_box_warning(&stored, &latin);
+                    if let Some(f) = crate::widgets::font_combo_warned(ui, "fontdlg_asian", 220.0, font_ea, &fams, Some(&*prev), warning.as_deref()) {
                         if f == crate::widgets::ADD_FONT {
                             let _ = app.run("font.add", json!({}));
                         } else if f == crate::widgets::LOAD_SYSTEM_FONTS {
@@ -1603,7 +1655,9 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                 }
                 ui.label(if *asian { tl!("Latin text font:") } else { tl!("Font:") });
                 let fams = app.previews.families();
-                if let Some(f) = crate::widgets::font_combo(ui, "fontdlg_font", 220.0, font, &fams, Some(&*prev)) {
+                let stored = app.previews.font_stored(font);
+                let warning = app.font_dialog_warning(&stored);
+                if let Some(f) = crate::widgets::font_combo_warned(ui, "fontdlg_font", 220.0, font, &fams, Some(&*prev), warning.as_deref()) {
                     if f == crate::widgets::ADD_FONT {
                         let _ = app.run("font.add", json!({}));
                     } else if f == crate::widgets::LOAD_SYSTEM_FONTS {
@@ -1962,7 +2016,12 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             ok || cancel
         }
         Dialog::TableProperties { form, basis } => {
-            table_properties(ui, form);
+            table_properties(app, ui, form);
+            if ui.button(tl!("Reset")).clicked() {
+                let page = form.page;
+                **form = (**basis).clone();
+                form.page = page;
+            }
             let (ok, cancel) = buttons(ui, tl!("OK"));
             if ok {
                 let changes = form.changes(basis);
@@ -2402,14 +2461,19 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
         }
         Dialog::About { tab } => {
             ui.set_width(660.0);
-            ui.horizontal(|ui| {
-                for (i, l) in ["About", "Contributors", "Models"].into_iter().enumerate() {
-                    let i = i as u8;
-                    if ui.steady_label(*tab == i, tl!(l)).clicked() {
-                        *tab = i;
+            if cfg!(target_arch = "wasm32") {
+                *tab = 0;
+            }
+            if !cfg!(target_arch = "wasm32") {
+                ui.horizontal(|ui| {
+                    for (i, l) in ["About", "Contributors", "Models"].into_iter().enumerate() {
+                        let i = i as u8;
+                        if ui.steady_label(*tab == i, tl!(l)).clicked() {
+                            *tab = i;
+                        }
                     }
-                }
-            });
+                });
+            }
             ui.separator();
             match *tab {
                 1 => crate::credits::contributors_ui(ui),
@@ -2418,11 +2482,20 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                     ui.label(egui::RichText::new(tl!("KhianKrub")).font(semibold(22.0)));
                     let build = option_env!("WORDCRAFT_BUILD_SHA").map(|s| s.get(..8).unwrap_or(s)).unwrap_or(tl!("development build"));
                     ui.label(crate::i18n::fmt(tl!("Version {version} ({build})"), &[("version", env!("CARGO_PKG_VERSION")), ("build", build)]));
-                    ui.label(tl!(
-                        "A free, open-source word processor for Thai and English.\nBased on WordCraft by the ArtCraft team. Fork by Chanon Sarasuk."
-                    ));
+                    let description = if cfg!(target_arch = "wasm32") {
+                        tl!("A free word processor for Thai and English.\nBased on WordCraft by the ArtCraft team. Fork by Chanon Sarasuk.")
+                    } else {
+                        tl!(
+                            "A free, open-source word processor for Thai and English.\nBased on WordCraft by the ArtCraft team. Fork by Chanon Sarasuk."
+                        )
+                    };
+                    ui.label(description);
                     ui.add_space(6.0);
-                    ui.hyperlink_to(tl!("Source code: github.com/chanonss/khiankrub"), "https://github.com/chanonss/khiankrub");
+                    if cfg!(target_arch = "wasm32") {
+                        ui.hyperlink_to("github.com/chanonss/khiankrub-web", "https://github.com/chanonss/khiankrub-web");
+                    } else {
+                        ui.hyperlink_to(tl!("KrubOffice: github.com/chanonss/kruboffice-desktop"), "https://github.com/chanonss/kruboffice-desktop");
+                    }
                     ui.hyperlink_to(tl!("Original project: github.com/storytold/wordcraft"), "https://github.com/storytold/wordcraft");
                     ui.add_space(6.0);
                     ui.label(
@@ -3020,7 +3093,7 @@ fn recipient_filter(ui: &mut Ui, fields: &[String], filter: &mut RecipientFilter
 }
 
 /// The Table Properties dialog's fields: Table, Row, Column and Cell sections.
-fn table_properties(ui: &mut Ui, f: &mut TableForm) {
+fn table_properties(app: &WordApp, ui: &mut Ui, f: &mut TableForm) {
     let unit = crate::options::unit();
     fn len(v: &mut f32, lo: f32, unit: wordcraft_geom::Unit) -> crate::numfield::NumField<'_> {
         crate::numfield::NumField::new(v).speed(0.01).range(lo..=22.0).measure(unit).max_decimals(2)
@@ -3029,84 +3102,231 @@ fn table_properties(ui: &mut Ui, f: &mut TableForm) {
         ui.add_space(4.0);
         ui.label(egui::RichText::new(tl!(s)).font(semibold(12.5)));
     };
-    heading(ui, "Table");
-    egui::Grid::new("tp_table").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
-        ui.checkbox(&mut f.width_on, tl!("Preferred width:"));
-        ui.add_enabled(f.width_on, len(&mut f.width, 0.1, unit));
-        ui.end_row();
-        ui.label(tl!("Alignment:"));
-        ui.horizontal(|ui| {
-            for (v, l) in [("left", "Left"), ("center", "Center"), ("right", "Right")] {
-                ui.radio_value(&mut f.align, v.to_string(), tl!(l));
-            }
-        });
-        ui.end_row();
-        ui.label(tl!("Indent from left:"));
-        ui.add_enabled(
-            f.align == "left",
-            crate::numfield::NumField::new(&mut f.indent).speed(0.01).range(-11.0..=22.0).measure(unit).max_decimals(2),
-        );
-        ui.end_row();
-        ui.label(tl!("Table direction:"));
-        ui.horizontal(|ui| {
-            ui.radio_value(&mut f.rtl, false, tl!("Left-to-right"));
-            ui.radio_value(&mut f.rtl, true, tl!("Right-to-left"));
-        });
-        ui.end_row();
-    });
-    // The engine keeps the margins within 2 inches (144 pt).
-    let max_margin = 144.0 / unit.pt_per_unit();
-    fn margin(v: &mut f32, max: f32, unit: wordcraft_geom::Unit) -> crate::numfield::NumField<'_> {
-        crate::numfield::NumField::new(v).speed(0.01).range(0.0..=max).measure(unit).max_decimals(2)
-    }
-    heading(ui, "Default cell margins");
-    egui::Grid::new("tp_margins").num_columns(4).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
-        let [top, left, bottom, right] = &mut f.margins;
-        ui.label(tl!("Top:"));
-        ui.add(margin(top, max_margin, unit));
-        ui.label(tl!("Bottom:"));
-        ui.add(margin(bottom, max_margin, unit));
-        ui.end_row();
-        ui.label(tl!("Left:"));
-        ui.add(margin(left, max_margin, unit));
-        ui.label(tl!("Right:"));
-        ui.add(margin(right, max_margin, unit));
-        ui.end_row();
-    });
-    heading(ui, "Row");
-    egui::Grid::new("tp_row").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
-        ui.checkbox(&mut f.row_height_on, tl!("Specify height:"));
-        ui.horizontal(|ui| {
-            ui.add_enabled(f.row_height_on, len(&mut f.row_height, 0.02, unit));
-            ui.add_enabled_ui(f.row_height_on, |ui| {
-                egui::ComboBox::from_id_salt("tp_rule").selected_text(tl!(if f.row_exact { "Exactly" } else { "At least" })).show_ui(ui, |ui| {
-                    ui.steady_value(&mut f.row_exact, false, tl!("At least"));
-                    ui.steady_value(&mut f.row_exact, true, tl!("Exactly"));
+    ui.horizontal_top(|ui| {
+        ui.vertical(|ui| {
+            ui.set_width(125.0);
+            for (page, label, icon) in [
+                (0, "Table", "table"),
+                (1, "Text Flow", "pageBreak"),
+                (2, "Columns", "columns"),
+                (3, "Cell", "table"),
+                (5, "Borders", "borders"),
+                (4, "Background", "shading"),
+            ] {
+                ui.horizontal(|ui| {
+                    let (rect, _) = ui.allocate_exact_size(vec2(18.0, 18.0), egui::Sense::hover());
+                    let tokens = Tokens::get(ui.ctx());
+                    crate::icons::paint(ui.painter(), rect, icon, tokens.icon, tokens.accent);
+                    if ui.steady_label(f.page == page, tl!(label)).clicked() {
+                        f.page = page;
+                    }
                 });
-            });
-        });
-        ui.end_row();
-    });
-    ui.checkbox(&mut f.allow_break, tl!("Allow row to break across pages"));
-    ui.checkbox(&mut f.header_row, tl!("Repeat as header row on each page"));
-    heading(ui, "Column");
-    egui::Grid::new("tp_col").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
-        ui.label(tl!("Preferred width:"));
-        ui.add(len(&mut f.column_width, 0.1, unit));
-        ui.end_row();
-    });
-    heading(ui, "Cell");
-    egui::Grid::new("tp_cell").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
-        ui.checkbox(&mut f.cell_width_on, tl!("Preferred width:"));
-        ui.add_enabled(f.cell_width_on, len(&mut f.cell_width, 0.1, unit));
-        ui.end_row();
-        ui.label(tl!("Vertical alignment:"));
-        ui.horizontal(|ui| {
-            for (v, l) in [("top", "Top"), ("center", "Center"), ("bottom", "Bottom")] {
-                ui.radio_value(&mut f.valign, v.to_string(), tl!(l));
             }
         });
-        ui.end_row();
+        let (separator, _) = ui.allocate_exact_size(vec2(1.0, 260.0), egui::Sense::hover());
+        ui.painter().vline(separator.center().x, separator.top()..=separator.bottom(), ui.visuals().widgets.noninteractive.bg_stroke);
+        ui.vertical(|ui| {
+            ui.set_min_width(390.0);
+            ui.set_min_height(260.0);
+            if f.page == 0 {
+                heading(ui, "Table");
+                egui::Grid::new("tp_table").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
+                    ui.checkbox(&mut f.width_on, tl!("Preferred width:"));
+                    ui.add_enabled(f.width_on, len(&mut f.width, 0.1, unit));
+                    ui.end_row();
+                    ui.label(tl!("Alignment:"));
+                    ui.horizontal(|ui| {
+                        for (v, l) in [("left", "Left"), ("center", "Center"), ("right", "Right")] {
+                            ui.radio_value(&mut f.align, v.to_string(), tl!(l));
+                        }
+                    });
+                    ui.end_row();
+                    ui.label(tl!("Indent from left:"));
+                    ui.add_enabled(
+                        f.align == "left",
+                        crate::numfield::NumField::new(&mut f.indent).speed(0.01).range(-11.0..=22.0).measure(unit).max_decimals(2),
+                    );
+                    ui.end_row();
+                    ui.label(tl!("Table direction:"));
+                    ui.horizontal(|ui| {
+                        ui.radio_value(&mut f.rtl, false, tl!("Left-to-right"));
+                        ui.radio_value(&mut f.rtl, true, tl!("Right-to-left"));
+                    });
+                    ui.end_row();
+                });
+            }
+            if f.page == 3 {
+                // The engine keeps the margins within 2 inches (144 pt).
+                let max_margin = 144.0 / unit.pt_per_unit();
+                fn margin(v: &mut f32, max: f32, unit: wordcraft_geom::Unit) -> crate::numfield::NumField<'_> {
+                    crate::numfield::NumField::new(v).speed(0.01).range(0.0..=max).measure(unit).max_decimals(2)
+                }
+                heading(ui, "Default cell margins");
+                egui::Grid::new("tp_margins").num_columns(4).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
+                    let [top, left, bottom, right] = &mut f.margins;
+                    ui.label(tl!("Top:"));
+                    ui.add(margin(top, max_margin, unit));
+                    ui.label(tl!("Bottom:"));
+                    ui.add(margin(bottom, max_margin, unit));
+                    ui.end_row();
+                    ui.label(tl!("Left:"));
+                    ui.add(margin(left, max_margin, unit));
+                    ui.label(tl!("Right:"));
+                    ui.add(margin(right, max_margin, unit));
+                    ui.end_row();
+                });
+            }
+            if f.page == 4 {
+                heading(ui, "Background");
+                ui.horizontal(|ui| {
+                    ui.label(tl!("Apply to:"));
+                    egui::ComboBox::from_id_salt("tp_background_scope")
+                        .selected_text(tl!(match f.background_scope {
+                            1 => "Row",
+                            2 => "Table",
+                            _ => "Cell",
+                        }))
+                        .show_ui(ui, |ui| {
+                            for (scope, label) in [(0, "Cell"), (1, "Row"), (2, "Table")] {
+                                ui.steady_value(&mut f.background_scope, scope, tl!(label));
+                            }
+                        });
+                });
+                let color = match f.background_scope {
+                    1 => &mut f.row_background,
+                    2 => &mut f.table_background,
+                    _ => &mut f.cell_background,
+                };
+                ui.horizontal(|ui| {
+                    ui.label(tl!("Fill:"));
+                    if color == "mixed" {
+                        ui.label(tl!("Mixed"));
+                    }
+                    crate::dialogs::color_field(ui, &app.session.doc.settings.theme_colors, color, "No Color", "");
+                });
+            }
+            if f.page == 5 {
+                heading(ui, "Borders");
+                ui.label(tl!("Table borders"));
+                let line = wordcraft_doc::props::Border {
+                    style: wordcraft_doc::props::BorderStyle::from_ooxml(&f.border_style),
+                    width: f.border_width.clamp(0.25, 6.0),
+                    color: wordcraft_doc::Rgb::parse(&f.border_color),
+                    space: 0.0,
+                };
+                egui::Grid::new("tp_borders").num_columns(2).spacing(vec2(16.0, 6.0)).show(ui, |ui| {
+                    for (index, (label, side)) in [
+                        ("Top", &mut f.borders.top),
+                        ("Bottom", &mut f.borders.bottom),
+                        ("Left", &mut f.borders.left),
+                        ("Right", &mut f.borders.right),
+                        ("Inside Horizontal Border", &mut f.borders.between),
+                        ("Inside Vertical Border", &mut f.borders.inside_v),
+                    ]
+                    .into_iter()
+                    .enumerate()
+                    {
+                        let mut on = side.is_some_and(|border| border.is_visible());
+                        if ui.checkbox(&mut on, tl!(label)).changed() {
+                            *side = Some(if on { line } else { wordcraft_doc::props::Border::default() });
+                        }
+                        if index % 2 == 1 {
+                            ui.end_row();
+                        }
+                    }
+                });
+                let before = (f.border_style.clone(), f.border_width.to_bits(), f.border_color.clone());
+                egui::Grid::new("tp_border_line").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
+                    ui.label(tl!("Style:"));
+                    let styles = [("single", "Single"), ("double", "Double"), ("dotted", "Dotted"), ("dashed", "Dashed")];
+                    let label = styles.iter().find(|(value, _)| *value == f.border_style).map_or(f.border_style.as_str(), |(_, label)| *label);
+                    egui::ComboBox::from_id_salt("tp_border_style").selected_text(tl!(label)).show_ui(ui, |ui| {
+                        for (value, label) in styles {
+                            ui.steady_value(&mut f.border_style, value.to_string(), tl!(label));
+                        }
+                    });
+                    ui.end_row();
+                    ui.label(tl!("Width (pt):"));
+                    ui.add(crate::numfield::NumField::new(&mut f.border_width).range(0.25..=6.0).speed(0.25).max_decimals(2));
+                    ui.end_row();
+                    ui.label(tl!("Color:"));
+                    color_field(ui, &app.session.doc.settings.theme_colors, &mut f.border_color, "Automatic", "auto");
+                    ui.end_row();
+                });
+                if before != (f.border_style.clone(), f.border_width.to_bits(), f.border_color.clone()) {
+                    let style = wordcraft_doc::props::BorderStyle::from_ooxml(&f.border_style);
+                    let color = wordcraft_doc::Rgb::parse(&f.border_color);
+                    for side in [
+                        &mut f.borders.top,
+                        &mut f.borders.bottom,
+                        &mut f.borders.left,
+                        &mut f.borders.right,
+                        &mut f.borders.between,
+                        &mut f.borders.inside_v,
+                    ]
+                    .into_iter()
+                    .flatten()
+                    {
+                        if side.is_visible() {
+                            side.style = style;
+                            side.width = f.border_width.clamp(0.25, 6.0);
+                            side.color = color;
+                        }
+                    }
+                }
+            }
+            if f.page == 1 {
+                heading(ui, "Row");
+                egui::Grid::new("tp_row").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
+                    ui.checkbox(&mut f.row_height_on, tl!("Specify height:"));
+                    ui.horizontal(|ui| {
+                        ui.add_enabled(f.row_height_on, len(&mut f.row_height, 0.02, unit));
+                        ui.add_enabled_ui(f.row_height_on, |ui| {
+                            egui::ComboBox::from_id_salt("tp_rule").selected_text(tl!(if f.row_exact { "Exactly" } else { "At least" })).show_ui(
+                                ui,
+                                |ui| {
+                                    ui.steady_value(&mut f.row_exact, false, tl!("At least"));
+                                    ui.steady_value(&mut f.row_exact, true, tl!("Exactly"));
+                                },
+                            );
+                        });
+                    });
+                    ui.end_row();
+                });
+                ui.checkbox(&mut f.allow_break, tl!("Allow row to break across pages"));
+                ui.checkbox(&mut f.header_row, tl!("Repeat as header row on each page"));
+                heading(ui, "Table");
+                ui.checkbox(&mut f.keep_with_next, tl!("Keep with next paragraph"));
+            }
+            if f.page == 2 {
+                heading(ui, "Column");
+                // Every column of the table, so each width can be set here, not only the caret's.
+                egui::ScrollArea::vertical().max_height(220.0).id_salt("tp_col_scroll").show(ui, |ui| {
+                    egui::Grid::new("tp_col").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
+                        for (i, w) in f.column_widths.iter_mut().enumerate() {
+                            ui.label(format!("{} {}:", tl!("Column"), i + 1));
+                            ui.add(len(w, 0.1, unit));
+                            ui.end_row();
+                        }
+                    });
+                });
+            }
+            if f.page == 3 {
+                heading(ui, "Cell");
+                egui::Grid::new("tp_cell").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
+                    ui.checkbox(&mut f.cell_width_on, tl!("Preferred width:"));
+                    ui.add_enabled(f.cell_width_on, len(&mut f.cell_width, 0.1, unit));
+                    ui.end_row();
+                    ui.label(tl!("Vertical alignment:"));
+                    ui.horizontal(|ui| {
+                        for (v, l) in [("top", "Top"), ("center", "Center"), ("bottom", "Bottom")] {
+                            ui.radio_value(&mut f.valign, v.to_string(), tl!(l));
+                        }
+                    });
+                    ui.end_row();
+                });
+            }
+        });
     });
 }
 

@@ -1320,3 +1320,37 @@ fn tab_indents_a_reverse_selected_thai_paragraph_and_undo_restores_it() {
     assert_eq!(s.doc.plain_text(StoryRef::Body), text);
     assert_eq!(s.doc.para_at(&s.sel.focus).unwrap().props.indent_left, None);
 }
+
+#[test]
+fn delete_empty_paragraph_preserves_following_heading() {
+    let mut s = Session::new(wordcraft_doc::Document::from_text("\nHeading"));
+    s.doc.para_mut(StoryRef::Body, &wordcraft_doc::Path::top(1)).unwrap().props.style = Some("Heading1".into());
+    s.sel = crate::Selection::caret(Pos::body(0, 0));
+    run(&mut s, "text.delete", json!({}));
+    let heading = s.doc.para(StoryRef::Body, &wordcraft_doc::Path::top(0)).unwrap();
+    assert_eq!(heading.text, "Heading");
+    assert_eq!(heading.props.style.as_deref(), Some("Heading1"));
+}
+
+#[test]
+fn delete_empty_first_paragraph_before_table() {
+    let mut s = s();
+    run(&mut s, "insert.table", json!({"rows": 1, "cols": 1}));
+    s.doc.insert_block(StoryRef::Body, &wordcraft_doc::Path::top(0), wordcraft_doc::Block::Para(wordcraft_doc::Paragraph::new())).unwrap();
+    s.sel = crate::Selection::caret(Pos::body(0, 0));
+    run(&mut s, "text.delete", json!({}));
+    assert!(matches!(s.doc.body.first().map(|b| &**b), Some(wordcraft_doc::Block::Table(_))));
+}
+
+#[test]
+fn continue_numbering_rejoins_a_restarted_list() {
+    let mut s = Session::new(wordcraft_doc::Document::from_text("First\nSecond"));
+    s.sel = crate::Selection { anchor: Pos::body(0, 0), focus: Pos::body(1, 6) };
+    run(&mut s, "para.multilevel", json!({"kind": "legal"}));
+    let original = s.doc.para_at(&Pos::body(0, 0)).unwrap().props.numbering.unwrap().num;
+    s.sel = crate::Selection::caret(Pos::body(1, 0));
+    run(&mut s, "para.restartNumbering", json!({}));
+    assert_ne!(s.doc.para_at(&s.sel.focus).unwrap().props.numbering.unwrap().num, original);
+    run(&mut s, "para.continueNumbering", json!({}));
+    assert_eq!(s.doc.para_at(&s.sel.focus).unwrap().props.numbering.unwrap().num, original);
+}

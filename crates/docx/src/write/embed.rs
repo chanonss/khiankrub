@@ -541,17 +541,12 @@ fn set_attr(e: &mut El, k: &str, v: &str) {
     }
 }
 
-/// Is attribute `k` a relationship id (see `read::embed::rel_ids`)?
-fn is_rel_attr(k: &str) -> bool {
-    k.starts_with("r:") || k == "o:relid"
-}
-
 fn rel_attr_values(e: &El, out: &mut Vec<String>, depth: usize) {
     if depth > MAX_DEPTH {
         return;
     }
     for (k, v) in &e.attrs {
-        if is_rel_attr(k) && !out.contains(v) {
+        if xml::is_rel_attr(&e.name, k) && !out.contains(v) {
             out.push(v.clone());
         }
     }
@@ -564,8 +559,9 @@ fn set_rel_ids(e: &mut El, ids: &HashMap<String, String>, depth: usize) {
     if depth > MAX_DEPTH {
         return;
     }
+    let name = e.name.clone();
     for (k, v) in e.attrs.iter_mut() {
-        if is_rel_attr(k)
+        if xml::is_rel_attr(&name, k)
             && let Some(n) = ids.get(v.as_str())
         {
             *v = n.clone();

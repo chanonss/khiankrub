@@ -784,7 +784,8 @@ fn caption(s: &mut Session, v: &Value) -> CmdResult {
     }
     para.insert_object(para.len(), field(seq), &CharProps::default())?;
     if !text.is_empty() {
-        para.insert_text(para.len(), &format!(": {text}"), &CharProps::default())?;
+        let separator = if label.chars().any(|c| ('\u{0e00}'..='\u{0e7f}').contains(&c)) { " " } else { ": " };
+        para.insert_text(para.len(), &format!("{separator}{text}"), &CharProps::default())?;
     }
     // Next to the caret's top-level block: a paragraph, or the whole table it is in.
     let f = s.sel.focus.clone();

@@ -64,11 +64,13 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("insert.createFooter", "Footer", "Insert › Header & Footer", |s, v| create_hf(s, v, false))
             .params(r#"{"page"?: number (0-based; default: the caret's section)} — the footer that page shows, created if it has none, with the caret in it"#),
         CommandSpec::new("insert.closeHeader", "Close Header and Footer", "Header & Footer", |s, _| {
+            // Back where the caret was in the body, as Word does, not on page 1.
+            let back = s.hf_return.take().filter(|_| s.in_header_footer());
             if !new_empty_headers(s).is_empty() {
                 // Its own undo step; a protected document keeps it, and the caret still leaves.
                 let _ = s.run("insert.removeEmptyHeaders", &json!({}));
             }
-            s.sel = Selection::caret(s.doc.start_of(StoryRef::Body));
+            s.sel = back.unwrap_or_else(|| Selection::caret(s.doc.start_of(StoryRef::Body)));
             sel_result(s)
         })
         .pure(),
@@ -537,7 +539,7 @@ fn bookmark(s: &mut Session, v: &Value) -> CmdResult {
 }
 
 fn hf_part(s: &mut Session, header: bool) -> u32 {
-    let block = s.sel.focus.path.0.first().copied().unwrap_or(0) as usize;
+    let block = super::hf::editing_section_end(s).unwrap_or_else(|| s.sel.focus.path.0.first().copied().unwrap_or(0) as usize);
     let sect = s.doc.section_mut(block).clone();
     let existing = if header { sect.headers.default } else { sect.footers.default };
     if let Some(id) = existing.filter(|id| s.doc.parts.contains_key(id)) {
@@ -773,7 +775,7 @@ fn page_number_position(s: &mut Session, v: &Value) -> CmdResult {
     if !matches!(horizontal, "left" | "center" | "right") {
         return Err(CmdError::Params(format!("unknown horizontal `{horizontal}`: use left, center or right")));
     }
-    let block = s.sel.focus.path.0.first().copied().unwrap_or(0) as usize;
+    let block = super::hf::editing_section_end(s).unwrap_or_else(|| s.sel.focus.path.0.first().copied().unwrap_or(0) as usize);
     let sect = s.doc.section_mut(block).clone();
     let (pw, ph) = (sect.page_w.max(1.0), sect.page_h.max(1.0));
     let from_edge = p::f32(v, "fromEdge").unwrap_or(72.0).clamp(0.0, ph);
@@ -849,7 +851,7 @@ fn page_number_position(s: &mut Session, v: &Value) -> CmdResult {
 /// (`vertical`, `fromEdge`, `horizontal`, `fromSide`, `firstPage`), measured from the layout; `None`
 /// when it has none. The Page Number Position dialog opens with these.
 pub fn page_number_placement(s: &mut Session) -> Option<Value> {
-    let block = s.sel.focus.path.0.first().copied().unwrap_or(0) as usize;
+    let block = super::hf::editing_section_end(s).unwrap_or_else(|| s.sel.focus.path.0.first().copied().unwrap_or(0) as usize);
     let sect = s.doc.section_mut(block).clone();
     for (top, id) in [(true, sect.headers.default), (false, sect.footers.default)] {
         let Some(id) = id else { continue };
@@ -989,7 +991,8 @@ pub fn format_date(fmt: &str) -> String {
     let hh: u32 = iso.get(11..13).and_then(|x| x.parse().ok()).unwrap_or(0);
     let mm: u32 = iso.get(14..16).and_then(|x| x.parse().ok()).unwrap_or(0);
     let ss: u32 = iso.get(17..19).and_then(|x| x.parse().ok()).unwrap_or(0);
-    format_date_parts(fmt, y, m, d, (hh, mm, ss), (super::now_unix() / 86_400) as i64)
+    // The weekday follows the local day too (it followed UTC's, a day behind before 07:00 in Thailand).
+    format_date_parts(fmt, y, m, d, (hh, mm, ss), super::local_day_now())
 }
 
 /// Format a date and time with a Word picture; `days_since` (days since 1970-01-01) gives the weekday.
@@ -1122,6 +1125,28 @@ fn cover_page(s: &mut Session, v: &Value) -> CmdResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Closing the header or footer (Esc, the ribbon) puts the caret back where it was in the
+    /// body, not on page 1 (#3331).
+    #[test]
+    fn close_header_returns_to_the_body_selection() {
+        let mut s = Session::new(wordcraft_doc::Document::new());
+        s.run("text.insert", &json!({"text": "One"})).unwrap();
+        s.run("insert.pageBreak", &json!({})).unwrap();
+        s.run("text.insert", &json!({"text": "Two words here"})).unwrap();
+        s.run("select.text", &json!({"text": "words"})).unwrap();
+        let before = s.sel.clone();
+        // A header written to stays.
+        s.run("insert.editHeader", &json!({})).unwrap();
+        s.run("text.insert", &json!({"text": "Head"})).unwrap();
+        s.run("insert.closeHeader", &json!({})).unwrap();
+        assert_eq!(s.sel, before);
+        // An empty one made by a double-click on page 2 is taken away again.
+        s.run("insert.editFooter", &json!({"page": 1})).unwrap();
+        s.run("insert.closeHeader", &json!({})).unwrap();
+        assert_eq!(s.sel, before);
+        assert_eq!(s.doc.last_section.footers, Default::default());
+    }
 
     /// As Word's Page Break: the caret starts the next page in a new paragraph, so what is typed next
     /// goes there; text after the caret moves on with it. In a table cell the break goes in without a

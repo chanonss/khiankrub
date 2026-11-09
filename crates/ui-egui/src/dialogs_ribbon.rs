@@ -129,7 +129,7 @@ pub fn customize_ribbon(app: &mut WordApp, ui: &mut Ui, f: &mut RibbonForm) -> b
     ui.add_space(6.0);
     if f.confirm_reset {
         let ask = match f.page {
-            Page::Ribbon => tl!("Remove every custom tab and group and show all tabs again?"),
+            Page::Ribbon => tl!("Remove custom tabs and groups and restore the default ribbon?"),
             Page::QuickAccess => tl!("Put the default commands back on the Quick Access Toolbar?"),
         };
         ui.label(ask);

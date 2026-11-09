@@ -338,16 +338,22 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                     right_start = ui.min_rect().min.x;
                 });
             });
-            // Centred title.
+            // Centred title, with a cloud in front for a document that saves to Google Drive.
+            let drive = app.drive_file_name();
             let title = if !app.has_document() {
                 // No document open (#1129): the app's name alone.
                 "KhianKrub".to_string()
+            } else if let Some(saved) = app.services.browser_recovery.as_ref().and_then(|r| (r.open_draft)()) {
+                // A new document on the web lives as its draft in this browser until it is saved.
+                format!("{} ({}) — {}", app.title_stem(), tl!("draft"), if saved { tl!("Saved on this device") } else { tl!("Saving…") })
             } else {
                 format!(
                     "{} — {}",
                     app.title_stem(),
                     if app.session.dirty {
                         tl!("Edited")
+                    } else if drive.is_some() {
+                        tl!("Saved to Google Drive")
                     } else if app.session.path.is_some() {
                         tl!("Saved")
                     } else {
@@ -375,6 +381,10 @@ pub fn title_bar(app: &mut WordApp, ui: &mut Ui) {
                     let _ = app.run("file.rename", json!({}));
                 }
 
+                if drive.is_some() {
+                    let cloud = Rect::from_center_size(pos2(cx - w / 2.0 - 12.0, full.center().y), vec2(14.0, 14.0));
+                    icons::paint(ui.painter(), cloud, "cloud", t.text, t.accent);
+                }
                 paint_text(
                     ui.painter(),
                     pos2(cx - w / 2.0, full.center().y - TypeRung::Chrome.line_height() / 2.0),
@@ -459,8 +469,55 @@ pub fn status_bar(app: &mut WordApp, ui: &mut Ui) {
                 if app.session.doc.settings.track_changes {
                     st(ui, tl!("Track Changes: On"));
                 }
+                // Fonts the document uses that aren't installed: they're drawn in other fonts, so
+                // the text can wrap and paginate unlike where the document was made (#4770).
+                let missing = app.cached_missing_fonts(&l).0;
+                let count = missing.iter().filter(|f| !f.metric_compatible).count();
+                if count > 0 {
+                    let label = if count == 1 {
+                        tl!("1 font not installed").to_string()
+                    } else {
+                        crate::i18n::fmt(tl!("{n} fonts not installed"), &[("n", &count.to_string())])
+                    };
+                    let resp = {
+                        let font = TypeRung::Caption.regular();
+                        let track = TypeRung::Caption.tracking();
+                        let w = text_width(ui.painter(), &label, &font, track, t.text_dim);
+                        let (r, resp) = ui.allocate_exact_size(vec2(17.0 + w + 1.0, TypeRung::Caption.line_height()), Sense::click());
+                        crate::widgets::paint_font_warning(ui.painter(), Rect::from_min_size(pos2(r.min.x, r.center().y - 6.5), vec2(13.0, 13.0)));
+                        paint_text(ui.painter(), pos2(r.min.x + 17.0, r.min.y), Align2::LEFT_TOP, &label, &font, track, t.text_dim);
+                        resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &label));
+                        resp
+                    }
+                    .on_hover_text(tl!("Shown in substitute fonts. Click for details."));
+                    egui::Popup::menu(&resp).show(|ui| {
+                        ui.set_min_width(260.0);
+                        ui.label(egui::RichText::new(tl!("Not installed — shown as")).strong());
+                        // A hostile file can name thousands of fonts: list the first few.
+                        const SHOWN: usize = 20;
+                        for f in missing.iter().filter(|f| !f.metric_compatible).take(SHOWN) {
+                            ui.label(format!("{} → {}", f.font, f.shown_as.join(", ")));
+                        }
+                        if count > SHOWN {
+                            ui.label(crate::i18n::fmt(tl!("…and {n} more"), &[("n", &(count - SHOWN).to_string())]));
+                        }
+                        ui.separator();
+                        if ui.button(tl!("Add Font…")).clicked() {
+                            let _ = app.run("font.add", json!({}));
+                            ui.close();
+                        }
+                    });
+                }
                 if app.session.prefs.overtype && st(ui, tl!("Overtype")).on_hover_text(tl!("Click to switch back to inserting")).clicked() {
                     let _ = app.run("text.overtype", json!({"value": false}));
+                }
+                if let Some(recovery) = &app.services.browser_recovery {
+                    let text = crate::i18n::t((recovery.status)());
+                    let button = egui::Button::new(text).frame(false).truncate();
+                    let width = (ui.available_width() - 380.0).clamp(72.0, 200.0);
+                    if ui.add_sized(vec2(width, 20.0), button).on_hover_text(text).clicked() {
+                        let _ = app.run("ui.recoveryDrafts", json!({}));
+                    }
                 }
                 if let Some((msg, at)) = &app.status_msg
                     && crate::now_ms() - at < 6000.0
@@ -563,7 +620,66 @@ fn small_icon(ui: &mut Ui, icon: &str, tip: &str) -> bool {
     resp.on_hover_text(tip).clicked()
 }
 
+/// [`WordApp::cached_missing_fonts`]: the list, and the warnings by font key.
+pub type MissingFontsCache =
+    (std::sync::Arc<Vec<wordcraft_engine::cmd::font::MissingFont>>, std::sync::Arc<std::collections::HashMap<String, String>>);
+
+/// [`WordApp::missing_fonts`]: the layout the list was read from, and the list.
+pub type MissingFontsMemo = (std::sync::Weak<wordcraft_layout::DocLayout>, MissingFontsCache);
+
 impl WordApp {
+    /// [`wordcraft_engine::cmd::font::missing_fonts`] for `layout`, and the font box's warnings
+    /// by [`font_key`](wordcraft_engine::cmd::font::font_key) (the layout-changing ones, with the
+    /// faces drawn instead), read again only when the document is laid out again (adding or
+    /// removing a font lays it out again).
+    pub fn cached_missing_fonts(&mut self, layout: &std::sync::Arc<wordcraft_layout::DocLayout>) -> MissingFontsCache {
+        if !self.missing_fonts.0.upgrade().is_some_and(|seen| std::sync::Arc::ptr_eq(&seen, layout)) {
+            let found = wordcraft_engine::cmd::font::missing_fonts(&self.session.doc, layout);
+            let warnings = found
+                .iter()
+                .filter(|f| !f.metric_compatible)
+                .map(|f| (wordcraft_engine::cmd::font::font_key(&f.font), f.shown_as.join(", ")))
+                .collect();
+            self.missing_fonts = (std::sync::Arc::downgrade(layout), (std::sync::Arc::new(found), std::sync::Arc::new(warnings)));
+        }
+        self.missing_fonts.1.clone()
+    }
+
+    /// The font box's warning for `font` (a stored name): the faces its text is drawn in
+    /// instead, when the status bar lists it as missing and changing the layout. Read from the
+    /// same list as the status bar, so the two never disagree. At a collapsed caret, where the
+    /// box shows the font typing will use, the substitute layout will draw it in is named instead.
+    pub fn font_box_warning(&mut self, font: &str) -> Option<String> {
+        let ahead = self.session.sel.is_collapsed();
+        self.font_box_warning_or(font, ahead, |doc| wordcraft_engine::cmd::font::shown_as(doc, font))
+    }
+
+    /// The Font dialog's font box's warning for `font`, the font OK applies: from the status
+    /// bar's list, else the substitute layout will draw it in, whatever is selected.
+    pub fn font_dialog_warning(&mut self, font: &str) -> Option<String> {
+        self.font_box_warning_or(font, true, |doc| wordcraft_engine::cmd::font::shown_as(doc, font))
+    }
+
+    /// The Font dialog's Asian text font box's warning for `font_ea` (the Latin text font being
+    /// `font`): the face layout draws Chinese, Japanese and Korean text in when `font_ea` is
+    /// missing.
+    pub fn east_asian_font_box_warning(&mut self, font_ea: &str, font: &str) -> Option<String> {
+        let shown = wordcraft_engine::cmd::font::east_asian_shown_as(&self.session.doc, font_ea, font)?;
+        wordcraft_engine::cmd::font::warns(font_ea, &shown).then_some(shown)
+    }
+
+    /// The font box's warning for `font`: from the status bar's list, else, when the box shows
+    /// a font to come (`ahead`), the family `unshown` says its text will be drawn in.
+    fn font_box_warning_or(&mut self, font: &str, ahead: bool, unshown: impl FnOnce(&wordcraft_doc::Document) -> Option<String>) -> Option<String> {
+        let layout = self.session.layout();
+        let key = wordcraft_engine::cmd::font::font_key(font);
+        if let Some(w) = self.cached_missing_fonts(&layout).1.get(&key) {
+            return Some(w.clone());
+        }
+        let shown = ahead.then(|| unshown(&self.session.doc)).flatten()?;
+        wordcraft_engine::cmd::font::warns(font, &shown).then_some(shown)
+    }
+
     /// Word count, recomputed only when the document changes.
     pub fn cached_word_count(&mut self) -> usize {
         // The count option changes the count without a document change.
@@ -578,6 +694,69 @@ impl WordApp {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // From WordCraft #4770: the font box's missing-font warnings.
+    #[test]
+    fn the_font_box_warns_where_the_status_bar_does_and_before_typing() {
+        let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+        let missing = "Wordcraft Nowhere Face";
+        // An empty paragraph in a missing font: no letters show it yet, still worth a warning.
+        a.session.run("select.all", &json!({})).unwrap();
+        a.session.run("format.font", &json!({"name": missing})).unwrap();
+        assert!(a.font_box_warning(missing).is_some(), "an empty paragraph warns");
+        // Text in it: the status bar's list decides.
+        a.session.run("text.insert", &json!({"text": "Hello"})).unwrap();
+        let l = a.session.layout();
+        let (list, _) = a.cached_missing_fonts(&l);
+        assert!(list.iter().any(|f| f.font == missing), "{list:?}");
+        assert!(a.font_box_warning(missing).is_some());
+        // A missing font just picked at the end of text in an installed one warns before typing.
+        a.session.run("select.all", &json!({})).unwrap();
+        a.session.run("format.font", &json!({"name": "JetBrains Mono"})).unwrap();
+        a.session.run("caret.docEnd", &json!({})).unwrap();
+        a.session.run("format.font", &json!({"name": "Wordcraft Just Picked"})).unwrap();
+        assert!(a.font_box_warning("Wordcraft Just Picked").is_some(), "picked at the caret");
+        // Over a selection the box shows the selected text's font, which the list decides.
+        a.session.run("select.all", &json!({})).unwrap();
+        assert!(a.font_box_warning("Wordcraft Half Typed").is_none());
+    }
+
+    #[test]
+    fn the_east_asian_font_box_names_the_face_its_text_is_drawn_in() {
+        let mincho = "Wordcraft Mincho Gone";
+        let mut doc = wordcraft_doc::Document::new();
+        doc.settings.roman_fonts = vec![mincho.into()];
+        let mut a = WordApp::new(wordcraft_engine::Session::new(doc), crate::Services::default());
+        let want = wordcraft_engine::cmd::font::east_asian_shown_as(&a.session.doc, mincho, "JetBrains Mono");
+        assert!(want.is_some(), "not installed");
+        assert_eq!(a.east_asian_font_box_warning(mincho, "JetBrains Mono"), want, "an empty paragraph warns");
+    }
+
+    #[test]
+    fn the_font_dialog_warns_for_a_missing_font_over_a_selection() {
+        let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+        a.session.run("text.insert", &json!({"text": "Hello"})).unwrap();
+        a.session.run("select.all", &json!({})).unwrap();
+        a.session.run("format.font", &json!({"name": "JetBrains Mono"})).unwrap();
+        assert!(a.east_asian_font_box_warning("Wordcraft Mincho Gone", "JetBrains Mono").is_some(), "the Asian box");
+        assert!(a.font_dialog_warning("Wordcraft Dialog Gone").is_some(), "the Latin box");
+        assert!(a.font_dialog_warning("JetBrains Mono").is_none(), "an installed font");
+        // The ribbon's box over the selection shows the selected text's font: the list decides.
+        assert!(a.font_box_warning("Wordcraft Dialog Gone").is_none());
+    }
+
+    #[test]
+    fn the_asian_box_names_the_face_cjk_text_gets_even_for_a_font_latin_text_uses() {
+        let gone = "Wordcraft Both Ways Gone";
+        let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+        a.session.run("text.insert", &json!({"text": "Hello"})).unwrap();
+        a.session.run("select.all", &json!({})).unwrap();
+        a.session.run("format.font", &json!({"name": gone})).unwrap();
+        assert!(a.font_box_warning(gone).is_some(), "listed for its Latin text");
+        let want = wordcraft_engine::cmd::font::east_asian_shown_as(&a.session.doc, gone, "JetBrains Mono");
+        assert!(want.is_some());
+        assert_eq!(a.east_asian_font_box_warning(gone, "JetBrains Mono"), want);
+    }
 
     fn ctx() -> egui::Context {
         let ctx = egui::Context::default();

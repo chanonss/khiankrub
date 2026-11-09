@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use wordcraft_doc::edit::Fragment;
 use wordcraft_doc::props::CharProps;
-use wordcraft_doc::{Document, Path, Pos, StoryRef, Table};
+use wordcraft_doc::{Document, PartKind, Path, Pos, StoryRef, Table};
 use wordcraft_layout::{DocLayout, LayoutCache, LayoutOptions, NumeralMode, ViewMode};
 
 use crate::{CmdError, Registry};
@@ -123,6 +123,10 @@ pub struct ViewState {
     /// margins (on screen only; on by default in this fork).
     #[serde(default = "on")]
     pub text_boundaries: bool,
+    /// Header & Footer › Show Document Text: the body text shows (dimmed) while a header or
+    /// footer is edited; off hides it (on screen only).
+    #[serde(default = "on")]
+    pub hf_document_text: bool,
     pub nav_pane: bool,
     pub styles_pane: bool,
     /// Style Inspector pane (Home › Styles).
@@ -223,6 +227,7 @@ impl Default for ViewState {
             gridlines: false,
             table_gridlines: true,
             text_boundaries: true,
+            hf_document_text: true,
             nav_pane: false,
             styles_pane: false,
             style_inspector: false,
@@ -359,6 +364,9 @@ pub struct Session {
     /// HTML for the system clipboard beside [`Self::clipboard_text`]: the copy's formatting for
     /// programs that read HTML, equations as MathML (#816); empty when nothing was copied.
     pub clipboard_html: String,
+    /// RTF for the system clipboard beside [`Self::clipboard_html`], for programs that read RTF
+    /// rather than HTML; empty when nothing was copied.
+    pub clipboard_rtf: String,
     /// Items collected by Copy and Cut this session, for the Clipboard pane.
     pub clip_history: crate::cmd::edit::ClipHistory,
     pub find: FindState,
@@ -382,6 +390,8 @@ pub struct Session {
     /// (#960): `insert.closeHeader` takes those still empty away again, as Word does, and saving
     /// leaves them out. Kept after that, so one an undo brings back goes again on the next close.
     pub new_header_parts: Vec<u32>,
+    /// The body selection a command left for a header or footer: `insert.closeHeader` puts it back.
+    pub hf_return: Option<Selection>,
     /// Undo and redo steps. Shared so `run` can snapshot both stacks cheaply (a pointer per
     /// step) and put them back exactly when a command fails.
     history: Vec<Arc<Undo>>,
@@ -615,6 +625,7 @@ impl Session {
             pending_move: None,
             clipboard_text: String::new(),
             clipboard_html: String::new(),
+            clipboard_rtf: String::new(),
             clip_history: Default::default(),
             find: FindState::default(),
             goal_x: None,
@@ -626,6 +637,7 @@ impl Session {
             painter: None,
             status: String::new(),
             new_header_parts: Vec::new(),
+            hf_return: None,
             history: Vec::new(),
             undo_evicted: 0,
             redo: Vec::new(),
@@ -722,6 +734,12 @@ impl Session {
         let st = self.sel.focus.story;
         let (a, b) = self.sel.ordered();
         a == self.doc.start_of(st) && b == self.doc.end_of(st)
+    }
+
+    /// Whether the caret is in a header or footer.
+    pub fn in_header_footer(&self) -> bool {
+        let StoryRef::Part(id) = self.sel.focus.story else { return false };
+        self.doc.parts.get(&id).is_some_and(|p| matches!(p.kind, PartKind::Header | PartKind::Footer))
     }
 
     /// Document revision (bumped by every change).
@@ -865,7 +883,7 @@ impl Session {
         self.thai_defaults = on;
         let untouched = self.path.is_none() && !self.dirty && self.history.is_empty() && self.redo.is_empty();
         if on && untouched && self.doc.plain_text(StoryRef::Body).trim().is_empty() && self.doc.paragraph_count() <= 1 {
-            self.doc.apply_thai_defaults();
+            self.doc.apply_khiankrub_blank_defaults();
             self.rev = self.rev.wrapping_add(1);
             self.relayout();
         }
@@ -1039,6 +1057,7 @@ impl Session {
         self.widened = None;
         self.edit_marks.clear();
         self.new_header_parts.clear();
+        self.hf_return = None;
         self.go_back_step = 0;
         self.view.outline.collapsed.clear();
         self.reset_history();
@@ -1079,6 +1098,7 @@ impl Session {
             pending_move: _,
             clipboard_text: _,
             clipboard_html: _,
+            clipboard_rtf: _,
             clip_history: _,
             find: _,
             goal_x: _,
@@ -1091,6 +1111,7 @@ impl Session {
             status: _,
             // Headers just created to edit: closing checks they still exist and are empty.
             new_header_parts: _,
+            hf_return: _,
             history,
             undo_evicted,
             redo,
@@ -1314,6 +1335,9 @@ impl Session {
                     }
                 }
                 self.clamp_selection();
+                if sel_before.focus.story == StoryRef::Body && self.in_header_footer() {
+                    self.hf_return = Some(sel_before.clone());
+                }
                 // A selection command that moves the insertion point ends the typing group, like
                 // caret movement: typing, Select, typing are two undo steps (#419).
                 if !spec.mutates && self.sel != sel_before {

@@ -5,6 +5,58 @@ Thai-speaking audience. This file lists what differs from the original, newest f
 progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each entry matches a commit on the
 `my-changes` branch.
 
+## 2026-11-09 (0.15.0: the desktop app catches up with the web app)
+
+- Version 0.15.0. The desktop app now has what the web version of KhianKrub gained since 0.9.2 (the web-only code is not
+  part of this repository): redrawn icons, the missing-font warning, Thai-aware justified paragraphs, header and footer
+  per section, recovery drafts, and WordCraft 0.13.2 to 0.15 fixes.
+- Print Preview scrolls continuously (single and facing pages); the File tab no longer reopens Print Preview.
+- Table Properties: per-column widths, keep with next paragraph, border style/width/colour, shading.
+- Table Design: a table-style panel (More) with grouped styles and larger tiles that fill their frame.
+- View tab: two-line labels, three-row Show group; Styles pane header condensed; Thai Modify Style completed.
+- Ribbon defaults hide Draw, Mailings, Help, Developer and Zotero (Customize Ribbon turns them on).
+
+## 2026-11-07 (KrubOffice release documentation)
+
+- Date the KrubOffice release announcement for publication.
+
+## 2026-11-06 (WordCraft main 08afab50 → beca3f34, UP16 batch 1)
+
+- Seven upstream changes tried as cherry-picks; five applied cleanly (`.doc` import caps and field formatting, a press
+  inside a text box reaches its text, metafile bitmap guards), the rest ported by hand. Details and PR links:
+  [docs/upstream-v0.16.md](docs/upstream-v0.16.md), which also lists the next batches.
+- **Dates:** the weekday (`dddd`) and a date content control's "today" follow the local day; they followed UTC's, a
+  day behind before 07:00 in Thailand. (Local time itself was already ours.)
+- **Desktop window:** a window restored onto a monitor that is gone, even one replaced by a monitor of the same size,
+  opens centred on the primary monitor.
+- **DOCX:** a paragraph's `w:textAlignment` is kept on save.
+- **Fonts that aren't installed are flagged** (batch 2, #4770): a warning mark in the font boxes with a note naming the
+  font drawn instead, and "N fonts not installed" on the status bar with the list and Add Font…. TH SarabunPSK and TH
+  Sarabun New are metric twins (measured), so one drawn in the other isn't flagged.
+- **Clipboard (batch 3):** Copy and Cut put RTF beside the text and HTML on Windows and macOS; paste reads the Mac's
+  RTF too. **Alt codes** type their character in Find and other text boxes. The printer-list fix (#5710) waits for a
+  Windows machine.
+- **DOCX fidelity (batch 4):** kept on save: a text frame's anchor lock, adjust right indent, compound border lines,
+  section printer trays, chapter page numbers, `w:noEndnote` and footnote columns; nil shading paints no fill and border
+  theme colours win.
+- **Layout (batch 5):** justified, distributed and Thai Distributed lines keep the width of the spaces before their first
+  character (Thai official letters indent with spaces); text before a tab follows centring and right alignment; the
+  empty last line's caret follows the alignment; Times and Courier take their Windows counterparts' line spacing on a
+  Mac. Upstream's page-flow and float fixes need a layout catch-up round first.
+
+## 2026-11-05 (WordCraft main, upstream round before the Windows port, UP15)
+
+- Ported by hand from WordCraft main, chosen in [docs/upstream-review-2026-11-04.md](docs/upstream-review-2026-11-04.md);
+  details and PR links: [docs/upstream-v0.15.md](docs/upstream-v0.15.md). The UP14 fixes are now in the web app too.
+- **Tables:** whole tables, rows and cells can be copied and cut (Select Table → Cut removes the table; Cut of rows or
+  cells clears their text).
+- **Layout like Word:** list numbers when a deeper item comes first; tab leader dots; paragraph side borders outside
+  the text; continuous sections that ran off the page.
+- **Files:** the `.doc` reader brought up to WordCraft main (Word 365 files open in Aptos, sections and table cells
+  read correctly, safer on broken files); DOCX keeps the default font size; a DOCX with many relationships opens in a
+  moment instead of minutes; RTF keeps WMF and EMF pictures.
+- **Editing:** closing the header or footer returns to where you were in the body.
+
 ## 2026-11-02 (WordCraft v0.13.2 and v0.14.0 fixes, UP14)
 
 - Ported by hand from WordCraft (upstream moved to egui 0.37 and split many files, so nothing
@@ -23,19 +75,7 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
 - An undefined `Footer` style still gets Word's built-in Footer, which KhianKrub adds to files that
   lack it; the undefined-style tests use another name.
 
-## 2026-11-02 (desktop sync from the web app)
-
-### WordCraft v0.12 fixes (UP12)
-- Selected WordCraft v0.12 stability and editing fixes, first taken into the web app on 2026-10-29: Tab
-  indents a whole selected paragraph; bounded font, DOCX and layout memory; style sets keep imported styles
-  and Thai defaults; faster PDF and shaping; justified and Thai-distributed lines ending in Shift+Enter
-  stretch (unless `w:doNotExpandShiftReturn`); bookmarks and NBSP lay out as in Word; Crop on the picture
-  right-click menu; Standard-encrypted packages open; regex Replace expands capture groups. Details and
-  upstream PR numbers: [docs/upstream-v0.12.md](docs/upstream-v0.12.md).
-
-### Font menu sizes Thai fonts by x-height
-- Each font-menu entry is sized by its x-height, so small-looking Thai faces (TH Sarabun New and the other
-  SIPA fonts) read about as tall as Latin fonts.
+## 2026-11-02
 
 ### Up and down buttons for character spacing
 - A user asked for Word's up and down buttons on the character spacing box, instead of typing a + or −
@@ -43,9 +83,259 @@ progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each e
   field's step (0.1 pt here), within its range. The Font dialog's Spacing (pt) and Modify Style › Font's
   Character spacing (pt) use it. Thai labels เพิ่ม / ลด for screen readers. Test:
   `the_spinner_buttons_step_the_number`.
+- The same user reported that Thai Distribution does not work with Shift+Enter. Lines ending in a line
+  break are stretched in a new document, in layout tests and in the desktop app (headless screenshot), so
+  this was not reproduced; waiting for the user's document or a screenshot.
 
-### Clippy 1.95
-- Fixes for the lints Rust 1.95's Clippy adds (`collapsible_match`, `nonminimal_bool`) in untouched code.
+## 2026-10-28
+
+### New-Mac migration preparation and release notes
+- Added `NEW-MAC.md` with private-source restoration, external font/settings recovery, build tools,
+  safe remotes and the existing Cloudflare deployment details. Corrected stale launch status in the handoff.
+- Time Machine includes the project/settings but excludes `target/web-fonts`; prepare a private transfer
+  package outside `target/` containing all refs (including the unpublished older local commit), the font
+  bundle/licences, original inputs, build settings and local-only references. Verify its checksums and
+  a test Git restore, then complete/verify the external backup before erasing the old Mac.
+- Published web v0.9.1 release notes in Thai and English, then clarified that the application source is
+  private; the public repository and GitHub-generated archives contain compiled website files only.
+- No production code, hosting, OAuth credentials, database or live artifact is changed by this preparation.
+- All six required CI checks passed before the migration documentation commit.
+
+### Persistent Drive published on Cloudflare Free
+- Deployed the Rust Worker and encrypted D1 store on the verified Cloudflare Free account at
+  drive.khiankrub.app, configured the approved Google callback and server secrets, and retained
+  the selected-file scope. Chanon confirmed the fresh real Google callback says Connected.
+- Corrected a Cloudflare Fetch incompatibility using manual redirect handling with explicit 3xx
+  rejection; safe fixed callback error categories and an opt-in provider transport regression check
+  help diagnose failures without exposing codes, cookies or credentials.
+- The live negative-code transport check and protocol/security checks passed. Updated the privacy
+  policy for server persistence. Optimized editor build, strict Worker WASM clippy and all six final CI checks passed. Published source
+  eec9b4eb / site ee8d39c; GitHub Pages deployment succeeded. Live index, policy and WASM match
+  the prepared artifacts byte-for-byte. Chanon confirmed Connected automatically after reloading
+  the live editor, without another Google sign-in.
+
+### Free Cloudflare host for persistent Drive (activation pending)
+- Chanon selected Cloudflare Workers + D1 instead of paid Render. Added a Rust Worker and D1
+  migration with encrypted credentials, strict cookies/CORS and atomic renewal leases that protect
+  multiple tabs and prevent a disconnected session from being restored by an in-flight refresh.
+- The browser retries brief renewal contention. Prepared privacy text names Cloudflare; the paid
+  Render Blueprint moved to an inactive example. The public editor remains on GitHub Pages.
+- Five security/SQLite tests, release Worker build, deploy dry-run, 19 local HTTP checks and a live
+  local D1 lease-contention check passed. Runtime checks caught and fixed immutable redirect headers.
+  Final full six-step CI and explicit Worker/editor WebAssembly checks passed.
+- Deployment is pending personal Cloudflare sign-in and explicit Workers/D1 access approval, free-plan verification, D1, OAuth redirect,
+  secrets, domain and live Google tests. No paid resources or account changes made.
+
+### Persistent Google Drive connection (prepared, activation pending)
+- Added a Rust authorization broker with offline OAuth, encrypted credential storage, restricted session
+  endpoints and disconnect controls. Document transfers remain directly between browser and Google Drive.
+- Added gated browser integration for restoring connections between visits and renewing expired access.
+  The live app retains the existing flow until the new backend is configured and verified.
+- Originally prepared Render deployment configuration (superseded above); Google client setup,
+  DNS and end-to-end live verification remain prerequisites for activation.
+- Six backend crypto/HTTP tests, the explicit WASM app check, the full six-step CI suite and the official
+  Render schema validation passed. Local simulation covered renewal, open/save-back, reload restoration
+  and disconnect. No cloud resources were created. The subsequent Cloudflare choice supersedes Render workspace selection.
+
+### Complete SIPA national-font set on the web
+- Added the 13 original SIPA families (45 available faces), alongside TH Sarabun New and the Sarabun interface
+  fonts. Fonts are available without installing them on the user's device; document defaults stay the same.
+- Original font files and bilingual licences are distributed unchanged; pinned archive/face checksums and
+  source metadata make the external build inputs reproducible. Font binaries stay outside the source repo.
+- Startup fetches the 51 faces in parallel and registers them before layout. Bundle validation checks exact
+  original face selection and Thai/Latin coverage without installed system fonts.
+- All six CI checks and an explicit WebAssembly app check passed. Chrome loaded all 51 faces without errors
+  and rendered a DOCX using every SIPA family/style. Published source `23a4441b` / site `a31cd35`; live
+  Chrome loaded all 51 faces without errors and all 13 license files match the originals byte-for-byte.
+
+### Icons in document context menus
+- Table, empty-page and heading-number right-click menus show the app's existing original icons beside
+  actions and submenu headers, including table insertion/deletion and numbering controls.
+- Icons share a fixed column, use the current theme and dim with disabled actions; shortcuts remain visible.
+- All six CI checks passed; Chrome screenshots verified the three menus and table submenus. Published
+  source `adffb32b` / site `415c5cc`; live build identifier matches.
+- Chanon confirmed Google Drive works after the OAuth audience moved to production.
+
+## 2026-10-27
+
+### Google OAuth audience publication
+- Google Cloud project khiankrub now shows External / In production, with Back to testing available.
+- Support email csarasuk@gmail.com and developer contact khiankrub@gmail.com were confirmed.
+- Branding verification remains unfinished: automation filled the public links and app name but could not
+  confirm save persistence. No actual domain-verification error was observed. A non-test account has not
+  yet completed an end-to-end Drive connection test.
+
+### Public contact address
+- About and Privacy use khiankrub@gmail.com, as Chanon requested. Google user support remains
+  csarasuk@gmail.com; Google developer contact info should use khiankrub@gmail.com when configured.
+- Published as source `01b1ad55`; both public pages verified with the new email. Google settings await sign-in.
+
+### Public About and privacy-policy pages for Google Drive
+- Added bilingual About and Privacy pages for Google OAuth branding, using the existing KhianKrub colours,
+  icon and local fonts. The public contact is csarasuk@gmail.com, confirmed by Chanon.
+- The privacy page describes the implemented Drive permission, explicit save-back, token handling, recovery,
+  deletion/revocation, GitHub Pages, visit analytics and support messages. Build assembly copies the pages
+  and their stylesheet; the public README links them. Google publication/verification remains a separate step.
+
+### Web About and right-click menus
+- Web About links to `chanonss/khiankrub-web` and keeps WordCraft and licence credit, with the optional
+  Contributors and Models tabs hidden. Its description reflects that the web source is private.
+- Mac Control-click now opens context menus in the browser, including tables and the Styles pane; browser
+  input uses the visitor's operating system instead of WebAssembly's compilation target.
+- Right-clicking a heading/list number selects it and offers font, restart, list definition and indent controls.
+
+
+### Visit counts with Cloudflare Web Analytics
+- The web page loads Cloudflare's Web Analytics script, so Chanon can see how many people visit khiankrub.app.
+  It counts page views and visits only: no cookies, no visitor id, and nothing from documents. The privacy notice
+  draft and the site README say so.
+
+### README pictures
+- The public README opens with a fresh picture of the web app and shows the band colours with Thai motifs, the
+  dark theme, the Save page and the loading screen. The English-menu and recovery pictures were retaken.
+
+### The web app picks up new versions by itself
+- After a new version is published, browsers could keep showing the old one for up to ten minutes. Now the app
+  checks for a newer version when it opens, and every ten minutes while in use. With a blank, untouched document it
+  loads the new version straight away; with work open it says a new version is ready, so nothing is lost.
+- It never reloads more than once for the same version, so a stale cache can't cause a reload loop.
+
+### Save goes back to Google Drive for documents opened from there
+- File › Save, Ctrl+S and the toolbar's Save button now save a document opened from Google Drive back to that
+  Drive file (with the same check that refuses if someone changed it on Drive meanwhile). Other documents still
+  download. The menu labels are unchanged; Save As still offers "Download a copy…" and "Save a new copy".
+- The title bar shows a small cloud before the name and says "Saved to Google Drive" once the save is done.
+- If the Google sign-in expired (it lasts about an hour), Save signs in again and then saves; when the browser needs
+  one more click for the sign-in window, KhianKrub says "Press Save again".
+
+### Clearer Open and Save As pages
+- Open and Save As now show one card per place, each with an icon drawn in code and a short explanation:
+  "This device" (เครื่องนี้) and "Google Drive". On the web, Open's button reads "Browse files on this device…" and
+  Save As's reads "Download a copy…", so it is clear they mean the computer or iPad. The desktop keeps "Browse…".
+- The Drive card shows its status, the Connect button, "Choose from Google Drive…" (was "Open a copy…", since a
+  Drive file can now be saved back), and, when saving a Drive document, "Save to this file" beside "Save a new copy".
+  Save As puts the Drive card first for a document opened from Drive. New labels are translated into Thai.
+
+### Save back to the Google Drive file you opened
+- A document opened from Google Drive can now be saved over that same file: File › Save As › Google Drive shows
+  "Save to this file on Google Drive". Drive keeps the earlier contents as a version for a while.
+- If someone changed the file on Drive after it was opened, KhianKrub refuses to replace it and suggests saving a
+  new copy, so nobody's changes are silently lost. Saves are limited to 5 MiB, like new copies.
+- Saving a new copy works as before. File › Save still downloads the file; nothing is saved to Drive without a click.
+
+### Connect Google Drive with one click
+- Connect Google Drive used to need two clicks: the first only loaded Google's sign-in code, which is still not
+  loaded until the user asks, and the second opened the sign-in window. Now the sign-in window opens as soon as the
+  code arrives, when the browser still counts it as part of the Connect click. Where the browser can't tell, or the
+  code took too long, the page asks for a second click as before.
+
+### Browse Google Drive by folder when opening
+- The Google Drive file picker now opens at My Drive and shows folders, so people find a Word document where it
+  lives instead of in one flat list of every DOCX. Folders can be opened but not selected; only DOCX files can be
+  picked, shown as a list. Access is unchanged: the `drive.file` scope still covers only the file the user picks.
+
+### Layered logo animation during web startup
+- Applied the approved layered entrance: contrasting gold and blue tiles spread out and assemble in sequence
+  behind the original KhianKrub vector logo. The navy-and-gold screen keeps Thai startup messages.
+- Replaced the font-rendered logo with the existing attributed artwork. The logo animation replaces the visible
+  loading bar; startup activity remains accessible. Reduced-motion, phone blocking and startup failures show a
+  static logo, and the loading screen still disappears as soon as the editor is ready.
+- Retained the four interactive motion drafts for reference. Public launch announcements remain on hold.
+
+### Automatic recovery on the device
+- Browser-local drafts are enabled by default, saved after two seconds idle or ten seconds of continuous changes.
+  Native document snapshots keep text, formatting, tables and images. The latest and previous generations commit
+  atomically with metadata in IndexedDB; failed writes leave existing copies intact, with an explicit failure status.
+- A return-to-app banner and the recovery status open a manager with Restore, Download a copy, Restore previous copy,
+  and confirmed Discard. Restored documents are unsaved copies; current unsaved changes use the existing save prompt.
+  Downloads retain recovery. Each tab/document gets a distinct identity, and stale restores cannot replace new edits.
+- Options › General can disable new snapshots; existing drafts stay until discarded. Password-protected documents are
+  excluded from new plaintext snapshots. Drafts are bounded to 50 documents, 64 MiB per snapshot and 256 MiB total;
+  limits or unavailable storage show a warning rather than deleting other drafts.
+- All recovery controls and status messages have Thai translations. Public launch copy and the privacy draft explain
+  browser-local storage, user control and limits. No cloud autosave, network upload, or Drive permission changes.
+
+### Launch copy focuses on the web app
+- Removed desktop links and update-status statements from the Thai and English web launch README, as requested.
+- Discussion only: browser-local recovery can reduce work loss without uploading documents to KhianKrub servers;
+  selected-file Drive autosave is a separate potential feature. Neither is implemented in this change.
+
+### KhianKrub Web v0.9.1 launch preparation
+- Version 0.9.1 on the private web branch; the frozen public desktop release remains v0.9.0.
+- A Thai and English launch README introduces the actual web UI and features, with new web screenshots,
+  separate announcement texts, Chrome installation instructions and clear current limits.
+- The web build assembles the public README and copies only its three named screenshots. Publishing preserves
+  that README and checks its version/commit, instead of replacing it with the previous short built-site note.
+- Google Drive connection persistence and broader permissions remain deferred.
+### Installable web app; navy-and-gold loading screen
+- Chrome can install KhianKrub in its own window using the app manifest, Thai name and existing icon artwork
+  at 192 and 512 px. The installed app opens the website; it still needs an internet connection.
+- Loading now follows chosen draft A: navy background, gold ข and an animated gold bar, with Thai startup
+  messages and reduced-motion support. The phone warning and direct blank-document startup remain in place.
+
+### Web startup: computers and tablets, with a blank document
+- Phones see a Thai message asking them to use a computer or iPad. Startup stops before the Wasm download;
+  iPads (including iPadOS's desktop user agent and Split View) and narrow desktop windows remain supported.
+- After loading, the editor opens a fresh blank document with the Thai document defaults instead of File › Home.
+  The sample preview remains available through `?sample`.
+
+### Light loading screen with download progress
+- Chosen draft B: a light background, navy tile with a gold ข, the Thai app name and a navy download bar.
+  Trunk reports actual downloaded Wasm bytes; the amount is the decoded app size, not a fixed compressed estimate.
+  Thai messages follow the download, font loading and editor startup, with a reload instruction if startup fails.
+  The layout fits narrow screens and exposes download progress to assistive technology.
+
+### Web: Report a problem
+A gold-outlined **แจ้งปัญหา** (Report a problem) button beside Share opens a Google Form in a new tab, with the app
+version and the browser filled in; it works with no document open. The form, "แจ้งปัญหา เขียนครับ (KhianKrub)", is in
+Chanon's personal Google account, collects no email unless the user types one, and receives no document content.
+The launch announcement drafts now point to the button instead of GitHub Issues.
+
+### Web: the loading bar is back
+The loading screen shows draft A's moving gold bar again under "เขียนครับ", below the animated logo. A later change
+had kept the bar only for screen readers when the layered logo animation came in. It stands still for people who
+turn on reduced motion, and stays hidden on the phone warning and when loading fails.
+
+### Web: one Save page, no Close
+On the web, the File menu has a single **Save** (บันทึก) page offering both places, this device (download a copy)
+and Google Drive, instead of separate Save and Save As; and **Close** is gone, since a browser tab has no file window
+to close. Ctrl+S and the toolbar's save still save straight away (a Drive document back to Drive, others as a
+download). The desktop app keeps Save, Save As and Close.
+
+### Web version (local preview, not published)
+The browser version shares the desktop editor and is built and previewed locally (`packaging/web/build-local.sh`,
+then `packaging/web/preview.command`). Nothing is published.
+- **Name and fonts.** The page and its messages say KhianKrub. The Thai interface uses Google's Sarabun (SIL OFL); new
+  documents use TH Sarabun New 16, drawn with the real TH Sarabun New files (GPL-2.0-or-later with the document font
+  exception), and TH SarabunPSK is available too. The font files sit beside the app with their licence notices,
+  the full GPL text and checksums; they are prepared by `packaging/web/prepare-fonts.py` and never committed. The page
+  stops with a message if they can't load.
+- **System interface fonts (optional).** File › Options › General › Use system interface fonts asks the browser for
+  local fonts (Chrome and Edge) and uses SF/Segoe UI/Helvetica Neue and Thonburi/Leelawadee for the menus. Only that
+  button asks; without it, or where the browser can't, the bundled fonts stay.
+- **Settings** are kept in the browser (local storage) and come back on the next visit on that browser.
+- **Google Drive (optional, testing).** File › Open can open a Word document from Drive and File › Save As saves a new
+  copy to Drive (up to 5 MB; it never overwrites a Drive file). It asks only for the `drive.file` permission, keeps
+  the sign-in token in memory only, and does nothing until the user clicks. A sign-in that never answers can be
+  started again ("Try signing in again"). Google's sign-in is in testing mode, so only listed test users can connect.
+- **Not on the web:** Zotero (its tab is hidden), Read Aloud, scripts and AI agents.
+- **Publishing.** The site is served by GitHub Pages at `khiankrub.app` from the public repository
+  `chanonss/khiankrub-web`, which holds only the built site; `packaging/web/publish.sh` builds, checks and commits
+  it there, and only `--push` publishes. It refuses source files, files over GitHub's 100 MB and builds that still
+  name this computer's folders. (Cloudflare Pages was tried and dropped: its 25 MiB file limit is too tight.)
+- **Smaller app, no folder names.** The web build has its own size-focused setup (`[profile.web]`: smallest code,
+  full link-time optimisation), taking the app from 42 MB to 25.2 MB (about 10.6 MB compressed for
+  visitors), and it names source locations neutrally instead of this computer's folders.
+- **Thai by default.** A first visit to the web app opens with the Thai menus, whatever the browser's language;
+  English is one choice away in File › Options › Language and is remembered.
+- **Source code private.** From 2026-10-27 the web app's source is kept in the private repository
+  `chanonss/khiankrub-web-source`; the desktop app stays open source and is no longer updated.
+
+### The empty window's File tab works again
+Back from the Start screen (File › Home when KhianKrub opens) leaves an empty window, as in Word, where the File tab
+opens New and Open. The File tab was greyed out with Share, Editing and Comments, so there was no way to create or open
+a document there. Now only Share, Editing and Comments are greyed out. A test clicks File in the empty window and
+opens a blank document.
 
 ## 2026-10-26
 
@@ -837,14 +1127,7 @@ KhianKrub and applied with `git cherry-pick -x` (each commit names its original)
 - App: `cargo build --release -p wordcraft` (about 3 to 4 minutes), then `packaging/macos/local-app.sh`.
 - Full check before committing: `cargo xtask ci` (fmt, clippy, tests, assets, layers, wasm).
 
-## Desktop sync — 2026-10-28
-
-Ported the File-tab fix (5f7eab0a), context-menu/numbering changes (a0c1432e, adffb32b) and problem-report form (cc13edc5) from the web source. SIPA fonts remain available through locally installed fonts; their licences do not meet this repository’s bundled-asset rule. See [desktop-sync.md](docs/desktop-sync.md).
-
-## v0.9.1 release packaging — 2026-10-28
-
-README now describes the desktop UI update with an original screenshot and installation instructions. Release builds add a universal Mac DMG with a drag-to-Applications shortcut alongside the existing universal zip and Windows x64 MSI/portable zip. The DMG is mounted read-only to verify the packaged app signature, version and Applications shortcut before upload.
-
-## v0.9.2 release — 2026-11-02
-
-Version 0.9.2: the web app's UP12 fixes, the x-height font menu and the character spacing spinner, plus WordCraft v0.13.2/v0.14.0 fixes (UP14). README has a What's new in 0.9.2 section with a Font dialog screenshot; notes in `packaging/releases/v0.9.2.md`.
+### 2026-11-05: support email kruboffice@gmail.com
+The owner moved the public support and privacy contact to `kruboffice@gmail.com` (About, Privacy, and the staged
+`packaging/web/persistent-drive/privacy.html`). Earlier entries above that name khiankrub@gmail.com are history.
+Google's sign-in screen keeps its own user-support and developer-contact emails, set in the Google Cloud console.

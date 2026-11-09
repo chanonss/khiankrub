@@ -457,11 +457,15 @@ fn alt_code_digit(key: Key) -> Option<char> {
     char::from_digit(n, 10)
 }
 
+/// Alt is the only modifier held: the one an Alt code's digits are typed with.
+fn alt_only(m: &Modifiers) -> bool {
+    m.alt && !m.ctrl && !m.shift && !m.command && !m.mac_cmd
+}
+
 /// Alt+numpad entry (#961): digits typed with Alt alone held collect; releasing Alt types the
 /// character their code names (`text.typeCode`: 0233 → é, 233 → Θ in code page 437). Returns
 /// whether the event was part of it (and isn't handled otherwise).
 fn alt_code_event(app: &mut WordApp, e: &egui::Event) -> bool {
-    let alt_only = |m: &Modifiers| m.alt && !m.ctrl && !m.shift && !m.command && !m.mac_cmd;
     match e {
         egui::Event::Key { key, pressed: true, repeat, modifiers, .. } if alt_only(modifiers) => match alt_code_digit(*key) {
             // A held digit's auto-repeat adds nothing (as on Windows).
@@ -773,5 +777,219 @@ mod tests {
         a.canvas.alt_code_echo = Some(AltCodeEcho { typed: "€".into(), system_composes: false, byte_code: false });
         alt_frame(&ctx, &mut a, vec![egui::Event::Text("x".into())]);
         assert_eq!(text(&a), "ą€x");
+    }
+
+    /// The Find dialog's Find what box, after the frames that open the dialog and focus the box.
+    fn find_box_harness() -> egui_kittest::Harness<'static, WordApp> {
+        let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+        a.dialog = crate::dialogs::Dialog::open("find", &mut a);
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        h
+    }
+
+    /// What the Find dialog's Find what box holds.
+    fn find_box(h: &egui_kittest::Harness<'static, WordApp>) -> String {
+        match &h.state().dialog {
+            Some(crate::dialogs::Dialog::Find { query, .. }) => query.clone(),
+            _ => panic!("the Find dialog is open"),
+        }
+    }
+
+    /// One frame: Alt held, `digits` pressed and released (with their text, as Linux sends it, when
+    /// `digit_text`), Alt let go; then `after`, which a platform may send once Alt is up.
+    fn alt_code_frame(h: &mut egui_kittest::Harness<'static, WordApp>, digits: &str, digit_text: bool, after: &[&str]) {
+        let alt = Modifiers { alt: true, ..Default::default() };
+        let key = |key, pressed, modifiers| egui::Event::Key { key, physical_key: Some(key), pressed, repeat: false, modifiers };
+        h.event(egui::Event::ModifiersChanged(alt));
+        h.event(key(Key::AltLeft, true, alt));
+        for d in digits.chars() {
+            let k = Key::from_name(&d.to_string()).expect("a digit key");
+            h.event(key(k, true, alt));
+            if digit_text {
+                h.event(egui::Event::Text(d.to_string()));
+            }
+            h.event(key(k, false, alt));
+        }
+        h.event(key(Key::AltLeft, false, alt));
+        h.event(egui::Event::ModifiersChanged(Modifiers::NONE));
+        for t in after {
+            h.event(egui::Event::Text((*t).to_string()));
+        }
+        h.step();
+    }
+
+    /// #4403: an Alt code typed in a text box (here Find what) types its character there, as on the
+    /// page. Before, the box got the digits (Linux sends their text with Alt held), or on Windows only
+    /// what the system composes, a byte for a code above 255. The page's text is left alone.
+    #[test]
+    fn alt_code_types_its_character_in_a_text_box() {
+        if cfg!(target_os = "macos") {
+            return;
+        }
+        // The code pages the page's Alt codes use (`text.typeCode`).
+        let (ansi, oem) = if cfg!(target_os = "windows") {
+            wordcraft_engine::cmd::text::system_code_pages()
+        } else {
+            (1252, wordcraft_engine::cmd::text::system_oem_code_page())
+        };
+        let ch = |code| wordcraft_engine::cmd::text::alt_code_char(code, ansi, oem).expect("a character code").to_string();
+        let mut h = find_box_harness();
+        assert_eq!(find_box(&h), "");
+        // Linux: each digit's text arrives too; none of it is typed.
+        alt_code_frame(&mut h, "0233", true, &[]);
+        let mut want = ch("0233");
+        assert_eq!(find_box(&h), want);
+        // Above 255 the code is the Unicode character's (Word's €), and a platform's echo of the
+        // same character isn't typed twice.
+        alt_code_frame(&mut h, "8364", false, &["\u{20AC}"]);
+        want.push('\u{20AC}');
+        assert_eq!(find_box(&h), want);
+        // Windows composes a code itself: up to 255 its character replaces ours (it knows the code
+        // pages), above that ours stays (it reduces the code to a byte). Elsewhere text after the
+        // release is typed as it comes.
+        alt_code_frame(&mut h, "0199", false, &["\u{1E9E}"]);
+        alt_code_frame(&mut h, "9731", false, &["X"]);
+        if cfg!(target_os = "windows") {
+            want.push_str("\u{1E9E}\u{2603}");
+        } else {
+            want.push_str(&format!("{}\u{1E9E}\u{2603}X", ch("0199")));
+        }
+        assert_eq!(find_box(&h), want);
+        // A code we name no character for (past Unicode here; a double-byte lead byte on Windows)
+        // types nothing of ours, and the character the system composes for it is typed, not taken
+        // for a digit's text. Windows sends no digit text; Linux does.
+        assert_eq!(wordcraft_engine::cmd::text::alt_code_char("1114112", ansi, oem), None);
+        alt_code_frame(&mut h, "1114112", !cfg!(target_os = "windows"), &["Y"]);
+        want.push('Y');
+        assert_eq!(find_box(&h), want);
+        // Digits without Alt type themselves; a bare Alt tap types nothing and opens no keytips.
+        h.event(egui::Event::Key { key: Key::Num5, physical_key: Some(Key::Num5), pressed: true, repeat: false, modifiers: Modifiers::NONE });
+        h.event(egui::Event::Text("5".into()));
+        h.step();
+        alt_code_frame(&mut h, "", false, &[]);
+        want.push('5');
+        assert_eq!(find_box(&h), want);
+        assert_eq!(h.state().ui.keytips, crate::keytips::Phase::Off);
+        assert_eq!(h.state().session.doc.plain_text(wordcraft_doc::StoryRef::Body).trim_end(), "", "the page typed nothing");
+    }
+}
+
+/// Alt+numpad entry in the focused text box (Find what, a dialog's fields, the ribbon's boxes);
+/// the page has its own ([`alt_code_event`]). From WordCraft #4403.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct FieldAltCode {
+    /// The digits typed while Alt is held.
+    code: String,
+    /// The last digit's own text (Linux sends it with Alt held) isn't typed.
+    swallow_text: bool,
+    /// What the last code typed, for the platform's own composed character that may follow.
+    echo: Option<AltCodeEcho>,
+}
+
+/// The character an Alt code names in the code pages the page uses for it: the system locale's
+/// on Windows, else `text.typeCode`'s defaults (Windows-1252 and the locale's OEM page).
+fn field_code_char(code: &str) -> Option<char> {
+    use wordcraft_engine::cmd::text::{alt_code_char, system_code_pages, system_oem_code_page};
+    let (ansi, oem) = if cfg!(target_os = "windows") { system_code_pages() } else { (1252, system_oem_code_page()) };
+    alt_code_char(code, ansi, oem)
+}
+
+/// Whether `e` lets go of Alt: its key's release, or modifiers without it.
+fn alt_released(e: &egui::Event) -> bool {
+    match e {
+        egui::Event::Key { key: Key::AltLeft | Key::AltRight, pressed: false, .. } => true,
+        egui::Event::ModifiersChanged(m) => !m.alt,
+        _ => false,
+    }
+}
+
+/// Alt codes in the focused text box, as on the page (#4403). Rewrites this frame's input before
+/// the box reads it: the digits typed with Alt held type nothing (Linux sends their text), and
+/// letting go of Alt types the code's character. A platform that composes the code itself
+/// (Windows) sends its character after that: the same character isn't typed twice, and for a
+/// code up to 255 the system's character replaces ours, as on the page ([`alt_code_echoed`]).
+pub(crate) fn field_alt_codes(app: &mut WordApp, ctx: &egui::Context) {
+    if !alt_codes_supported(ctx) || app.canvas.focused || !ctx.text_edit_focused() {
+        app.canvas.field_alt_code = FieldAltCode::default();
+        return;
+    }
+    let st = &mut app.canvas.field_alt_code;
+    let events = ctx.input(|i| i.events.clone());
+    let mut out = Vec::with_capacity(events.len() + 1);
+    let mut changed = false;
+    for e in events {
+        match &e {
+            egui::Event::Key { key, pressed: true, repeat, modifiers, .. } => {
+                st.swallow_text = false;
+                st.echo = None;
+                match alt_code_digit(*key).filter(|_| alt_only(modifiers)) {
+                    Some(d) => {
+                        // A held digit's auto-repeat adds nothing; past seven digits a code
+                        // names nothing, so stop collecting rather than grow.
+                        if !*repeat && st.code.len() < 8 {
+                            st.code.push(d);
+                        }
+                        st.swallow_text = true;
+                    }
+                    // Another key (Alt itself, a letter, a digit with Ctrl) ends the entry.
+                    None => st.code.clear(),
+                }
+            }
+            egui::Event::Text(_) if std::mem::take(&mut st.swallow_text) => {
+                changed = true;
+                continue;
+            }
+            egui::Event::Text(t) => {
+                if let Some(echo) = st.echo.take()
+                    && (echo.typed == *t || echo.system_composes)
+                {
+                    changed = true;
+                    if echo.typed != *t && echo.byte_code && t.chars().count() == 1 {
+                        // Ours was typed just before, with no key or click since: take it back.
+                        out.push(egui::Event::Key {
+                            key: Key::Backspace,
+                            physical_key: None,
+                            pressed: true,
+                            repeat: false,
+                            modifiers: Modifiers::NONE,
+                        });
+                        out.push(e);
+                    }
+                    continue;
+                }
+            }
+            egui::Event::PointerButton { pressed: true, .. } => st.echo = None,
+            // Focus elsewhere (another window) ends an Alt code unfinished.
+            egui::Event::WindowFocused(false) => st.code.clear(),
+            _ => {}
+        }
+        let released = alt_released(&e);
+        out.push(e);
+        if released && !st.code.is_empty() {
+            let code = std::mem::take(&mut st.code);
+            let system_composes = cfg!(target_os = "windows");
+            // A digit's own text comes with its key, before Alt is let go: text after this is
+            // the system's composed character (Windows), also for a code we name no character
+            // for (a double-byte lead byte, say), or what is typed next. A digit that sent no
+            // text must not cost it.
+            st.swallow_text = false;
+            if let Some(c) = field_code_char(&code) {
+                let byte_code = code.trim_start_matches('0').parse::<u32>().is_ok_and(|v| v <= 255);
+                st.echo = Some(AltCodeEcho { typed: c.to_string(), system_composes, byte_code });
+                out.push(egui::Event::Text(c.to_string()));
+                changed = true;
+            }
+        }
+    }
+    if changed {
+        ctx.input_mut(|i| i.events = out);
     }
 }

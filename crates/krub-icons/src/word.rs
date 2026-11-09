@@ -1,0 +1,1955 @@
+//! Original document-specific Quiet Glass symbols, adapted from WordCraft contributor artwork.
+//!
+//! Source proportions are converted to the shared 24-unit master with common ink and gold surfaces.
+
+use egui::{Color32, FontId, Painter, Pos2, Rect, Shape, Stroke, pos2, vec2};
+
+struct Pen<'a> {
+    p: &'a Painter,
+    r: Rect,
+    c: Color32,
+    a: Color32,
+    w: f32,
+    flat: bool,
+}
+
+impl Pen<'_> {
+    fn s(&self) -> f32 {
+        self.r.width().min(self.r.height()) / 24.0
+    }
+    fn pt(&self, x: f32, y: f32) -> Pos2 {
+        let s = self.s();
+        let o = self.r.center() - vec2(12.0 * s, 12.0 * s);
+        pos2(o.x + x * 1.2 * s, o.y + y * 1.2 * s)
+    }
+    fn stroke(&self, c: Color32) -> Stroke {
+        Stroke::new((self.w * self.s()).max(0.85), c)
+    }
+    fn line(&self, pts: &[(f32, f32)]) {
+        self.line_c(pts, self.c);
+    }
+    fn line_c(&self, pts: &[(f32, f32)], c: Color32) {
+        let v: Vec<Pos2> = pts.iter().map(|&(x, y)| self.pt(x, y)).collect();
+        self.p.add(Shape::line(v, self.stroke(c)));
+        for &(x, y) in pts.first().into_iter().chain(pts.last()) {
+            self.p.circle_filled(self.pt(x, y), self.stroke(c).width * 0.5, c);
+        }
+    }
+    fn closed(&self, pts: &[(f32, f32)], c: Color32) {
+        let v: Vec<Pos2> = pts.iter().map(|&(x, y)| self.pt(x, y)).collect();
+        self.p.add(Shape::closed_line(v, self.stroke(c)));
+    }
+    fn fill(&self, pts: &[(f32, f32)], c: Color32) {
+        let v: Vec<Pos2> = pts.iter().map(|&(x, y)| self.pt(x, y)).collect();
+        self.p.add(Shape::convex_polygon(v, c, Stroke::NONE));
+    }
+    fn rect(&self, x0: f32, y0: f32, x1: f32, y1: f32, c: Color32) {
+        self.p.rect_stroke(Rect::from_min_max(self.pt(x0, y0), self.pt(x1, y1)), 1.0, self.stroke(c), egui::StrokeKind::Middle);
+    }
+    fn frect(&self, x0: f32, y0: f32, x1: f32, y1: f32, c: Color32) {
+        self.p.rect_filled(
+            Rect::from_min_max(self.pt(x0, y0), self.pt(x1, y1)),
+            1.0,
+            if self.flat { c.gamma_multiply(0.16) } else { crate::gold(c, crate::GoldRole::Primary, 1.0) },
+        );
+    }
+    fn circle(&self, x: f32, y: f32, r: f32, c: Color32) {
+        self.p.circle_stroke(self.pt(x, y), r * 1.2 * self.s(), self.stroke(c));
+    }
+    fn fcircle(&self, x: f32, y: f32, r: f32, c: Color32) {
+        self.p.circle_filled(self.pt(x, y), r * 1.2 * self.s(), c);
+    }
+    fn text(&self, x: f32, y: f32, size: f32, t: &str, c: Color32, _bold: bool) {
+        let font = FontId::proportional(size * 1.2 * self.s());
+        self.p.text(self.pt(x, y), egui::Align2::CENTER_CENTER, t, font, c);
+    }
+    /// Horizontal text lines (a paragraph).
+    fn lines(&self, x0: f32, x1: f32, ys: &[f32]) {
+        for y in ys {
+            self.line(&[(x0, *y), (x1, *y)]);
+        }
+    }
+    /// A page outline with a folded corner.
+    fn page(&self, x0: f32, y0: f32, x1: f32, y1: f32) {
+        self.closed(&[(x0, y0), (x1 - 4.0, y0), (x1, y0 + 4.0), (x1, y1), (x0, y1)], self.c);
+        self.line(&[(x1 - 4.0, y0), (x1 - 4.0, y0 + 4.0), (x1, y0 + 4.0)]);
+    }
+    fn arrow_down(&self, x: f32, y: f32, c: Color32) {
+        self.fill(&[(x - 2.5, y - 1.2), (x + 2.5, y - 1.2), (x, y + 1.5)], c);
+    }
+}
+
+/// Paint a document-specific symbol with shared ink, stroke and surface roles.
+pub fn paint(p: &Painter, r: Rect, name: &str, c: Color32, flat: bool) {
+    let _ = draw_0(p, r, name, c, flat)
+        || draw_1(p, r, name, c, flat)
+        || draw_2(p, r, name, c, flat)
+        || draw_3(p, r, name, c, flat)
+        || draw_4(p, r, name, c, flat);
+}
+fn draw_0(p: &Painter, r: Rect, name: &str, c: Color32, flat: bool) -> bool {
+    let pen = Pen { p, r, c, a: c, w: 1.35, flat };
+    let a = c;
+    let red = c;
+    let yellow = c;
+    let green = c;
+    let orange = c;
+    match name {
+        "paste" => {
+            pen.rect(4.0, 3.5, 14.0, 17.0, c);
+            pen.frect(7.0, 2.0, 11.0, 5.0, a);
+            pen.frect(9.0, 8.0, 17.5, 18.5, pen.a.linear_multiply(0.18));
+            pen.rect(9.0, 8.0, 17.5, 18.5, a);
+            pen.lines(10.8, 15.8, &[11.0, 13.5, 16.0]);
+        }
+        "cut" => {
+            pen.circle(6.0, 15.0, 2.5, c);
+            pen.circle(14.0, 15.0, 2.5, c);
+            pen.line(&[(7.5, 13.0), (14.0, 3.0)]);
+            pen.line(&[(12.5, 13.0), (6.0, 3.0)]);
+        }
+        "copy" => {
+            pen.rect(3.5, 3.0, 12.5, 14.0, c);
+            pen.frect(7.5, 6.5, 16.5, 17.5, Color32::TRANSPARENT);
+            pen.rect(7.5, 6.5, 16.5, 17.5, a);
+        }
+        "painter" => {
+            pen.frect(4.0, 3.0, 16.0, 8.0, yellow);
+            pen.rect(4.0, 3.0, 16.0, 8.0, c);
+            pen.line(&[(16.0, 5.5), (17.5, 5.5), (17.5, 10.0), (10.0, 10.0), (10.0, 12.0)]);
+            pen.frect(8.8, 12.0, 11.2, 18.0, c);
+        }
+        // Font
+        "bold" => pen.text(10.0, 10.5, 15.0, "B", c, true),
+        "italic" => pen.text(10.0, 10.5, 15.0, "I", c, false),
+        "underline" => {
+            pen.text(10.0, 9.0, 14.0, "U", c, false);
+            pen.line(&[(5.0, 17.0), (15.0, 17.0)]);
+        }
+        "strike" => {
+            pen.text(10.0, 10.0, 12.0, "ab", c, false);
+            pen.line_c(&[(3.0, 10.5), (17.0, 10.5)], c);
+        }
+        "charborder" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, a);
+            pen.text(10.0, 6.0, 9.0, "A", c, false);
+        }
+        "enclose" => {
+            pen.circle(10.0, 10.5, 7.5, a);
+            pen.text(10.0, 10.5, 9.0, "A", c, false);
+        }
+        "subscript" => {
+            pen.text(8.0, 9.0, 13.0, "x", c, false);
+            pen.text(15.0, 14.5, 8.0, "2", a, true);
+        }
+        "superscript" => {
+            pen.text(8.0, 11.0, 13.0, "x", c, false);
+            pen.text(15.0, 5.0, 8.0, "2", a, true);
+        }
+        "grow" => {
+            pen.text(8.0, 11.0, 15.0, "A", c, false);
+            pen.fill(&[(14.5, 6.0), (18.5, 6.0), (16.5, 3.0)], a);
+        }
+        "shrink" => {
+            pen.text(8.0, 12.0, 11.0, "A", c, false);
+            pen.fill(&[(14.5, 4.0), (18.5, 4.0), (16.5, 7.0)], a);
+        }
+        "case" => pen.text(10.0, 10.5, 12.0, "Aa", c, false),
+        "clear" => {
+            pen.text(8.0, 9.0, 13.0, "A", c, false);
+            pen.fill(&[(10.0, 15.0), (14.0, 11.0), (18.0, 15.0), (14.0, 19.0)], c);
+        }
+        // Small letters over a large one: text with a reading above it.
+        "phonetic" => {
+            pen.text(10.0, 5.0, 7.5, "abc", a, false);
+            pen.text(10.0, 13.5, 12.5, "A", c, false);
+        }
+        "highlight" => {
+            pen.fill(&[(5.0, 12.0), (11.0, 4.0), (14.0, 7.0), (8.0, 15.0)], c);
+            pen.line(&[(5.0, 12.0), (3.5, 15.0), (8.0, 15.0)]);
+            pen.frect(2.0, 16.5, 18.0, 19.0, yellow);
+        }
+        "fontcolor" => {
+            pen.text(10.0, 9.0, 14.0, "A", c, false);
+            pen.frect(2.0, 16.5, 18.0, 19.0, red);
+        }
+        "effects" => {
+            pen.text(10.0, 10.0, 15.0, "A", a, true);
+            pen.text(10.5, 10.5, 15.0, "A", c.gamma_multiply(0.16), true);
+        }
+        "fontdialog" => pen.line(&[(13.0, 13.0), (17.0, 17.0), (17.0, 13.0)]),
+        // Paragraph
+        "bullets" => {
+            for (i, y) in [5.0, 10.0, 15.0].iter().enumerate() {
+                pen.fcircle(4.0, *y, 1.4, if i == 0 { a } else { c });
+                pen.line(&[(7.5, *y), (17.0, *y)]);
+            }
+        }
+        "numbering" => {
+            for (i, y) in [5.0, 10.0, 15.0].iter().enumerate() {
+                pen.text(4.0, *y, 6.0, &(i + 1).to_string(), if i == 0 { a } else { c }, true);
+                pen.line(&[(7.5, *y), (17.0, *y)]);
+            }
+        }
+        "multilevel" => {
+            pen.text(3.5, 4.5, 5.5, "1", a, true);
+            pen.line(&[(6.5, 4.5), (17.0, 4.5)]);
+            pen.text(6.5, 10.0, 5.5, "a", c, true);
+            pen.line(&[(9.5, 10.0), (17.0, 10.0)]);
+            pen.text(9.5, 15.5, 5.5, "i", c, true);
+            pen.line(&[(12.0, 15.5), (17.0, 15.5)]);
+        }
+        "outdent" | "indent" => {
+            pen.lines(9.0, 17.0, &[7.0, 10.0, 13.0]);
+            pen.lines(3.0, 17.0, &[3.5, 16.5]);
+            if name == "indent" {
+                pen.fill(&[(3.0, 7.0), (3.0, 13.0), (6.5, 10.0)], a);
+            } else {
+                pen.fill(&[(6.5, 7.0), (6.5, 13.0), (3.0, 10.0)], a);
+            }
+        }
+        "sort" => {
+            pen.text(6.0, 5.5, 7.0, "A", c, true);
+            pen.text(6.0, 14.5, 7.0, "Z", c, true);
+            pen.line_c(&[(14.0, 3.0), (14.0, 17.0)], a);
+            pen.line_c(&[(11.5, 14.5), (14.0, 17.0), (16.5, 14.5)], a);
+        }
+        "pilcrow" => pen.text(10.0, 10.5, 15.0, "¶", c, false),
+        "alignLeft" => {
+            pen.lines(3.0, 17.0, &[4.0, 10.0, 16.0]);
+            ().then_lines(&pen, 3.0, 12.0, &[7.0, 13.0])
+        }
+        "alignCenter" => {
+            pen.lines(3.0, 17.0, &[4.0, 10.0, 16.0]);
+            ().then_lines(&pen, 6.0, 14.0, &[7.0, 13.0])
+        }
+        "alignRight" => {
+            pen.lines(3.0, 17.0, &[4.0, 10.0, 16.0]);
+            ().then_lines(&pen, 8.0, 17.0, &[7.0, 13.0])
+        }
+        "justify" => pen.lines(3.0, 17.0, &[4.0, 7.0, 10.0, 13.0, 16.0]),
+        "thaiDistribute" => crate::thai::paint(p, r, c, flat),
+        // Text direction: lines set from the start edge, an arrow in the reading direction.
+        "textLtr" => {
+            pen.lines(3.0, 14.0, &[4.0, 8.0]);
+            pen.lines(3.0, 10.0, &[12.0]);
+            pen.line_c(&[(3.0, 16.5), (16.5, 16.5)], a);
+            pen.line_c(&[(13.5, 14.0), (16.5, 16.5), (13.5, 19.0)], a);
+        }
+        "textRtl" => {
+            pen.lines(6.0, 17.0, &[4.0, 8.0]);
+            pen.lines(10.0, 17.0, &[12.0]);
+            pen.line_c(&[(17.0, 16.5), (3.5, 16.5)], a);
+            pen.line_c(&[(6.5, 14.0), (3.5, 16.5), (6.5, 19.0)], a);
+        }
+        "lineSpacing" => {
+            pen.lines(9.0, 17.0, &[5.0, 10.0, 15.0]);
+            pen.line_c(&[(4.5, 3.0), (4.5, 17.0)], a);
+            pen.line_c(&[(2.5, 5.0), (4.5, 3.0), (6.5, 5.0)], a);
+            pen.line_c(&[(2.5, 15.0), (4.5, 17.0), (6.5, 15.0)], a);
+        }
+        // A tipped paint bucket: its handle over the top, paint in its lower half and a drop
+        // falling from its rim, over the colour bar.
+        // Report a problem: an exclamation mark in a circle.
+        "report" => {
+            pen.circle(10.0, 10.0, 7.5, c);
+            pen.line_c(&[(10.0, 6.0), (10.0, 11.0)], a);
+            pen.fcircle(10.0, 14.0, 1.1, a);
+        }
+        "shading" => {
+            pen.line_c(&[(4.0, 8.5), (3.6, 4.6), (6.0, 2.4), (9.5, 2.6)], c);
+            pen.fill(&[(4.0, 9.0), (15.0, 9.0), (9.5, 14.5)], a);
+            pen.closed(&[(4.0, 9.0), (9.5, 3.5), (15.0, 9.0), (9.5, 14.5)], c);
+            pen.line_c(&[(15.0, 9.0), (16.5, 11.0)], a);
+            pen.fcircle(16.5, 13.0, 1.7, a);
+            pen.frect(2.0, 16.5, 18.0, 19.0, yellow);
+        }
+        // A dotted 2 × 2 grid with a solid bottom border. Dots every 1.75 units, big enough to
+        // read at 1× (sparser, smaller ones vanished there).
+        "borders" => {
+            for i in 0..=8 {
+                let t = 3.0 + i as f32 * 1.75;
+                for y in [3.0, 10.0] {
+                    pen.fcircle(t, y, 0.75, c);
+                }
+                for x in [3.0, 10.0, 17.0] {
+                    pen.fcircle(x, t, 0.75, c);
+                }
+            }
+            pen.line_c(&[(3.0, 17.0), (17.0, 17.0)], a);
+        }
+        // Editing
+        "find" => {
+            pen.circle(8.0, 8.0, 5.0, c);
+            pen.line_c(&[(11.5, 11.5), (17.0, 17.0)], a);
+        }
+        "replace" => {
+            pen.text(6.0, 6.0, 8.0, "ab", c, false);
+            pen.text(13.0, 15.0, 8.0, "ac", a, false);
+            pen.line(&[(13.0, 3.5), (16.0, 3.5), (16.0, 8.5)]);
+            pen.line(&[(14.5, 7.0), (16.0, 8.5), (17.5, 7.0)]);
+        }
+        "select" => {
+            // Overlapping convex pieces keep the concave arrow intact without antialiasing seams.
+            pen.fill(&[(5.0, 3.0), (5.0, 16.0), (14.0, 12.0)], c);
+            pen.fill(&[(8.0, 13.0), (10.5, 18.0), (12.5, 17.0), (10.0, 12.0)], c);
+        }
+        "dictate" => {
+            pen.rect(7.5, 2.5, 12.5, 12.0, c);
+            pen.line(&[(5.0, 9.5), (5.0, 11.0), (10.0, 15.0), (15.0, 11.0), (15.0, 9.5)]);
+            pen.line(&[(10.0, 15.0), (10.0, 18.0)]);
+        }
+        "editor" | "spelling" => {
+            pen.text(8.0, 7.0, 9.0, "abc", c, true);
+            pen.line_c(&[(5.0, 13.0), (8.5, 16.5), (16.0, 9.0)], green);
+        }
+        "styles" => {
+            pen.text(10.0, 10.0, 14.0, "A", a, false);
+            pen.line(&[(13.0, 15.0), (17.0, 11.0)]);
+        }
+        "stylesPane" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.line(&[(11.0, 3.0), (11.0, 17.0)]);
+            pen.text(7.0, 10.0, 8.0, "A", a, false);
+        }
+        // Insert
+        "coverPage" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.frect(5.5, 7.0, 14.5, 10.0, a);
+        }
+        "blankPage" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.line_c(&[(10.0, 7.0), (10.0, 13.0)], a);
+            pen.line_c(&[(7.0, 10.0), (13.0, 10.0)], a);
+        }
+        "pageBreak" => {
+            pen.line(&[(4.0, 2.0), (4.0, 7.0), (16.0, 7.0), (16.0, 2.0)]);
+            pen.line(&[(4.0, 18.0), (4.0, 13.0), (16.0, 13.0), (16.0, 18.0)]);
+            pen.line_c(&[(2.0, 10.0), (18.0, 10.0)], a);
+        }
+        "drawTable" => {
+            pen.rect(2.5, 3.0, 14.0, 14.5, c);
+            pen.line(&[(2.5, 8.5), (14.0, 8.5)]);
+            pen.line(&[(8.0, 3.0), (8.0, 14.5)]);
+            pen.line(&[(9.5, 18.0), (17.0, 10.5), (18.5, 12.0), (11.0, 19.5), (9.0, 19.8), (9.5, 18.0)]);
+            pen.fill(&[(17.0, 10.5), (18.0, 9.5), (19.5, 11.0), (18.5, 12.0)], a);
+        }
+        "table" => {
+            pen.frect(3.0, 3.0, 17.0, 7.0, a);
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.line(&[(3.0, 7.0), (17.0, 7.0)]);
+            pen.line(&[(3.0, 12.0), (17.0, 12.0)]);
+            pen.line(&[(8.0, 3.0), (8.0, 17.0)]);
+            pen.line(&[(12.5, 3.0), (12.5, 17.0)]);
+        }
+        "picture" => {
+            pen.rect(2.5, 4.0, 17.5, 16.0, c);
+            pen.fill(&[(4.0, 14.5), (8.5, 8.0), (12.0, 14.5)], a);
+            pen.fill(&[(9.5, 14.5), (13.0, 10.0), (16.0, 14.5)], green);
+            pen.fcircle(13.5, 7.0, 1.5, yellow);
+        }
+        "onlinePicture" => {
+            paint(p, Rect::from_min_size(r.min, r.size() * 0.8), "picture", c, flat);
+            pen.circle(15.0, 15.0, 3.5, a);
+        }
+        "shapes" => {
+            pen.rect(3.0, 3.0, 11.0, 11.0, c);
+            pen.fcircle(13.0, 13.0, 4.5, a);
+        }
+        // Shape Effects: a square casting a soft shadow down and to the right.
+        "shapeEffects" => {
+            for (k, alpha) in [(2.0, 30), (1.0, 50), (0.0, 80)] {
+                pen.frect(7.0 - k, 7.0 - k, 18.0 + k, 18.0 + k, c.gamma_multiply(alpha as f32 / 255.0));
+            }
+            pen.frect(3.0, 3.0, 14.0, 14.0, a);
+            pen.rect(3.0, 3.0, 14.0, 14.0, c);
+        }
+        "icons" => {
+            pen.circle(10.0, 10.0, 7.5, c);
+            pen.fcircle(7.5, 8.0, 1.0, c);
+            pen.fcircle(12.5, 8.0, 1.0, c);
+            pen.line_c(&[(6.5, 12.0), (10.0, 14.5), (13.5, 12.0)], a);
+        }
+        "models3d" => {
+            pen.closed(&[(10.0, 2.5), (17.0, 6.0), (17.0, 14.0), (10.0, 17.5), (3.0, 14.0), (3.0, 6.0)], c);
+            pen.line_c(&[(3.0, 6.0), (10.0, 9.5), (17.0, 6.0)], a);
+            pen.line_c(&[(10.0, 9.5), (10.0, 17.5)], a);
+        }
+        "smartArt" => {
+            pen.frect(7.0, 2.5, 13.0, 6.5, a);
+            pen.rect(2.5, 13.0, 8.0, 17.0, c);
+            pen.rect(12.0, 13.0, 17.5, 17.0, c);
+            pen.line(&[(10.0, 6.5), (10.0, 10.0), (5.0, 10.0), (5.0, 13.0)]);
+            pen.line(&[(10.0, 10.0), (15.0, 10.0), (15.0, 13.0)]);
+        }
+        "addShape" => {
+            pen.frect(2.5, 3.0, 9.5, 8.0, a);
+            pen.rect(2.5, 12.0, 9.5, 17.0, c);
+            pen.line(&[(6.0, 8.0), (6.0, 12.0)]);
+            pen.line_c(&[(14.5, 10.5), (14.5, 17.5)], green);
+            pen.line_c(&[(11.0, 14.0), (18.0, 14.0)], green);
+        }
+        "promote" => {
+            pen.lines(9.0, 17.5, &[5.0, 10.0, 15.0]);
+            pen.line_c(&[(6.5, 7.5), (3.0, 10.0), (6.5, 12.5)], a);
+        }
+        "demote" => {
+            pen.lines(9.0, 17.5, &[5.0, 10.0, 15.0]);
+            pen.line_c(&[(3.0, 7.5), (6.5, 10.0), (3.0, 12.5)], a);
+        }
+        "textPane" => {
+            pen.rect(2.5, 3.0, 17.5, 17.0, c);
+            pen.line(&[(9.0, 3.0), (9.0, 17.0)]);
+            pen.lines(4.0, 7.5, &[6.5, 10.0, 13.5]);
+            pen.frect(11.0, 6.0, 16.0, 9.0, a);
+            pen.frect(11.0, 11.5, 16.0, 14.5, a);
+        }
+        "smartArtColors" => {
+            pen.fcircle(7.0, 7.5, 4.0, a);
+            pen.fcircle(13.0, 7.5, 4.0, orange);
+            pen.fcircle(10.0, 13.0, 4.0, green);
+            pen.circle(10.0, 10.0, 8.0, c);
+        }
+        "resetGraphic" => {
+            pen.rect(7.5, 6.5, 16.5, 15.5, c);
+            pen.frect(9.5, 8.5, 14.5, 13.5, a);
+            pen.line(&[(3.5, 13.0), (3.5, 4.0), (11.0, 4.0)]);
+            pen.line(&[(1.5, 6.0), (3.5, 4.0), (5.5, 6.0)]);
+        }
+        "chart" => {
+            pen.frect(3.5, 11.0, 6.5, 17.0, a);
+            pen.frect(8.5, 6.0, 11.5, 17.0, orange);
+            pen.frect(13.5, 9.0, 16.5, 17.0, green);
+            pen.line(&[(2.0, 17.5), (18.0, 17.5)]);
+        }
+        "changeChartType" => {
+            pen.frect(3.0, 11.0, 5.5, 17.0, a);
+            pen.frect(7.0, 7.0, 9.5, 17.0, orange);
+            pen.line(&[(2.0, 17.5), (11.0, 17.5)]);
+            pen.fill(&[(15.0, 10.0), (15.0, 5.0), (19.0, 8.5)], green);
+            pen.circle(15.0, 10.0, 4.0, c);
+            pen.line_c(&[(4.0, 5.0), (9.0, 2.5), (12.0, 4.5)], a);
+        }
+        _ => return false,
+    }
+    true
+}
+fn draw_1(p: &Painter, r: Rect, name: &str, c: Color32, flat: bool) -> bool {
+    let pen = Pen { p, r, c, a: c, w: 1.35, flat };
+    let a = c;
+    let red = c;
+    let yellow = c;
+    let green = c;
+    let orange = c;
+    match name {
+        "chartData" => {
+            pen.rect(2.5, 3.0, 17.5, 17.0, c);
+            pen.frect(2.5, 3.0, 17.5, 6.5, a);
+            pen.line(&[(2.5, 10.0), (17.5, 10.0)]);
+            pen.line(&[(2.5, 13.5), (17.5, 13.5)]);
+            pen.line(&[(7.5, 3.0), (7.5, 17.0)]);
+            pen.line(&[(12.5, 3.0), (12.5, 17.0)]);
+            pen.frect(9.0, 14.5, 11.0, 16.0, orange);
+        }
+        "chartTitle" => {
+            pen.frect(5.0, 2.5, 15.0, 4.5, a);
+            pen.frect(4.0, 11.0, 7.0, 17.0, c);
+            pen.frect(8.5, 8.0, 11.5, 17.0, c);
+            pen.frect(13.0, 12.5, 16.0, 17.0, c);
+            pen.line(&[(2.5, 17.5), (17.5, 17.5)]);
+        }
+        "legend" => {
+            for (k, col) in [a, orange, green].into_iter().enumerate() {
+                let y = 5.0 + 5.0 * k as f32;
+                pen.frect(3.0, y - 1.5, 6.0, y + 1.5, col);
+                pen.line(&[(8.0, y), (17.0, y)]);
+            }
+        }
+        "dataLabels" => {
+            pen.frect(3.5, 11.0, 7.0, 17.5, a);
+            pen.frect(12.0, 8.0, 15.5, 17.5, orange);
+            pen.rect(2.5, 5.5, 8.0, 9.0, c);
+            pen.rect(11.0, 2.5, 16.5, 6.0, c);
+        }
+        "screenshot" => {
+            pen.line(&[(3.0, 7.0), (3.0, 3.0), (7.0, 3.0)]);
+            pen.line(&[(13.0, 3.0), (17.0, 3.0), (17.0, 7.0)]);
+            pen.line(&[(17.0, 13.0), (17.0, 17.0), (13.0, 17.0)]);
+            pen.line(&[(7.0, 17.0), (3.0, 17.0), (3.0, 13.0)]);
+            pen.fcircle(10.0, 10.0, 3.0, a);
+        }
+        "video" => {
+            pen.rect(2.5, 5.0, 14.0, 15.0, c);
+            pen.fill(&[(14.0, 10.0), (18.0, 6.5), (18.0, 13.5)], a);
+        }
+        "link" => {
+            pen.closed(
+                &[(3.0, 10.0), (7.0, 6.0), (9.5, 6.0), (9.5, 8.0), (7.5, 8.0), (5.0, 10.5), (7.5, 13.0), (9.5, 13.0), (9.5, 15.0), (7.0, 15.0)],
+                c,
+            );
+            pen.line_c(&[(7.5, 10.5), (12.5, 10.5)], a);
+            pen.closed(
+                &[
+                    (17.0, 10.5),
+                    (13.0, 14.5),
+                    (10.5, 14.5),
+                    (10.5, 12.5),
+                    (12.5, 12.5),
+                    (15.0, 10.0),
+                    (12.5, 7.5),
+                    (10.5, 7.5),
+                    (10.5, 5.5),
+                    (13.0, 5.5),
+                ],
+                c,
+            );
+        }
+        "bookmark" => {
+            pen.closed(&[(5.5, 2.5), (14.5, 2.5), (14.5, 17.5), (10.0, 13.5), (5.5, 17.5)], c);
+            pen.fill(&[(7.0, 4.0), (13.0, 4.0), (13.0, 8.0), (7.0, 8.0)], a);
+        }
+        "crossRef" => {
+            pen.page(3.0, 2.0, 12.0, 14.0);
+            pen.line_c(&[(9.0, 12.0), (17.0, 17.0)], a);
+            pen.line_c(&[(14.0, 17.5), (17.0, 17.0), (16.5, 14.0)], a);
+        }
+        "comment" | "newComment" => {
+            pen.closed(&[(2.5, 3.5), (17.5, 3.5), (17.5, 13.5), (9.0, 13.5), (5.0, 17.0), (5.0, 13.5), (2.5, 13.5)], c);
+            if name == "newComment" {
+                pen.line_c(&[(10.0, 6.0), (10.0, 11.0)], a);
+                pen.line_c(&[(7.5, 8.5), (12.5, 8.5)], a);
+            } else {
+                pen.lines(5.5, 14.5, &[7.0, 10.0]);
+            }
+        }
+        "header" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.frect(5.5, 5.0, 14.5, 7.5, a);
+            pen.lines(6.0, 14.0, &[11.0, 13.5]);
+        }
+        "footer" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.lines(6.0, 14.0, &[6.5, 9.0]);
+            pen.frect(5.5, 13.0, 14.5, 15.5, a);
+        }
+        "pageNumber" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.text(10.0, 13.0, 7.0, "#", a, true);
+        }
+        "textBox" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.text(10.0, 10.0, 10.0, "A", a, false);
+        }
+        "quickParts" => {
+            pen.rect(3.0, 3.0, 9.0, 9.0, c);
+            pen.frect(11.0, 3.0, 17.0, 9.0, a);
+            pen.rect(3.0, 11.0, 9.0, 17.0, c);
+            pen.rect(11.0, 11.0, 17.0, 17.0, c);
+        }
+        "wordArt" => {
+            pen.text(10.0, 10.5, 15.0, "A", a, true);
+            pen.line_c(&[(3.0, 17.5), (17.0, 17.5)], orange);
+        }
+        "textFill" => {
+            pen.text(10.0, 8.5, 13.0, "A", c, true);
+            pen.frect(3.0, 15.0, 17.0, 18.5, a);
+        }
+        "textOutline" => {
+            pen.text(10.0, 8.5, 13.0, "A", a, false);
+            pen.rect(3.0, 15.0, 17.0, 18.5, c);
+        }
+        "transform" => {
+            // Letters along an arch.
+            let arc: Vec<(f32, f32)> = (0..=12)
+                .map(|i| {
+                    let t = std::f32::consts::PI * (1.0 - i as f32 / 12.0);
+                    (10.0 + 7.5 * t.cos(), 15.0 - 9.0 * t.sin())
+                })
+                .collect();
+            pen.line_c(&arc, a);
+            pen.text(10.0, 13.0, 8.0, "A", c, true);
+            pen.line(&[(2.5, 17.5), (17.5, 17.5)]);
+        }
+        "dropCap" => {
+            pen.text(6.0, 8.0, 12.0, "A", a, true);
+            pen.lines(11.0, 17.0, &[4.0, 8.0, 12.0]);
+            pen.lines(3.0, 17.0, &[16.0]);
+        }
+        "signature" => {
+            pen.line_c(&[(3.0, 13.0), (6.0, 7.0), (8.0, 12.0), (11.0, 6.0), (13.0, 12.0)], a);
+            pen.line(&[(3.0, 16.5), (17.0, 16.5)]);
+        }
+        "dateTime" => {
+            pen.rect(3.0, 4.0, 17.0, 17.0, c);
+            pen.frect(3.0, 4.0, 17.0, 7.5, a);
+            pen.lines(5.0, 15.0, &[11.0, 14.0]);
+        }
+        "object" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.fcircle(10.0, 10.0, 3.5, a);
+        }
+        "equation" => pen.text(10.0, 10.0, 17.0, "π", a, false),
+        "symbol" => pen.text(10.0, 10.0, 17.0, "Ω", c, false),
+        // Draw
+        "pen" => {
+            pen.line(&[(4.0, 16.0), (14.0, 6.0), (16.0, 8.0), (6.0, 18.0), (3.5, 18.5), (4.0, 16.0)]);
+            pen.fill(&[(14.0, 6.0), (15.5, 4.5), (17.5, 6.5), (16.0, 8.0)], a);
+        }
+        "pencil" => {
+            pen.line(&[(4.0, 16.0), (14.0, 6.0), (16.0, 8.0), (6.0, 18.0), (3.5, 18.5), (4.0, 16.0)]);
+            pen.fill(&[(14.0, 6.0), (15.5, 4.5), (17.5, 6.5), (16.0, 8.0)], orange);
+        }
+        // View only: an eye, the outline of the lid with the iris and pupil.
+        "eye" => {
+            pen.line(&[(2.5, 10.0), (5.0, 6.8), (10.0, 5.0), (15.0, 6.8), (17.5, 10.0), (15.0, 13.2), (10.0, 15.0), (5.0, 13.2), (2.5, 10.0)]);
+            pen.circle(10.0, 10.0, 2.6, pen.c);
+            pen.fcircle(10.0, 10.0, 1.1, pen.c);
+        }
+        "eraser" => {
+            pen.closed(&[(3.0, 13.0), (11.0, 5.0), (17.0, 11.0), (11.0, 17.0), (7.0, 17.0)], c);
+            pen.fill(&[(3.0, 13.0), (7.0, 9.0), (13.0, 15.0), (11.0, 17.0), (7.0, 17.0)], c);
+        }
+        // Ink thickness: three strokes, thin to thick.
+        "thickness" => {
+            pen.frect(3.0, 4.5, 17.0, 5.5, c);
+            pen.frect(3.0, 9.0, 17.0, 11.0, c);
+            pen.frect(3.0, 14.0, 17.0, 17.0, a);
+        }
+        "lasso" => {
+            pen.closed(&[(4.0, 7.0), (9.0, 3.0), (16.0, 5.0), (16.0, 11.0), (10.0, 13.0), (4.0, 11.0)], c);
+            pen.line_c(&[(6.0, 12.5), (5.0, 17.5)], a);
+        }
+        "inkToShape" => {
+            pen.line_c(&[(3.0, 10.0), (5.0, 6.0), (8.0, 12.0), (10.0, 7.0)], a);
+            pen.rect(11.0, 9.0, 17.0, 15.0, c);
+        }
+        "inkToMath" => {
+            pen.line_c(&[(3.0, 12.0), (5.0, 7.0), (7.0, 12.0)], a);
+            pen.text(13.5, 10.0, 11.0, "√", c, false);
+        }
+        "canvas" => {
+            pen.rect(2.5, 4.0, 17.5, 16.0, c);
+            pen.line_c(&[(5.0, 13.0), (9.0, 8.0), (12.0, 11.0), (15.0, 7.0)], a);
+        }
+        "replay" => {
+            pen.circle(10.0, 10.0, 6.5, c);
+            pen.fill(&[(8.5, 7.0), (8.5, 13.0), (13.0, 10.0)], a);
+        }
+        // Add Pen: a pen with a plus.
+        "addPen" => {
+            pen.line(&[(3.0, 17.0), (11.0, 9.0), (13.0, 11.0), (5.0, 19.0), (2.5, 19.5), (3.0, 17.0)]);
+            pen.fill(&[(11.0, 9.0), (12.5, 7.5), (14.5, 9.5), (13.0, 11.0)], a);
+            pen.line_c(&[(15.0, 2.0), (15.0, 8.0)], a);
+            pen.line_c(&[(12.0, 5.0), (18.0, 5.0)], a);
+        }
+        // Ink Replay's controls.
+        "replayRewind" => {
+            pen.frect(4.0, 5.0, 5.5, 15.0, c);
+            pen.fill(&[(16.0, 5.0), (16.0, 15.0), (6.5, 10.0)], c);
+        }
+        "replayPlay" => pen.fill(&[(6.0, 4.0), (6.0, 16.0), (16.0, 10.0)], a),
+        "replayPause" => {
+            pen.frect(5.5, 4.5, 8.5, 15.5, a);
+            pen.frect(11.5, 4.5, 14.5, 15.5, a);
+        }
+        "replayForward" => {
+            pen.fill(&[(4.0, 5.0), (4.0, 15.0), (13.5, 10.0)], c);
+            pen.frect(14.5, 5.0, 16.0, 15.0, c);
+        }
+        // Design
+        "themes" => {
+            pen.frect(3.0, 3.0, 10.0, 10.0, a);
+            pen.frect(10.0, 3.0, 17.0, 10.0, orange);
+            pen.frect(3.0, 10.0, 10.0, 17.0, green);
+            pen.frect(10.0, 10.0, 17.0, 17.0, yellow);
+        }
+        "colors" => {
+            pen.fcircle(7.0, 7.5, 3.5, red);
+            pen.fcircle(13.0, 7.5, 3.5, a);
+            pen.fcircle(10.0, 13.0, 3.5, green);
+        }
+        "fonts" => pen.text(10.0, 10.0, 13.0, "Aa", a, false),
+        "paraSpacing" => {
+            pen.lines(8.0, 17.0, &[4.0, 7.0, 13.0, 16.0]);
+            pen.line_c(&[(4.0, 8.0), (4.0, 12.0)], a);
+            pen.line_c(&[(2.5, 9.5), (4.0, 8.0), (5.5, 9.5)], a);
+            pen.line_c(&[(2.5, 10.5), (4.0, 12.0), (5.5, 10.5)], a);
+        }
+        "effectsDesign" => {
+            pen.fcircle(10.0, 10.0, 6.0, a.linear_multiply(0.5));
+            pen.circle(10.0, 10.0, 6.0, c);
+        }
+        "setDefault" => {
+            pen.line_c(&[(4.0, 10.5), (8.5, 15.0), (16.5, 5.0)], green);
+        }
+        "watermark" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.text(10.0, 11.0, 7.0, "W", a.linear_multiply(0.6), true);
+        }
+        "pageColor" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.frect(5.0, 9.0, 15.0, 17.0, a.linear_multiply(0.5));
+        }
+        "pageBorders" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.rect(6.0, 6.5, 14.0, 15.5, a);
+        }
+        // Layout
+        "margins" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.frect(6.0, 4.5, 14.0, 15.5, a.linear_multiply(0.3));
+        }
+        "orientation" => {
+            pen.page(3.0, 3.0, 11.0, 15.0);
+            pen.rect(9.0, 10.0, 18.0, 17.0, a);
+        }
+        "size" => {
+            pen.page(5.0, 2.0, 15.0, 18.0);
+            pen.line_c(&[(2.5, 2.5), (2.5, 17.5)], a);
+            pen.line_c(&[(5.0, 19.0), (15.0, 19.0)], a);
+        }
+        "columns" => {
+            pen.lines(3.0, 9.0, &[4.0, 7.0, 10.0, 13.0, 16.0]);
+            pen.lines(11.0, 17.0, &[4.0, 7.0, 10.0, 13.0]);
+        }
+        "breaks" => {
+            pen.page(4.0, 1.5, 16.0, 8.5);
+            pen.page(4.0, 11.5, 16.0, 18.5);
+            pen.line_c(&[(2.0, 10.0), (18.0, 10.0)], a);
+        }
+        "lineNumbers" => {
+            for (i, y) in [4.0, 8.0, 12.0, 16.0].iter().enumerate() {
+                pen.text(4.0, *y, 5.0, &(i + 1).to_string(), a, true);
+                pen.line(&[(7.0, *y), (17.0, *y)]);
+            }
+        }
+        "hyphenation" => {
+            pen.text(7.0, 7.0, 8.0, "ab-", c, false);
+            pen.text(9.0, 14.5, 8.0, "cd", a, false);
+        }
+        "position" | "wrapText" => {
+            pen.lines(3.0, 17.0, &[3.0, 17.0]);
+            pen.lines(3.0, 6.0, &[7.0, 10.0, 13.0]);
+            pen.frect(7.5, 6.0, 12.5, 14.0, a);
+            pen.lines(14.0, 17.0, &[7.0, 10.0, 13.0]);
+        }
+        "bringForward" => {
+            pen.rect(3.0, 3.0, 12.0, 12.0, c);
+            pen.frect(8.0, 8.0, 17.0, 17.0, a);
+        }
+        "sendBackward" => {
+            pen.frect(3.0, 3.0, 12.0, 12.0, a);
+            pen.rect(8.0, 8.0, 17.0, 17.0, c);
+        }
+        "selectionPane" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.lines(6.0, 14.0, &[7.0, 10.0, 13.0]);
+        }
+        "align" => {
+            pen.line_c(&[(3.0, 2.0), (3.0, 18.0)], a);
+            pen.rect(4.5, 4.0, 15.0, 8.0, c);
+            pen.rect(4.5, 11.0, 11.0, 15.0, c);
+        }
+        "group" => {
+            pen.rect(2.5, 2.5, 17.5, 17.5, a);
+            pen.rect(5.0, 5.0, 11.0, 11.0, c);
+            pen.fcircle(13.0, 13.0, 3.0, c);
+        }
+        "rotate" => {
+            pen.circle(10.0, 10.0, 6.0, c);
+            pen.fill(&[(14.5, 3.0), (17.5, 6.0), (13.5, 7.0)], a);
+        }
+        "indentLeft" | "indentRight" | "spaceBefore" | "spaceAfter" => {
+            pen.lines(3.0, 17.0, &[6.0, 10.0, 14.0]);
+            pen.fcircle(if name.contains("Right") { 15.0 } else { 5.0 }, 10.0, 1.6, a);
+        }
+        // References
+        "toc" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.lines(6.0, 11.0, &[7.0, 10.0, 13.0]);
+            for y in [7.0, 10.0, 13.0] {
+                pen.fcircle(13.5, y, 0.8, a);
+            }
+        }
+        _ => return false,
+    }
+    true
+}
+fn draw_2(p: &Painter, r: Rect, name: &str, c: Color32, flat: bool) -> bool {
+    let pen = Pen { p, r, c, a: c, w: 1.35, flat };
+    let a = c;
+    let red = c;
+    let green = c;
+    match name {
+        "addText" => {
+            pen.lines(3.0, 13.0, &[5.0, 9.0, 13.0]);
+            pen.line_c(&[(15.0, 11.0), (15.0, 17.0)], a);
+            pen.line_c(&[(12.0, 14.0), (18.0, 14.0)], a);
+        }
+        "updateTable" | "update" => {
+            pen.circle(10.0, 10.0, 6.0, c);
+            pen.fill(&[(14.5, 3.0), (17.5, 6.0), (13.5, 7.0)], green);
+        }
+        // Check for Updates: two arrows going round (a newer version), and a down arrow in the
+        // middle (getting it).
+        "checkUpdates" => {
+            let r = 7.5;
+            for (from, to) in [(1.12_f32, 1.88_f32), (0.12, 0.88)] {
+                let pts: Vec<Pos2> = (0..=16)
+                    .map(|i| {
+                        let t = std::f32::consts::PI * (from + (to - from) * i as f32 / 16.0);
+                        pen.pt(10.0 + r * t.cos(), 10.0 + r * t.sin())
+                    })
+                    .collect();
+                pen.p.add(Shape::line(pts, pen.stroke(c)));
+                // An arrowhead at the arc's end, along its turn.
+                let t = std::f32::consts::PI * to;
+                let (ex, ey) = (10.0 + r * t.cos(), 10.0 + r * t.sin());
+                let (dx, dy) = (-t.sin(), t.cos());
+                let (px, py) = (-dy, dx);
+                pen.fill(&[(ex + dx * 2.6, ey + dy * 2.6), (ex + px * 2.4, ey + py * 2.4), (ex - px * 2.4, ey - py * 2.4)], c);
+            }
+            pen.line_c(&[(10.0, 6.0), (10.0, 12.0)], a);
+            pen.fill(&[(7.2, 11.0), (12.8, 11.0), (10.0, 14.2)], a);
+        }
+        "footnote" => {
+            pen.text(6.5, 7.0, 10.0, "ab", c, false);
+            pen.text(13.5, 4.5, 6.0, "1", a, true);
+            pen.line(&[(3.0, 13.0), (9.0, 13.0)]);
+            pen.lines(3.0, 17.0, &[16.0]);
+        }
+        "endnote" => {
+            pen.text(6.5, 7.0, 10.0, "ab", c, false);
+            pen.text(13.5, 4.5, 6.0, "i", a, true);
+            pen.lines(3.0, 17.0, &[13.0, 16.0]);
+        }
+        "nextFootnote" => {
+            pen.text(7.0, 7.0, 8.0, "ab", c, false);
+            pen.text(13.0, 5.0, 6.0, "1", a, true);
+            pen.line_c(&[(6.0, 15.0), (14.0, 15.0)], a);
+            pen.line_c(&[(11.5, 12.5), (14.0, 15.0), (11.5, 17.5)], a);
+        }
+        "showNotes" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.frect(5.5, 13.0, 14.5, 16.5, a.linear_multiply(0.5));
+        }
+        "researcher" => {
+            pen.circle(9.0, 9.0, 5.0, c);
+            pen.line_c(&[(12.5, 12.5), (17.0, 17.0)], a);
+            pen.lines(6.5, 11.5, &[8.0, 10.0]);
+        }
+        // Zotero
+        "docPrefs" => {
+            pen.page(3.0, 2.5, 13.0, 17.5);
+            pen.lines(5.0, 10.0, &[7.5, 10.0]);
+            // A small gear: ring and teeth.
+            pen.circle(14.0, 14.0, 2.2, a);
+            for k in 0..6 {
+                let t = k as f32 * std::f32::consts::PI / 3.0;
+                let (dx, dy) = (t.cos(), t.sin());
+                pen.line_c(&[(14.0 + 2.8 * dx, 14.0 + 2.8 * dy), (14.0 + 4.2 * dx, 14.0 + 4.2 * dy)], a);
+            }
+        }
+        "unlinkCitations" => {
+            // Two chain links pulled apart, with a break between them.
+            pen.closed(
+                &[(2.5, 12.5), (6.0, 9.0), (8.5, 9.0), (8.5, 10.8), (6.8, 10.8), (4.6, 13.0), (6.8, 15.2), (8.5, 15.2), (8.5, 17.0), (6.0, 17.0)],
+                c,
+            );
+            pen.closed(
+                &[(17.5, 7.5), (14.0, 11.0), (11.5, 11.0), (11.5, 9.2), (13.2, 9.2), (15.4, 7.0), (13.2, 4.8), (11.5, 4.8), (11.5, 3.0), (14.0, 3.0)],
+                c,
+            );
+            pen.line_c(&[(9.0, 6.5), (7.5, 5.0)], a);
+            pen.line_c(&[(11.0, 13.5), (12.5, 15.0)], a);
+            pen.line_c(&[(10.0, 5.5), (10.0, 3.5)], a);
+            pen.line_c(&[(10.0, 14.5), (10.0, 16.5)], a);
+        }
+        "addNote" => {
+            pen.closed(&[(3.0, 3.0), (17.0, 3.0), (17.0, 12.5), (12.5, 17.0), (3.0, 17.0)], c);
+            pen.line(&[(12.5, 17.0), (12.5, 12.5), (17.0, 12.5)]);
+            pen.line_c(&[(6.0, 8.0), (11.0, 8.0)], a);
+            pen.line_c(&[(8.5, 5.5), (8.5, 10.5)], a);
+            pen.lines(6.0, 11.0, &[13.5]);
+        }
+        "citation" => {
+            pen.text(6.0, 9.0, 14.0, "“", a, true);
+            pen.lines(9.0, 17.0, &[6.0, 10.0, 14.0]);
+        }
+        "sources" | "bibliography" => {
+            pen.rect(4.0, 3.0, 9.0, 17.0, c);
+            pen.rect(9.0, 3.0, 13.0, 17.0, a);
+            pen.closed(&[(13.5, 4.0), (16.5, 3.5), (18.0, 16.5), (15.0, 17.0)], c);
+        }
+        "caption" => {
+            pen.rect(3.0, 2.5, 17.0, 11.5, c);
+            pen.fill(&[(4.5, 10.0), (8.0, 5.5), (11.0, 10.0)], a);
+            pen.lines(3.0, 13.0, &[15.0, 17.5]);
+        }
+        "tableOfFigures" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.frect(6.0, 5.0, 10.0, 8.0, a);
+            pen.lines(6.0, 14.0, &[11.0, 14.0]);
+        }
+        "markEntry" | "index" | "markCitation" | "tableOfAuthorities" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.text(10.0, 10.0, 8.0, if name == "index" || name == "markEntry" { "A" } else { "§" }, a, true);
+        }
+        // Mailings
+        "envelope" => {
+            pen.rect(2.5, 5.0, 17.5, 15.5, c);
+            pen.line_c(&[(2.5, 5.0), (10.0, 11.0), (17.5, 5.0)], a);
+        }
+        "labels" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.frect(5.0, 5.0, 9.5, 9.0, a);
+            pen.frect(10.5, 5.0, 15.0, 9.0, a);
+            pen.frect(5.0, 11.0, 9.5, 15.0, a);
+            pen.frect(10.5, 11.0, 15.0, 15.0, a);
+        }
+        "mailMerge" | "recipients" | "editRecipients" => {
+            pen.fcircle(7.0, 7.0, 2.5, a);
+            pen.line(&[(3.0, 15.0), (3.0, 13.0), (7.0, 10.5), (11.0, 13.0), (11.0, 15.0)]);
+            pen.fcircle(13.5, 6.0, 2.0, c);
+            pen.line(&[(11.5, 10.0), (13.5, 9.0), (17.0, 11.0), (17.0, 14.0)]);
+        }
+        "mergeField" | "addressBlock" | "greetingLine" | "rules" | "matchFields" | "highlightFields" => {
+            pen.rect(2.5, 6.0, 17.5, 14.0, c);
+            pen.text(10.0, 10.0, 7.0, "«»", a, true);
+        }
+        "preview" => {
+            pen.text(10.0, 10.0, 8.0, "ABC", a, true);
+            pen.rect(2.5, 5.0, 17.5, 15.0, c);
+        }
+        "next" | "previous" | "first" | "last" => {
+            let pts: &[(f32, f32)] =
+                if name == "next" || name == "last" { &[(7.0, 4.0), (13.0, 10.0), (7.0, 16.0)] } else { &[(13.0, 4.0), (7.0, 10.0), (13.0, 16.0)] };
+            pen.line_c(pts, a);
+        }
+        "finish" => {
+            pen.page(3.0, 2.0, 13.0, 15.0);
+            pen.line_c(&[(10.0, 15.0), (13.0, 18.0), (18.0, 11.0)], green);
+        }
+        "checkErrors" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.fcircle(14.0, 14.0, 3.5, red);
+        }
+        // Review
+        "thesaurus" => {
+            pen.rect(3.5, 2.5, 16.5, 17.5, c);
+            pen.text(10.0, 9.5, 8.0, "Aa", a, true);
+        }
+        "wordCount" => pen.text(10.0, 10.0, 9.0, "123", a, true),
+        "readAloud" => {
+            pen.text(6.0, 10.0, 10.0, "A", c, false);
+            pen.line_c(&[(12.0, 7.0), (13.5, 10.0), (12.0, 13.0)], a);
+            pen.line_c(&[(14.5, 5.0), (17.0, 10.0), (14.5, 15.0)], a);
+        }
+        "accessibility" => {
+            pen.fcircle(10.0, 4.0, 1.6, a);
+            pen.line(&[(4.0, 7.0), (16.0, 7.0)]);
+            pen.line(&[(10.0, 7.0), (10.0, 12.0), (7.0, 17.5)]);
+            pen.line(&[(10.0, 12.0), (13.0, 17.5)]);
+        }
+        "altText" => {
+            // A small picture with lines of text beside and below it.
+            pen.rect(2.5, 3.5, 11.5, 11.0, c);
+            pen.line_c(&[(3.5, 10.0), (6.0, 6.5), (8.0, 8.5), (9.0, 7.5), (10.5, 10.0)], a);
+            for (x0, x1, y) in [(13.5, 17.5, 5.0), (13.5, 17.5, 8.0), (2.5, 17.5, 14.0), (2.5, 13.0, 17.0)] {
+                pen.line_c(&[(x0, y), (x1, y)], c);
+            }
+        }
+        "translate" | "language" => {
+            pen.text(6.5, 7.0, 9.0, "A", c, true);
+            pen.text(13.5, 13.5, 9.0, "あ", a, false);
+        }
+        "deleteComment" => {
+            pen.closed(&[(2.5, 3.5), (17.5, 3.5), (17.5, 13.5), (9.0, 13.5), (5.0, 17.0), (5.0, 13.5), (2.5, 13.5)], c);
+            pen.line_c(&[(7.5, 6.0), (12.5, 11.0)], red);
+            pen.line_c(&[(12.5, 6.0), (7.5, 11.0)], red);
+        }
+        "prevComment" | "nextComment" => {
+            pen.closed(&[(2.5, 3.5), (17.5, 3.5), (17.5, 13.5), (9.0, 13.5), (5.0, 17.0), (5.0, 13.5), (2.5, 13.5)], c);
+            let pts: &[(f32, f32)] =
+                if name == "nextComment" { &[(8.0, 6.0), (12.0, 8.5), (8.0, 11.0)] } else { &[(12.0, 6.0), (8.0, 8.5), (12.0, 11.0)] };
+            pen.line_c(pts, a);
+        }
+        "showComments" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.frect(12.0, 3.0, 17.0, 17.0, a.linear_multiply(0.4));
+        }
+        "resolve" => {
+            pen.closed(&[(2.5, 3.5), (17.5, 3.5), (17.5, 13.5), (9.0, 13.5), (5.0, 17.0), (5.0, 13.5), (2.5, 13.5)], c);
+            pen.line_c(&[(6.5, 8.5), (9.0, 11.0), (13.5, 6.0)], green);
+        }
+        "trackChanges" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.line_c(&[(6.0, 7.0), (14.0, 7.0)], red);
+            pen.line_c(&[(6.0, 11.0), (14.0, 11.0)], a);
+            pen.lines(6.0, 11.0, &[15.0]);
+        }
+        "markup" | "reviewingPane" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.line_c(&[(6.0, 8.0), (13.0, 8.0)], red);
+            pen.lines(6.0, 13.0, &[12.0]);
+        }
+        "accept" => {
+            pen.page(4.0, 2.0, 15.0, 17.0);
+            pen.line_c(&[(10.0, 14.5), (12.5, 17.0), (18.0, 11.0)], green);
+        }
+        "reject" => {
+            pen.page(4.0, 2.0, 15.0, 17.0);
+            pen.line_c(&[(11.0, 12.0), (17.0, 18.0)], red);
+            pen.line_c(&[(17.0, 12.0), (11.0, 18.0)], red);
+        }
+        "prevChange" | "nextChange" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            let pts: &[(f32, f32)] =
+                if name == "nextChange" { &[(8.5, 7.0), (11.5, 10.0), (8.5, 13.0)] } else { &[(11.5, 7.0), (8.5, 10.0), (11.5, 13.0)] };
+            pen.line_c(pts, a);
+        }
+        "compare" | "combine" => {
+            pen.page(2.0, 3.0, 10.0, 15.0);
+            pen.page(10.0, 5.0, 18.0, 17.0);
+            pen.line_c(&[(6.0, 18.5), (14.0, 18.5)], a);
+        }
+        "protect" | "restrict" | "blockAuthors" => {
+            pen.rect(5.0, 9.0, 15.0, 17.5, c);
+            pen.line_c(&[(7.0, 9.0), (7.0, 6.0), (10.0, 3.0), (13.0, 6.0), (13.0, 9.0)], a);
+        }
+        "hideInk" => {
+            pen.line_c(&[(3.0, 13.0), (6.0, 8.0), (9.0, 13.0), (12.0, 8.0)], a);
+            pen.line(&[(3.0, 3.0), (17.0, 17.0)]);
+        }
+        // View
+        "readMode" => {
+            pen.closed(&[(2.0, 4.0), (9.5, 5.0), (9.5, 17.0), (2.0, 16.0)], c);
+            pen.closed(&[(18.0, 4.0), (10.5, 5.0), (10.5, 17.0), (18.0, 16.0)], a);
+        }
+        "printLayout" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.lines(6.0, 14.0, &[7.0, 10.0, 13.0]);
+        }
+        "printPreview" => {
+            pen.page(3.0, 2.0, 14.0, 18.0);
+            pen.lines(5.0, 11.0, &[6.0, 8.5]);
+            pen.circle(13.0, 13.0, 3.5, a);
+            pen.line_c(&[(15.5, 15.5), (18.5, 18.5)], a);
+        }
+        "webLayout" => {
+            pen.circle(10.0, 10.0, 7.0, c);
+            pen.line_c(&[(3.0, 10.0), (17.0, 10.0)], a);
+            pen.line_c(&[(10.0, 3.0), (7.0, 10.0), (10.0, 17.0)], a);
+            pen.line_c(&[(10.0, 3.0), (13.0, 10.0), (10.0, 17.0)], a);
+        }
+        "outline" => {
+            pen.fcircle(4.0, 4.5, 1.2, a);
+            pen.line(&[(6.5, 4.5), (17.0, 4.5)]);
+            pen.fcircle(7.0, 10.0, 1.2, a);
+            pen.line(&[(9.5, 10.0), (17.0, 10.0)]);
+            pen.fcircle(10.0, 15.5, 1.2, a);
+            pen.line(&[(12.5, 15.5), (17.0, 15.5)]);
+        }
+        "draft" => pen.lines(3.0, 17.0, &[4.0, 7.0, 10.0, 13.0, 16.0]),
+        "focus" => {
+            pen.line(&[(3.0, 7.0), (3.0, 3.0), (7.0, 3.0)]);
+            pen.line(&[(13.0, 3.0), (17.0, 3.0), (17.0, 7.0)]);
+            pen.line(&[(17.0, 13.0), (17.0, 17.0), (13.0, 17.0)]);
+            pen.line(&[(7.0, 17.0), (3.0, 17.0), (3.0, 13.0)]);
+            pen.lines(7.0, 13.0, &[8.5, 11.5]);
+        }
+        "immersive" => {
+            pen.closed(&[(2.0, 4.0), (9.5, 5.0), (9.5, 17.0), (2.0, 16.0)], c);
+            pen.closed(&[(18.0, 4.0), (10.5, 5.0), (10.5, 17.0), (18.0, 16.0)], c);
+            pen.fcircle(14.0, 10.0, 2.0, a);
+        }
+        "vertical" => {
+            pen.page(5.0, 1.0, 15.0, 9.0);
+            pen.page(5.0, 11.0, 15.0, 19.0);
+        }
+        "sideToSide" => {
+            pen.page(1.5, 4.0, 9.5, 16.0);
+            pen.page(10.5, 4.0, 18.5, 16.0);
+        }
+        "ruler" => {
+            pen.rect(2.0, 7.0, 18.0, 13.0, c);
+            for x in [4.5, 7.0, 9.5, 12.0, 14.5] {
+                pen.line_c(&[(x, 7.0), (x, 10.0)], a);
+            }
+        }
+        "gridlines" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            for k in [6.5, 10.0, 13.5] {
+                pen.line_c(&[(k, 3.0), (k, 17.0)], a.linear_multiply(0.6));
+                pen.line_c(&[(3.0, k), (17.0, k)], a.linear_multiply(0.6));
+            }
+        }
+        "navPane" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.frect(3.0, 3.0, 8.0, 17.0, a.linear_multiply(0.5));
+        }
+        "hideWhiteSpace" => {
+            pen.line(&[(3.0, 8.0), (17.0, 8.0)]);
+            pen.line(&[(3.0, 12.0), (17.0, 12.0)]);
+            pen.line(&[(10.0, 1.5), (10.0, 6.0)]);
+            pen.line(&[(7.5, 3.5), (10.0, 6.0), (12.5, 3.5)]);
+            pen.line(&[(10.0, 18.5), (10.0, 14.0)]);
+            pen.line(&[(7.5, 16.5), (10.0, 14.0), (12.5, 16.5)]);
+        }
+        "textBoundaries" => {
+            for (x, dx) in [(3.0, 1.0), (17.0, -1.0)] {
+                for (y, dy) in [(3.0, 1.0), (17.0, -1.0)] {
+                    pen.line(&[(x, y + 3.0 * dy), (x, y), (x + 3.0 * dx, y)]);
+                }
+            }
+            pen.lines(6.0, 14.0, &[7.0, 10.0]);
+            pen.lines(6.0, 11.0, &[13.0]);
+        }
+        "zoom" => {
+            pen.circle(8.5, 8.5, 5.5, c);
+            pen.line_c(&[(12.5, 12.5), (17.5, 17.5)], a);
+            pen.line(&[(6.0, 8.5), (11.0, 8.5)]);
+            pen.line(&[(8.5, 6.0), (8.5, 11.0)]);
+        }
+        "zoomIn" | "zoomOut" => {
+            pen.circle(8.5, 8.5, 5.5, c);
+            pen.line_c(&[(12.5, 12.5), (17.5, 17.5)], a);
+            pen.line(&[(6.0, 8.5), (11.0, 8.5)]);
+            if name == "zoomIn" {
+                pen.line(&[(8.5, 6.0), (8.5, 11.0)]);
+            }
+        }
+        "zoom100" => pen.text(10.0, 10.0, 7.5, "100", a, true),
+        "onePage" => pen.page(5.0, 2.0, 15.0, 18.0),
+        "multiplePages" => {
+            pen.page(1.5, 4.0, 9.5, 16.0);
+            pen.page(10.5, 4.0, 18.5, 16.0);
+        }
+        "pageWidth" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.line_c(&[(1.5, 10.0), (18.5, 10.0)], a);
+        }
+        "darkMode" => {
+            pen.fcircle(10.0, 10.0, 7.0, c);
+            pen.fcircle(13.0, 8.0, 6.0, c.gamma_multiply(0.12));
+        }
+        "interfaceTheme" => {
+            // A window, its right half dark: light, dark or both (follow the system).
+            pen.frect(10.0, 3.5, 17.5, 16.5, c);
+            pen.rect(2.5, 3.5, 17.5, 16.5, c);
+            pen.line_c(&[(2.5, 6.5), (10.0, 6.5)], a);
+        }
+        "newWindow" => {
+            pen.rect(2.5, 5.0, 13.0, 15.0, c);
+            pen.rect(7.0, 2.5, 17.5, 12.5, a);
+        }
+        "arrangeAll" => {
+            pen.rect(3.0, 2.5, 17.0, 9.0, c);
+            pen.rect(3.0, 11.0, 17.0, 17.5, a);
+        }
+        "split" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.line_c(&[(3.0, 10.0), (17.0, 10.0)], a);
+        }
+        _ => return false,
+    }
+    true
+}
+fn draw_3(p: &Painter, r: Rect, name: &str, c: Color32, flat: bool) -> bool {
+    let pen = Pen { p, r, c, a: c, w: 1.35, flat };
+    let a = c;
+    let red = c;
+    let yellow = c;
+    match name {
+        "fullScreen" => {
+            // A screen with arrows out to its four corners.
+            pen.rect(2.0, 3.5, 18.0, 16.5, c);
+            pen.line_c(&[(5.0, 8.5), (5.0, 6.0), (7.5, 6.0)], a);
+            pen.line_c(&[(12.5, 6.0), (15.0, 6.0), (15.0, 8.5)], a);
+            pen.line_c(&[(15.0, 11.5), (15.0, 14.0), (12.5, 14.0)], a);
+            pen.line_c(&[(7.5, 14.0), (5.0, 14.0), (5.0, 11.5)], a);
+            pen.line_c(&[(5.0, 6.0), (8.0, 8.5)], a);
+            pen.line_c(&[(15.0, 6.0), (12.0, 8.5)], a);
+            pen.line_c(&[(15.0, 14.0), (12.0, 11.5)], a);
+            pen.line_c(&[(5.0, 14.0), (8.0, 11.5)], a);
+        }
+        "sideBySide" | "syncScroll" | "switchWindows" => {
+            pen.rect(2.0, 4.0, 9.5, 16.0, c);
+            pen.rect(10.5, 4.0, 18.0, 16.0, a);
+        }
+        "macros" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.fill(&[(8.0, 6.5), (8.0, 13.5), (14.0, 10.0)], a);
+        }
+        // A page with a filled band at the top and a style mark: the document's template.
+        "documentTemplate" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.frect(6.0, 5.0, 11.5, 7.0, a);
+            pen.text(10.0, 13.0, 8.0, "A", a, false);
+        }
+        "properties" | "info" => {
+            pen.circle(10.0, 10.0, 7.0, c);
+            pen.line_c(&[(10.0, 9.0), (10.0, 14.5)], a);
+            pen.fcircle(10.0, 6.3, 1.0, a);
+        }
+        // Table tools
+        "insertAbove" | "insertBelow" | "insertLeft" | "insertRight" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            match name {
+                "insertAbove" => pen.frect(3.0, 3.0, 17.0, 8.0, a),
+                "insertBelow" => pen.frect(3.0, 12.0, 17.0, 17.0, a),
+                "insertLeft" => pen.frect(3.0, 3.0, 8.0, 17.0, a),
+                _ => pen.frect(12.0, 3.0, 17.0, 17.0, a),
+            }
+        }
+        "deleteTable" => {
+            pen.rect(3.0, 3.0, 15.0, 15.0, c);
+            pen.line(&[(3.0, 9.0), (15.0, 9.0)]);
+            pen.line(&[(9.0, 3.0), (9.0, 15.0)]);
+            pen.line_c(&[(12.0, 12.0), (18.0, 18.0)], red);
+            pen.line_c(&[(18.0, 12.0), (12.0, 18.0)], red);
+        }
+        "merge" => {
+            pen.rect(3.0, 5.0, 17.0, 15.0, c);
+            pen.line_c(&[(5.0, 10.0), (15.0, 10.0)], a);
+            pen.line_c(&[(7.0, 8.0), (5.0, 10.0), (7.0, 12.0)], a);
+            pen.line_c(&[(13.0, 8.0), (15.0, 10.0), (13.0, 12.0)], a);
+        }
+        "splitCells" | "splitTable" => {
+            pen.rect(3.0, 5.0, 17.0, 15.0, c);
+            pen.line_c(&[(10.0, 5.0), (10.0, 15.0)], a);
+        }
+        "autofit" | "distributeRows" | "distributeCols" | "rowHeight" | "colWidth" => {
+            pen.rect(3.0, 4.0, 17.0, 16.0, c);
+            pen.line_c(&[(5.0, 10.0), (15.0, 10.0)], a);
+            pen.line_c(&[(7.0, 8.0), (5.0, 10.0), (7.0, 12.0)], a);
+            pen.line_c(&[(13.0, 8.0), (15.0, 10.0), (13.0, 12.0)], a);
+        }
+        "cellAlign" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.lines(6.0, 14.0, &[8.5, 11.5]);
+        }
+        "textDirection" => {
+            pen.text(9.0, 10.0, 10.0, "A", c, false);
+            pen.line_c(&[(15.5, 4.0), (15.5, 16.0)], a);
+            pen.line_c(&[(13.5, 14.0), (15.5, 16.0), (17.5, 14.0)], a);
+        }
+        "cellMargins" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.rect(6.0, 6.0, 14.0, 14.0, a);
+        }
+        "repeatHeader" => {
+            pen.frect(3.0, 3.0, 17.0, 7.0, a);
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.line(&[(3.0, 12.0), (17.0, 12.0)]);
+        }
+        "toText" => {
+            pen.rect(3.0, 3.0, 11.0, 11.0, c);
+            pen.lines(9.0, 17.0, &[14.0, 17.0]);
+        }
+        "formula" => pen.text(10.0, 10.0, 12.0, "fx", a, false),
+        "selectTable" => {
+            pen.rect(3.0, 3.0, 17.0, 17.0, c);
+            pen.fill(&[(8.0, 7.0), (8.0, 15.0), (10.0, 13.0), (11.5, 16.0), (12.5, 15.5), (11.0, 12.5), (13.5, 12.5)], a);
+        }
+        "draw" => {
+            pen.rect(3.0, 3.0, 13.0, 13.0, c);
+            pen.line_c(&[(10.0, 17.0), (17.0, 10.0)], a);
+        }
+        "borderPainter" => {
+            pen.line(&[(4.0, 16.0), (14.0, 6.0), (16.0, 8.0), (6.0, 18.0), (3.5, 18.5), (4.0, 16.0)]);
+            pen.line_c(&[(3.0, 3.0), (11.0, 3.0)], a);
+        }
+        // Chrome
+        "save" => {
+            pen.closed(&[(3.0, 3.0), (14.0, 3.0), (17.0, 6.0), (17.0, 17.0), (3.0, 17.0)], c);
+            pen.frect(6.0, 3.0, 13.0, 7.5, a);
+            pen.rect(6.0, 11.0, 14.0, 17.0, c);
+        }
+        "undo" => {
+            pen.line(&[(5.0, 8.0), (13.0, 8.0)]);
+            pen.p.add(Shape::line(
+                (0..=12)
+                    .map(|i| {
+                        let t = -std::f32::consts::FRAC_PI_2 + std::f32::consts::PI * i as f32 / 12.0;
+                        pen.pt(13.0 + 4.5 * t.cos(), 12.5 + 4.5 * t.sin())
+                    })
+                    .collect(),
+                pen.stroke(c),
+            ));
+            pen.line(&[(13.0, 17.0), (8.0, 17.0)]);
+            pen.fill(&[(2.5, 8.0), (6.5, 4.5), (6.5, 11.5)], a);
+        }
+        "redo" => {
+            pen.line(&[(15.0, 8.0), (7.0, 8.0)]);
+            pen.p.add(Shape::line(
+                (0..=12)
+                    .map(|i| {
+                        let t = std::f32::consts::FRAC_PI_2 + std::f32::consts::PI * i as f32 / 12.0;
+                        pen.pt(7.0 + 4.5 * t.cos(), 12.5 - 4.5 * t.sin())
+                    })
+                    .collect(),
+                pen.stroke(c),
+            ));
+            pen.line(&[(7.0, 17.0), (12.0, 17.0)]);
+            pen.fill(&[(17.5, 8.0), (13.5, 4.5), (13.5, 11.5)], a);
+        }
+        "search" => {
+            pen.circle(8.5, 8.5, 5.0, c);
+            pen.line(&[(12.0, 12.0), (16.5, 16.5)]);
+        }
+        "share" => {
+            pen.line(&[(10.0, 3.0), (10.0, 12.0)]);
+            pen.line(&[(6.5, 6.5), (10.0, 3.0), (13.5, 6.5)]);
+            pen.line(&[(5.0, 9.0), (3.5, 9.0), (3.5, 17.0), (16.5, 17.0), (16.5, 9.0), (15.0, 9.0)]);
+        }
+        "user" => {
+            pen.fcircle(10.0, 7.0, 3.5, a);
+            pen.p.add(Shape::convex_polygon(
+                (0..=16)
+                    .map(|i| {
+                        let t = std::f32::consts::PI * i as f32 / 16.0;
+                        pen.pt(10.0 - 6.5 * t.cos(), 18.0 - 6.0 * t.sin())
+                    })
+                    .collect(),
+                a,
+                Stroke::NONE,
+            ));
+        }
+        "close" => {
+            pen.line(&[(5.0, 5.0), (15.0, 15.0)]);
+            pen.line(&[(15.0, 5.0), (5.0, 15.0)]);
+        }
+        // A triangle filling most of its box: it is drawn at 9–12 pt beside combos and split
+        // buttons, where a smaller one shrank to a dot (#535).
+        "dropdown" => pen.fill(&[(3.0, 7.0), (17.0, 7.0), (10.0, 14.0)], c),
+        "more" => {
+            for x in [5.0, 10.0, 15.0] {
+                pen.fcircle(x, 10.0, 1.3, c);
+            }
+        }
+        "launcher" => {
+            pen.line(&[(5.0, 5.0), (5.0, 15.0), (15.0, 15.0)]);
+            pen.line(&[(8.0, 8.0), (15.0, 15.0)]);
+            pen.line(&[(11.0, 15.0), (15.0, 15.0), (15.0, 11.0)]);
+        }
+        "pin" => {
+            pen.line(&[(10.0, 12.0), (10.0, 18.0)]);
+            pen.rect(7.0, 2.0, 13.0, 9.0, c);
+            pen.line(&[(5.0, 12.0), (15.0, 12.0)]);
+        }
+        "plus" => {
+            pen.line(&[(10.0, 4.0), (10.0, 16.0)]);
+            pen.line(&[(4.0, 10.0), (16.0, 10.0)]);
+        }
+        "minus" => pen.line(&[(4.0, 10.0), (16.0, 10.0)]),
+        "check" => pen.line_c(&[(4.0, 10.5), (8.5, 15.0), (16.5, 5.0)], c),
+        "chevronLeft" => pen.line(&[(13.0, 4.0), (7.0, 10.0), (13.0, 16.0)]),
+        "chevronRight" => pen.line(&[(7.0, 4.0), (13.0, 10.0), (7.0, 16.0)]),
+        "chevronUp" => pen.line(&[(4.0, 13.0), (10.0, 7.0), (16.0, 13.0)]),
+        "chevronDown" => pen.line(&[(4.0, 7.0), (10.0, 13.0), (16.0, 7.0)]),
+        // Read Aloud player
+        "mediaPlay" => pen.fill(&[(6.0, 4.0), (16.0, 10.0), (6.0, 16.0)], c),
+        "mediaPause" => {
+            pen.frect(5.5, 4.0, 8.5, 16.0, c);
+            pen.frect(11.5, 4.0, 14.5, 16.0, c);
+        }
+        "mediaStop" => pen.frect(5.0, 5.0, 15.0, 15.0, c),
+        "mediaPrev" => {
+            pen.frect(4.0, 5.0, 6.0, 15.0, c);
+            pen.fill(&[(16.0, 5.0), (7.0, 10.0), (16.0, 15.0)], c);
+        }
+        "mediaNext" => {
+            pen.frect(14.0, 5.0, 16.0, 15.0, c);
+            pen.fill(&[(4.0, 5.0), (13.0, 10.0), (4.0, 15.0)], c);
+        }
+        // Move past citation: a bracketed citation with an arrow hopping over it to the caret.
+        "pastCitation" => {
+            pen.line_c(&[(4.5, 9.0), (3.0, 9.0), (3.0, 17.0), (4.5, 17.0)], c);
+            pen.line_c(&[(11.5, 9.0), (13.0, 9.0), (13.0, 17.0), (11.5, 17.0)], c);
+            pen.lines(5.5, 10.5, &[12.0, 14.5]);
+            pen.line_c(&[(4.0, 6.0), (8.0, 2.5), (14.0, 2.5), (16.5, 7.0)], a);
+            pen.line_c(&[(14.0, 6.0), (16.5, 7.0), (17.5, 4.5)], a);
+            pen.line_c(&[(17.0, 9.0), (17.0, 17.5)], a);
+        }
+        "chevronDoubleRight" => {
+            pen.line(&[(4.0, 4.0), (9.0, 10.0), (4.0, 16.0)]);
+            pen.line(&[(11.0, 4.0), (16.0, 10.0), (11.0, 16.0)]);
+        }
+        "addins" => {
+            pen.rect(3.0, 3.0, 9.0, 9.0, c);
+            pen.rect(11.0, 3.0, 17.0, 9.0, c);
+            pen.rect(3.0, 11.0, 9.0, 17.0, c);
+            pen.line_c(&[(14.0, 11.0), (14.0, 17.0)], a);
+            pen.line_c(&[(11.0, 14.0), (17.0, 14.0)], a);
+        }
+        // Open: a folder with its flap lifted.
+        "open" => {
+            pen.closed(&[(2.5, 5.0), (7.5, 5.0), (9.0, 6.5), (15.5, 6.5), (15.5, 9.0)], c);
+            pen.line(&[(2.5, 5.0), (2.5, 16.0)]);
+            pen.closed(&[(2.5, 16.0), (5.0, 9.0), (18.0, 9.0), (15.5, 16.0)], a);
+        }
+        // Print: a printer with a sheet coming out.
+        "print" => {
+            pen.rect(6.0, 2.5, 14.0, 7.0, c);
+            pen.rect(2.5, 7.0, 17.5, 14.0, c);
+            pen.closed(&[(6.0, 11.5), (14.0, 11.5), (14.0, 17.5), (6.0, 17.5)], a);
+            pen.fcircle(15.0, 9.5, 0.8, c);
+        }
+        "alignText" => {
+            // A box with its text lines in the middle, arrows to the top and bottom edges.
+            pen.rect(3.0, 2.5, 17.0, 17.5, c);
+            pen.lines(5.5, 11.0, &[9.0, 11.5]);
+            pen.line_c(&[(14.0, 5.0), (14.0, 15.0)], a);
+            pen.line_c(&[(12.5, 6.5), (14.0, 5.0), (15.5, 6.5)], a);
+            pen.line_c(&[(12.5, 13.5), (14.0, 15.0), (15.5, 13.5)], a);
+        }
+        "crop" => {
+            // Two right angles overlapping: the crop marks.
+            pen.line_c(&[(6.0, 2.0), (6.0, 14.0), (18.0, 14.0)], c);
+            pen.line_c(&[(2.0, 6.0), (14.0, 6.0), (14.0, 18.0)], a);
+        }
+        "textBoxLink" | "textBoxUnlink" => {
+            // Two boxes, the text running from the first into the second (broken: cut through).
+            pen.rect(2.0, 3.0, 8.5, 11.0, c);
+            pen.rect(11.5, 9.0, 18.0, 17.0, c);
+            pen.lines(3.5, 7.0, &[5.5, 8.0]);
+            pen.line_c(&[(5.0, 11.0), (5.0, 14.0), (11.5, 14.0)], a);
+            pen.line_c(&[(9.5, 12.5), (11.5, 14.0), (9.5, 15.5)], a);
+            if name == "textBoxUnlink" {
+                pen.line_c(&[(6.5, 16.5), (9.0, 11.5)], c);
+            }
+        }
+
+        // The built-in file browser (#576): a folder, a file and the home folder.
+        "folder" => {
+            pen.frect(2.5, 4.5, 8.5, 7.0, yellow);
+            pen.frect(2.5, 6.5, 17.5, 16.0, yellow);
+            pen.closed(&[(2.5, 4.5), (8.0, 4.5), (9.5, 6.5), (17.5, 6.5), (17.5, 16.0), (2.5, 16.0)], c);
+        }
+        // A laptop: files stored on this device.
+        "device" => {
+            pen.rect(4.0, 4.5, 16.0, 13.0, c);
+            pen.frect(5.5, 6.0, 14.5, 11.5, a.linear_multiply(0.35));
+            pen.line(&[(2.0, 15.5), (18.0, 15.5)]);
+            pen.line(&[(4.0, 13.0), (2.0, 15.5)]);
+            pen.line(&[(16.0, 13.0), (18.0, 15.5)]);
+        }
+        // A cloud: files kept online (Google Drive), drawn as one solid shape.
+        "cloud" => {
+            pen.fcircle(6.5, 12.0, 3.5, c);
+            pen.fcircle(10.5, 9.0, 4.8, c);
+            pen.fcircle(14.5, 11.5, 3.5, c);
+            pen.frect(3.6, 12.0, 17.4, 15.5, c);
+        }
+        // An arrow into a tray: download a copy.
+        "download" => {
+            pen.line(&[(10.0, 3.0), (10.0, 12.5)]);
+            pen.line(&[(6.0, 9.0), (10.0, 13.0), (14.0, 9.0)]);
+            pen.line(&[(3.5, 13.5), (3.5, 17.0), (16.5, 17.0), (16.5, 13.5)]);
+            pen.line_c(&[(7.0, 15.2), (13.0, 15.2)], a);
+        }
+        "file" => {
+            pen.page(4.5, 2.0, 15.5, 18.0);
+            pen.lines(7.0, 13.0, &[9.0, 12.0, 15.0]);
+        }
+        "homeFolder" => {
+            pen.closed(&[(3.0, 9.5), (10.0, 3.5), (17.0, 9.5)], c);
+            pen.closed(&[(5.0, 8.5), (5.0, 17.0), (15.0, 17.0), (15.0, 8.5)], c);
+            pen.frect(8.5, 12.0, 11.5, 17.0, a);
+        }
+
+        // Outlining tab: arrows moving a paragraph between outline levels and along the outline.
+        "outlinePromote" | "outlineDemote" => {
+            pen.lines(9.0, 17.0, &[6.0, 10.0, 14.0]);
+            if name == "outlinePromote" {
+                pen.line_c(&[(7.0, 10.0), (2.5, 10.0)], a);
+                pen.line_c(&[(5.0, 7.5), (2.5, 10.0), (5.0, 12.5)], a);
+            } else {
+                pen.line_c(&[(2.5, 10.0), (7.0, 10.0)], a);
+                pen.line_c(&[(4.5, 7.5), (7.0, 10.0), (4.5, 12.5)], a);
+            }
+        }
+        "outlineTop" | "outlineBody" => {
+            pen.lines(11.0, 17.0, &[6.0, 10.0, 14.0]);
+            let (x, d) = if name == "outlineTop" { (3.0, 1.0) } else { (9.0, -1.0) };
+            for k in [0.0, 3.5] {
+                pen.line_c(&[(x + d * k + d * 2.5, 7.0), (x + d * k, 10.0), (x + d * k + d * 2.5, 13.0)], a);
+            }
+        }
+        "outlineUp" | "outlineDown" => {
+            pen.lines(3.0, 11.0, &[6.0, 10.0, 14.0]);
+            let up = name == "outlineUp";
+            let (tip, tail) = if up { (3.0, 17.0) } else { (17.0, 3.0) };
+            pen.line_c(&[(15.0, tail), (15.0, tip)], a);
+            let wing = if up { tip + 3.0 } else { tip - 3.0 };
+            pen.line_c(&[(12.0, wing), (15.0, tip), (18.0, wing)], a);
+        }
+        "outlineExpand" | "outlineCollapse" => {
+            pen.fcircle(10.0, 10.0, 6.5, c);
+            pen.line_c(&[(6.5, 10.0), (13.5, 10.0)], c);
+            if name == "outlineExpand" {
+                pen.line_c(&[(10.0, 6.5), (10.0, 13.5)], c);
+            }
+        }
+        "closeOutline" => {
+            pen.page(4.0, 2.0, 16.0, 18.0);
+            pen.line_c(&[(7.0, 8.0), (13.0, 14.0)], red);
+            pen.line_c(&[(13.0, 8.0), (7.0, 14.0)], red);
+        }
+        "help" => {
+            pen.circle(10.0, 10.0, 7.0, c);
+            pen.text(10.0, 10.0, 10.0, "?", a, true);
+        }
+        // File menu (Backstage) pages; Info uses "info" above.
+        // Recover: a clock with an arrow turning back.
+        "recover" => {
+            pen.p.add(Shape::line(
+                (0..=20)
+                    .map(|i| {
+                        let t = std::f32::consts::PI * (0.75 + 1.6 * i as f32 / 24.0);
+                        pen.pt(10.5 + 7.0 * t.cos(), 10.0 + 7.0 * t.sin())
+                    })
+                    .collect(),
+                pen.stroke(c),
+            ));
+            pen.fill(&[(1.5, 6.5), (6.5, 4.5), (5.5, 9.5)], c);
+            pen.line_c(&[(10.5, 6.0), (10.5, 10.5), (13.5, 12.5)], a);
+        }
+        // Save As: the disk with a pencil over its corner.
+        "saveAs" => {
+            pen.closed(&[(2.5, 2.5), (12.0, 2.5), (14.5, 5.0), (14.5, 9.0)], c);
+            pen.line(&[(2.5, 2.5), (2.5, 15.5), (9.0, 15.5)]);
+            pen.frect(5.0, 2.5, 11.0, 6.0, c);
+            pen.line(&[(5.0, 15.5), (5.0, 10.0), (10.5, 10.0)]);
+            pen.closed(&[(11.0, 17.5), (11.5, 14.5), (16.0, 10.0), (18.5, 12.5), (14.0, 17.0)], a);
+        }
+        // Options: a gear.
+        "options" => {
+            let pts: Vec<(f32, f32)> = (0..32)
+                .map(|i| {
+                    // Eight teeth: two points on the outer radius, two on the inner, per tooth.
+                    let r = if (i % 4) < 2 { 8.0 } else { 6.0 };
+                    let t = std::f32::consts::TAU * (i as f32 + 0.5) / 32.0;
+                    (10.0 + r * t.cos(), 10.0 + r * t.sin())
+                })
+                .collect();
+            pen.closed(&pts, c);
+            pen.circle(10.0, 10.0, 2.5, a);
+        }
+        _ => return false,
+    }
+    true
+}
+fn draw_4(p: &Painter, r: Rect, name: &str, c: Color32, flat: bool) -> bool {
+    let pen = Pen { p, r, c, a: c, w: 1.35, flat };
+    let a = c;
+    match name {
+        "back" => {
+            pen.circle(10.0, 10.0, 7.5, c);
+            pen.line_c(&[(14.0, 10.0), (6.5, 10.0)], a);
+            pen.line_c(&[(9.5, 7.0), (6.5, 10.0), (9.5, 13.0)], a);
+        }
+        // Close: the document with a cross.
+        "closeFile" => {
+            pen.page(3.5, 2.0, 14.5, 18.0);
+            pen.line_c(&[(11.0, 11.0), (17.0, 17.0)], a);
+            pen.line_c(&[(17.0, 11.0), (11.0, 17.0)], a);
+        }
+        // Developer › Controls: a field's frame with what it holds.
+        "ccRichText" => {
+            pen.rect(2.5, 5.0, 17.5, 15.0, a);
+            pen.text(7.5, 10.0, 8.0, "A", c, true);
+            pen.text(13.0, 10.5, 7.0, "a", c, false);
+        }
+        "ccPlainText" => {
+            pen.rect(2.5, 5.0, 17.5, 15.0, a);
+            pen.text(8.0, 10.0, 8.0, "A", c, false);
+            pen.line(&[(12.0, 7.5), (12.0, 12.5)]);
+        }
+        "ccPicture" => {
+            pen.rect(2.5, 4.0, 17.5, 16.0, a);
+            pen.line(&[(4.5, 14.0), (8.5, 9.5), (11.5, 12.5), (13.5, 10.5), (15.5, 14.0)]);
+            pen.fcircle(13.5, 7.0, 1.2, c);
+        }
+        "ccGallery" => {
+            pen.rect(2.5, 3.0, 17.5, 17.0, a);
+            pen.frect(5.0, 5.5, 9.0, 9.5, c);
+            pen.frect(11.0, 5.5, 15.0, 9.5, c);
+            pen.lines(5.0, 15.0, &[12.5, 15.0]);
+        }
+        "ccCheckBox" => {
+            pen.rect(4.0, 4.0, 16.0, 16.0, c);
+            pen.line_c(&[(6.5, 10.0), (9.0, 13.0), (14.0, 6.5)], a);
+        }
+        "ccComboBox" => {
+            pen.rect(2.5, 6.0, 17.5, 14.0, c);
+            pen.line(&[(13.0, 6.0), (13.0, 14.0)]);
+            pen.lines(4.5, 10.5, &[10.0]);
+            pen.arrow_down(15.25, 10.0, a);
+        }
+        "ccDropDown" => {
+            pen.rect(2.5, 3.0, 17.5, 9.0, c);
+            pen.line(&[(13.0, 3.0), (13.0, 9.0)]);
+            pen.arrow_down(15.25, 6.0, a);
+            pen.rect(2.5, 9.0, 13.0, 17.0, c);
+            pen.lines(4.5, 11.0, &[11.5, 14.5]);
+        }
+        "ccDate" => {
+            pen.rect(3.0, 4.5, 17.0, 17.0, c);
+            pen.frect(3.0, 4.5, 17.0, 8.0, a);
+            pen.line(&[(6.5, 3.0), (6.5, 6.0)]);
+            pen.line(&[(13.5, 3.0), (13.5, 6.0)]);
+            for (x, y) in [(6.5, 11.0), (10.0, 11.0), (13.5, 11.0), (6.5, 14.5), (10.0, 14.5)] {
+                pen.fcircle(x, y, 0.9, c);
+            }
+        }
+        "ccRepeat" => {
+            pen.rect(2.5, 3.0, 17.5, 17.0, a);
+            pen.rect(5.0, 5.5, 15.0, 9.5, c);
+            pen.rect(5.0, 11.0, 15.0, 15.0, c);
+            pen.line_c(&[(10.0, 15.0), (10.0, 18.5)], a);
+        }
+        "designMode" => {
+            pen.line(&[(4.0, 16.0), (16.0, 16.0), (4.0, 4.0), (4.0, 16.0)]);
+            pen.line_c(&[(4.0, 12.0), (8.0, 16.0)], a);
+            pen.line(&[(7.0, 13.0), (7.0, 12.0)]);
+        }
+        _ => return false,
+    }
+    true
+}
+
+trait ThenLines {
+    fn then_lines(self, pen: &Pen, x0: f32, x1: f32, ys: &[f32]);
+}
+
+impl ThenLines for () {
+    fn then_lines(self, pen: &Pen, x0: f32, x1: f32, ys: &[f32]) {
+        pen.lines(x0, x1, ys);
+    }
+}
+
+pub const ALL: &[&str] = &[
+    "paste",
+    "cut",
+    "copy",
+    "painter",
+    "bold",
+    "italic",
+    "underline",
+    "strike",
+    "charborder",
+    "enclose",
+    "subscript",
+    "superscript",
+    "grow",
+    "shrink",
+    "case",
+    "clear",
+    "phonetic",
+    "highlight",
+    "fontcolor",
+    "effects",
+    "fontdialog",
+    "bullets",
+    "numbering",
+    "multilevel",
+    "outdent",
+    "indent",
+    "sort",
+    "pilcrow",
+    "alignLeft",
+    "alignCenter",
+    "alignRight",
+    "justify",
+    "thaiDistribute",
+    "textLtr",
+    "textRtl",
+    "lineSpacing",
+    "report",
+    "shading",
+    "borders",
+    "find",
+    "replace",
+    "select",
+    "dictate",
+    "editor",
+    "spelling",
+    "styles",
+    "stylesPane",
+    "coverPage",
+    "blankPage",
+    "pageBreak",
+    "drawTable",
+    "table",
+    "picture",
+    "onlinePicture",
+    "shapes",
+    "shapeEffects",
+    "icons",
+    "models3d",
+    "smartArt",
+    "addShape",
+    "promote",
+    "demote",
+    "textPane",
+    "smartArtColors",
+    "resetGraphic",
+    "chart",
+    "changeChartType",
+    "chartData",
+    "chartTitle",
+    "legend",
+    "dataLabels",
+    "screenshot",
+    "video",
+    "link",
+    "bookmark",
+    "crossRef",
+    "comment",
+    "newComment",
+    "header",
+    "footer",
+    "pageNumber",
+    "textBox",
+    "quickParts",
+    "wordArt",
+    "textFill",
+    "textOutline",
+    "transform",
+    "dropCap",
+    "signature",
+    "dateTime",
+    "object",
+    "equation",
+    "symbol",
+    "pen",
+    "pencil",
+    "eye",
+    "eraser",
+    "thickness",
+    "lasso",
+    "inkToShape",
+    "inkToMath",
+    "canvas",
+    "replay",
+    "addPen",
+    "replayRewind",
+    "replayPlay",
+    "replayPause",
+    "replayForward",
+    "themes",
+    "colors",
+    "fonts",
+    "paraSpacing",
+    "effectsDesign",
+    "setDefault",
+    "watermark",
+    "pageColor",
+    "pageBorders",
+    "margins",
+    "orientation",
+    "size",
+    "columns",
+    "breaks",
+    "lineNumbers",
+    "hyphenation",
+    "position",
+    "wrapText",
+    "bringForward",
+    "sendBackward",
+    "selectionPane",
+    "align",
+    "group",
+    "rotate",
+    "indentLeft",
+    "indentRight",
+    "spaceBefore",
+    "spaceAfter",
+    "toc",
+    "addText",
+    "updateTable",
+    "update",
+    "checkUpdates",
+    "footnote",
+    "endnote",
+    "nextFootnote",
+    "showNotes",
+    "researcher",
+    "docPrefs",
+    "unlinkCitations",
+    "addNote",
+    "citation",
+    "sources",
+    "bibliography",
+    "caption",
+    "tableOfFigures",
+    "markEntry",
+    "index",
+    "markCitation",
+    "tableOfAuthorities",
+    "envelope",
+    "labels",
+    "mailMerge",
+    "recipients",
+    "editRecipients",
+    "mergeField",
+    "addressBlock",
+    "greetingLine",
+    "rules",
+    "matchFields",
+    "highlightFields",
+    "preview",
+    "next",
+    "previous",
+    "first",
+    "last",
+    "finish",
+    "checkErrors",
+    "thesaurus",
+    "wordCount",
+    "readAloud",
+    "accessibility",
+    "altText",
+    "translate",
+    "language",
+    "deleteComment",
+    "prevComment",
+    "nextComment",
+    "showComments",
+    "resolve",
+    "trackChanges",
+    "markup",
+    "reviewingPane",
+    "accept",
+    "reject",
+    "prevChange",
+    "nextChange",
+    "compare",
+    "combine",
+    "protect",
+    "restrict",
+    "blockAuthors",
+    "hideInk",
+    "readMode",
+    "printLayout",
+    "printPreview",
+    "webLayout",
+    "outline",
+    "draft",
+    "focus",
+    "immersive",
+    "vertical",
+    "sideToSide",
+    "ruler",
+    "gridlines",
+    "navPane",
+    "hideWhiteSpace",
+    "textBoundaries",
+    "zoom",
+    "zoomIn",
+    "zoomOut",
+    "zoom100",
+    "onePage",
+    "multiplePages",
+    "pageWidth",
+    "darkMode",
+    "interfaceTheme",
+    "newWindow",
+    "arrangeAll",
+    "split",
+    "fullScreen",
+    "sideBySide",
+    "syncScroll",
+    "switchWindows",
+    "macros",
+    "documentTemplate",
+    "properties",
+    "info",
+    "insertAbove",
+    "insertBelow",
+    "insertLeft",
+    "insertRight",
+    "deleteTable",
+    "merge",
+    "splitCells",
+    "splitTable",
+    "autofit",
+    "distributeRows",
+    "distributeCols",
+    "rowHeight",
+    "colWidth",
+    "cellAlign",
+    "textDirection",
+    "cellMargins",
+    "repeatHeader",
+    "toText",
+    "formula",
+    "selectTable",
+    "draw",
+    "borderPainter",
+    "save",
+    "undo",
+    "redo",
+    "search",
+    "share",
+    "user",
+    "close",
+    "dropdown",
+    "more",
+    "launcher",
+    "pin",
+    "plus",
+    "minus",
+    "check",
+    "chevronLeft",
+    "chevronRight",
+    "chevronUp",
+    "chevronDown",
+    "mediaPlay",
+    "mediaPause",
+    "mediaStop",
+    "mediaPrev",
+    "mediaNext",
+    "pastCitation",
+    "chevronDoubleRight",
+    "addins",
+    "open",
+    "print",
+    "alignText",
+    "crop",
+    "textBoxLink",
+    "textBoxUnlink",
+    "folder",
+    "device",
+    "cloud",
+    "download",
+    "file",
+    "homeFolder",
+    "outlinePromote",
+    "outlineDemote",
+    "outlineTop",
+    "outlineBody",
+    "outlineUp",
+    "outlineDown",
+    "outlineExpand",
+    "outlineCollapse",
+    "closeOutline",
+    "help",
+    "recover",
+    "saveAs",
+    "options",
+    "back",
+    "closeFile",
+    "ccRichText",
+    "ccPlainText",
+    "ccPicture",
+    "ccGallery",
+    "ccCheckBox",
+    "ccComboBox",
+    "ccDropDown",
+    "ccDate",
+    "ccRepeat",
+    "designMode",
+];

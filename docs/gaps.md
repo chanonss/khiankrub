@@ -1,12 +1,14 @@
 # Where WordCraft falls short of Word
 
-> **KhianKrub status — 2026-11-02:** UP12.1: stability and style preservation. Narrows gap #3 with bounded DOCX attributes, font decoding and layout memory; imported styles and Thai defaults survive style-set changes. Broader field stability and real-world corpus gates remain open.
+> **2026-11-01 · ICON.6:** Approved square ท icon replaces the old Thai Distribution mark in KhianKrub; shared geometry is synchronized across all three apps.
 
-> **KhianKrub status — 2026-11-02:** UP12.2/3: narrows pagination and file-interchange gaps with bookmark/NBSP/manual-break fixes and Standard AES package support; regex replacement groups and direct picture Crop are implemented. Corpus and broader field-validation gates remain open.
+> **2026-11-01 · ICON.3:** Approved Balanced toolbar gold: `#F2B705`, 230/255 primary alpha and 107/255 soft-surface alpha, multiplied by caller transparency. Flat and disabled icons remain monochrome; stored document/workbook artwork is unchanged. See [icon design](icon-design.md).
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-02 · **Change:** trivial (VML freeforms read and kept on save; previously trivial: consistent preferred cell widths; previously trivial: multi-paragraph field instructions no longer add blank lines; previously trivial: page-break-only list paragraphs hide their labels; previously trivial: floating-table overlap ignores empty line-break lines; previously trivial: copies keep their formatting on the clipboard as HTML, #1523; previously trivial: sample-text formulas on Enter, #1067; previously trivial: #29: copied equations as MathML, OMML open as #1297, #816; previously trivial: the Font list no longer keeps every previewed font in memory, #848; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously trivial: formatting revisions landed, #41; previously trivial: Draw Table and Eraser landed, #303; previously minor: beta distance restated: ~15 points, ~150–230 h; previously: first version; every known shortfall from the 2026-10-10 re-measure, ranked) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
+> **KhianKrub status — 2026-10-29:** UP12.1: stability and style preservation. Narrows gap #3 with bounded DOCX attributes, font decoding and layout memory; imported styles and Thai defaults survive style-set changes. Broader field stability and real-world corpus gates remain open.
 
-Desktop sync (2026-10-28): ported the web File-tab fix, document context-menu icons and numbering actions, and problem-report form. See [desktop sync notes](desktop-sync.md).
+> **KhianKrub status — 2026-10-29:** UP12.2/3: narrows pagination and file-interchange gaps with bookmark/NBSP/manual-break fixes and Standard AES package support; regex replacement groups and direct picture Crop are implemented. Corpus and broader field-validation gates remain open.
+
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-01 · **Change:** trivial (VML freeforms read and kept on save; previously trivial: consistent preferred cell widths; previously trivial: multi-paragraph field instructions no longer add blank lines; previously trivial: page-break-only list paragraphs hide their labels; previously trivial: floating-table overlap ignores empty line-break lines; previously trivial: copies keep their formatting on the clipboard as HTML, #1523; previously trivial: sample-text formulas on Enter, #1067; previously trivial: #29: copied equations as MathML, OMML open as #1297, #816; previously trivial: the Font list no longer keeps every previewed font in memory, #848; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously trivial: formatting revisions landed, #41; previously trivial: Draw Table and Eraser landed, #303; previously minor: beta distance restated: ~15 points, ~150–230 h; previously: first version; every known shortfall from the 2026-10-10 re-measure, ranked) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
 
 > **Printing update:** 2026-10-12 · direct desktop printing through craft-print; details below.
 
@@ -91,12 +93,10 @@ The same gaps grouped the way the parity documents are, for agents working in on
 
 ## Revision history
 
-2026-10-28 · minor · Desktop web-update port; see desktop sync notes.
-
 | Date | Change | Summary |
 |---|---|---|
-| 2026-11-02 | minor | UP12.2/3: narrows pagination and file-interchange gaps with bookmark/NBSP/manual-break fixes and Standard AES package support; regex replacement groups and direct picture Crop are implemented. Corpus and broader field-validation gates remain open. |
-| 2026-11-02 | minor | UP12.1: stability and style preservation. Narrows gap #3 with bounded DOCX attributes, font decoding and layout memory; imported styles and Thai defaults survive style-set changes. Broader field stability and real-world corpus gates remain open. |
+| 2026-10-29 | minor | UP12.2/3: narrows pagination and file-interchange gaps with bookmark/NBSP/manual-break fixes and Standard AES package support; regex replacement groups and direct picture Crop are implemented. Corpus and broader field-validation gates remain open. |
+| 2026-10-29 | minor | UP12.1: stability and style preservation. Narrows gap #3 with bounded DOCX attributes, font decoding and layout memory; imported styles and Thai defaults survive style-set changes. Broader field stability and real-world corpus gates remain open. |
 | 2026-10-14 | trivial | Row table border exceptions fixed; other row table exceptions remain unsupported |
 | 2026-10-12 | minor | Czech proofing review: short-word splits rank after deletion, NOSUGGEST excludes suggestions while accepting typed forms, affix comments apply only to headers, ratios keep spaces and repeated-word messages use Czech quotes; synthetic engine end-to-end and latency checks |
 | 2026-10-12 | minor | Czech spelling from the installed Hunspell dictionary, runtime-table suggestions and generic checks; Czech interface writes cs-CZ documents; no Czech hyphenation patterns bundled; estimates unchanged |
@@ -208,3 +208,17 @@ The same gaps grouped the way the parity documents are, for agents working in on
 | 2026-10-12 | trivial | #21: .xls workbooks and GBK/Big5/Shift_JIS/UTF-16 text lists as recipients; Filter and Sort in Edit Recipient List (#778) |
 | 2026-10-12 | trivial | #811: large-table scrolling fixed; performance gap (#20) narrowed |
 | 2026-10-12 | trivial | #13: radar, stock and other undrawn chart types show a placeholder instead of blank space (#998) |
+
+### KrubOffice revision history
+
+| Date | Change |
+|---|---|
+| 2026-11-01 | ICON.1: working preview; icon standardization remains partial. |
+
+| 2026-11-01 | ICON.2: all UI icon catalogs consolidated, common-action geometry unified, specialized symbols restyled. |
+
+| 2026-11-01 | ICON.3: approved Balanced gold roles; preserve dimmed alpha and monochrome flat/disabled states. |
+
+| 2026-11-01 | LOCAL.1: fresh full web previews verified for all three apps; Khian install-icon manifest paths corrected. |
+
+| 2026-11-01 | ICON.6: approved square ท icon and PhutKrub Thai Distribution control. |

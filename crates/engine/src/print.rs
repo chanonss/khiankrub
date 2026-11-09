@@ -127,6 +127,18 @@ pub fn plan(v: &Value, total: usize, current: (usize, usize)) -> Result<PrintPla
     Ok(PrintPlan { pages: out, chosen, copies })
 }
 
+/// A PDF or print made while a font the document uses is still on its way (the web loads its
+/// bundled families on request) would draw that text in the fallback face; refuse, so the person
+/// tries again a moment later instead of getting a wrong file.
+pub fn ensure_fonts_ready() -> Result<(), String> {
+    let loading = wordcraft_fonts::FontDb::global().loading_families();
+    if loading.is_empty() {
+        return Ok(());
+    }
+    let shown: Vec<&str> = loading.iter().take(3).map(String::as_str).collect();
+    Err(format!("Fonts are still loading ({}). Try again in a moment.", shown.join(", ")))
+}
+
 impl Session {
     /// The pages the caret (or selection) is on, in the output layout: (first, last).
     pub fn current_pages(&self, lay: &DocLayout) -> (usize, usize) {
@@ -151,6 +163,7 @@ impl Session {
     }
 
     fn print_pdf_with(&self, v: &Value, links: bool) -> Result<(Vec<u8>, PrintPlan), CmdError> {
+        ensure_fonts_ready().map_err(CmdError::Failed)?;
         // Print Markup (File › Print) decides whether tracked changes and comments print.
         let markup = crate::cmd::file::export_options(self, v);
         let lay = self.export_layout_with(markup.markup);

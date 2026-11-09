@@ -189,7 +189,8 @@ mod tests {
         assert!(h.state().canvas.context_menu_open);
         assert_eq!(super::active(h.state()).map(|(_, p)| p), Some(wordcraft_doc::Path(vec![1])));
         h.get_by_label_contains("Restart at 1");
-        h.get_by_label_contains("Define New Multilevel List…").click();
+        h.get_by_label_contains("Continue Numbering");
+        h.get_by_label_contains("Modify Multilevel List…").click();
         h.run_steps(2);
         assert!(matches!(h.state().dialog, Some(crate::dialogs::Dialog::DefineList { .. })));
     }

@@ -137,7 +137,7 @@ fn nav(app: &mut WordApp, ui: &mut Ui) {
     }
     ui.add_space(4.0);
     ui.horizontal(|ui| {
-        for (k, l) in [("headings", "Headings"), ("pages", "Pages"), ("results", "Results")] {
+        for (k, l) in [("headings", "Headings"), ("pages", "Pages"), ("objects", "Objects"), ("results", "Results")] {
             if ui.steady_label(app.ui.nav_tab == k, tl!(l)).clicked() {
                 app.ui.nav_tab = k.into();
             }
@@ -146,6 +146,7 @@ fn nav(app: &mut WordApp, ui: &mut Ui) {
     ui.separator();
     egui::ScrollArea::vertical().show(ui, |ui| match app.ui.nav_tab.as_str() {
         "pages" => page_thumbnails(app, ui),
+        "objects" => navigation_objects(app, ui),
         "results" => {
             let results = app.session.find.results.clone();
             ui.label(egui::RichText::new(format!("{} results", results.len())).small().weak());
@@ -222,6 +223,47 @@ fn nav(app: &mut WordApp, ui: &mut Ui) {
             }
         }
     });
+}
+
+/// Navigate to body tables, pictures, drawings and bookmarks using their document positions.
+fn navigation_objects(app: &mut WordApp, ui: &mut Ui) {
+    let mut tables = Vec::new();
+    let mut figures = Vec::new();
+    let mut drawings = Vec::new();
+    let mut seen_tables = std::collections::HashSet::new();
+    for path in app.session.doc.para_paths(StoryRef::Body) {
+        for len in (1..path.0.len()).step_by(3) {
+            let Some(prefix) = path.0.get(..len) else { continue };
+            let table = wordcraft_doc::Path(prefix.to_vec());
+            if app.session.doc.table(StoryRef::Body, &table).is_some() && seen_tables.insert(table) {
+                tables.push((format!("{} {}", tl!("Table"), tables.len() + 1), Pos { story: StoryRef::Body, path: path.clone(), off: 0 }));
+            }
+        }
+        let Some(p) = app.session.doc.para(StoryRef::Body, &path) else { continue };
+        for off in p.object_offsets() {
+            let (items, label, alt) = match p.object_at(off) {
+                Some(wordcraft_doc::InlineObject::Image { alt, .. }) => (&mut figures, "Image", Some(alt.as_str())),
+                Some(wordcraft_doc::InlineObject::Graphic { alt, .. }) => (&mut drawings, "Drawing", Some(alt.as_str())),
+                Some(wordcraft_doc::InlineObject::Shape { .. } | wordcraft_doc::InlineObject::Group { .. }) => (&mut drawings, "Drawing", None),
+                _ => continue,
+            };
+            let name = alt.filter(|s| !s.trim().is_empty()).map(str::to_string).unwrap_or_else(|| format!("{} {}", tl!(label), items.len() + 1));
+            items.push((name, Pos { story: StoryRef::Body, path: path.clone(), off }));
+        }
+    }
+    let bookmarks = app.session.doc.bookmarks();
+    for (label, items) in [("Tables", tables), ("Images", figures), ("Drawing Objects", drawings), ("Bookmarks", bookmarks)] {
+        egui::CollapsingHeader::new(format!("{} ({})", tl!(label), items.len())).default_open(true).show(ui, |ui| {
+            for (name, pos) in items {
+                if ui.add(egui::Button::new(name).truncate()).clicked() {
+                    let _ = app.run("caret.set", json!({"pos": pos}));
+                    app.canvas.nav_to_caret = true;
+                    app.canvas.scroll_to_caret = false;
+                    app.canvas.want_focus = true;
+                }
+            }
+        });
+    }
 }
 
 /// Most page thumbnails rendered in one frame; the rest follow on the next frames, so a long
@@ -443,38 +485,64 @@ fn styles(app: &mut WordApp, ui: &mut Ui) {
         .get(&cur)
         .map(crate::i18n::style_name)
         .unwrap_or_else(|| st.get("styleName").and_then(Value::as_str).unwrap_or("").to_string());
-    ui.label(egui::RichText::new(crate::i18n::fmt(tl!("Current style: {style}"), &[("style", &current_name)])).small());
-    ui.horizontal(|ui| {
-        if ui.button(tl!("New Style…")).clicked() {
+    // The current style and the Hierarchical toggle share a line; New Style… and the four
+    // other actions share the next, as icons with tooltips.
+    let hierarchy_id = egui::Id::new("styles_hierarchical");
+    let mut hierarchical = ui.data(|d| d.get_temp::<bool>(hierarchy_id)).unwrap_or(false);
+    ui.allocate_ui_with_layout(vec2(ui.available_width(), 24.0), egui::Layout::right_to_left(egui::Align::Center), |ui| {
+        if crate::widgets::icon_only_button(ui, "outline", tl!("Hierarchical"), Some(hierarchical)).clicked() {
+            hierarchical = !hierarchical;
+            ui.data_mut(|d| d.insert_temp(hierarchy_id, hierarchical));
+        }
+        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+            ui.add(
+                egui::Label::new(egui::RichText::new(crate::i18n::fmt(tl!("Current style: {style}"), &[("style", &current_name)])).small())
+                    .truncate(),
+            );
+        });
+    });
+    ui.horizontal_wrapped(|ui| {
+        // New Style… keeps its label unless the pane is too narrow for it and the four icons.
+        let label_w = ui.painter().layout_no_wrap(tl!("New Style…").to_string(), regular(12.5), egui::Color32::PLACEHOLDER).size().x;
+        let spacing = ui.spacing().item_spacing.x;
+        let needed = 2.0 * ui.spacing().button_padding.x + 20.0 + label_w + 4.0 * (26.0 + spacing) + spacing;
+        let new_style = if ui.available_width() >= needed {
+            crate::widgets::icon_text_button(ui, "styles", tl!("New Style…"), regular(12.5))
+        } else {
+            crate::widgets::icon_only_button(ui, "styles", tl!("New Style…"), None)
+        };
+        if new_style.clicked() {
             app.dialog = crate::dialogs::Dialog::open("newStyle", app);
         }
-        if ui.button(tl!("Update to Match")).clicked() {
+        if crate::widgets::icon_only_button(ui, "update", tl!("Update to Match"), None).clicked() {
             let _ = app.run("styles.updateToMatch", json!({}));
         }
-        if ui.button(tl!("Clear")).clicked() {
+        if crate::widgets::icon_only_button(ui, "clear", tl!("Clear"), None).clicked() {
             let _ = app.run("format.clear", json!({}));
         }
+        if crate::widgets::icon_only_button(ui, "options", tl!("Manage Styles…"), None).clicked() {
+            let _ = app.run("styles.manage", json!({}));
+        }
+        if crate::widgets::icon_only_button(ui, "find", tl!("Style Inspector"), Some(app.session.view.style_inspector)).clicked() {
+            let _ = app.run("styles.inspector", json!({}));
+        }
     });
-    if ui.button(tl!("Manage Styles…")).clicked() {
-        let _ = app.run("styles.manage", json!({}));
-    }
-    if ui.steady_label(app.session.view.style_inspector, tl!("Style Inspector")).clicked() {
-        let _ = app.run("styles.inspector", json!({}));
-    }
     ui.separator();
-    let mut list: Vec<(String, String, bool)> = app
+    let mut list: Vec<(String, String, bool, Option<String>)> = app
         .session
         .doc
         .styles
         .styles
         .iter()
         .filter(|s| !s.hidden && s.kind != wordcraft_doc::StyleKind::Table)
-        .map(|s| (s.id.clone(), crate::i18n::style_name(s), s.kind == wordcraft_doc::StyleKind::Character))
+        .map(|s| (s.id.clone(), crate::i18n::style_name(s), s.kind == wordcraft_doc::StyleKind::Character, s.based_on.clone()))
         .collect();
     list.sort_by_key(|s| s.1.to_lowercase());
+    let list = if hierarchical { style_hierarchy(list) } else { list.into_iter().map(|s| (s, 0)).collect() };
     egui::ScrollArea::vertical().show(ui, |ui| {
-        for (id, name, is_char) in list {
+        for ((id, name, is_char, _), depth) in list {
             ui.horizontal(|ui| {
+                ui.add_space(depth as f32 * 14.0);
                 let r = ui.steady_label(id == cur, &name);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.label(egui::RichText::new(if is_char { "a" } else { "¶" }).weak());
@@ -500,6 +568,51 @@ fn styles(app: &mut WordApp, ui: &mut Ui) {
             });
         }
     });
+}
+
+/// Order styles by their actual inheritance, tolerating missing parents and malformed cycles.
+fn style_hierarchy(list: Vec<(String, String, bool, Option<String>)>) -> Vec<((String, String, bool, Option<String>), usize)> {
+    let mut result = Vec::new();
+    let mut visited = std::collections::HashSet::new();
+    fn visit(
+        index: usize,
+        depth: usize,
+        list: &[(String, String, bool, Option<String>)],
+        visited: &mut std::collections::HashSet<usize>,
+        out: &mut Vec<((String, String, bool, Option<String>), usize)>,
+    ) {
+        if !visited.insert(index) {
+            return;
+        }
+        let Some(style) = list.get(index) else { return };
+        out.push((style.clone(), depth));
+        for (child, item) in list.iter().enumerate() {
+            if item.3.as_deref() == Some(style.0.as_str()) && item.2 == style.2 {
+                visit(child, depth.saturating_add(1).min(20), list, visited, out);
+            }
+        }
+    }
+    for (i, item) in list.iter().enumerate() {
+        if !list.iter().any(|parent| Some(parent.0.as_str()) == item.3.as_deref() && parent.2 == item.2) {
+            visit(i, 0, &list, &mut visited, &mut result);
+        }
+    }
+    for i in 0..list.len() {
+        visit(i, 0, &list, &mut visited, &mut result);
+    }
+    result
+}
+
+#[cfg(test)]
+#[test]
+fn hierarchy_orders_children_and_survives_invalid_cycles() {
+    let style = |id: &str, parent: Option<&str>| (id.to_string(), id.to_string(), false, parent.map(str::to_string));
+    let list = vec![style("child", Some("root")), style("root", None), style("loop-a", Some("loop-b")), style("loop-b", Some("loop-a"))];
+    let ordered = style_hierarchy(list);
+    assert_eq!(ordered.len(), 4);
+    assert_eq!(ordered[0].0.0, "root");
+    assert_eq!(ordered[1].0.0, "child");
+    assert_eq!(ordered[1].1, 1);
 }
 
 fn comments(app: &mut WordApp, ui: &mut Ui) {
@@ -889,6 +1002,37 @@ mod tests {
     use super::comment_stamp;
 
     #[test]
+    fn style_controls_wrap_and_hierarchy_and_inspector_toggle() {
+        use egui::accesskit::Role;
+        use egui_kittest::kittest::Queryable;
+        let mut app = crate::WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Default::default());
+        app.session.view.styles_pane = true;
+        let hierarchy = std::rc::Rc::new(std::cell::Cell::new(false));
+        let observed = hierarchy.clone();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            move |ui, app: &mut crate::WordApp| {
+                app.logic(ui.ctx());
+                app.ui(ui);
+                observed.set(ui.ctx().data(|d| d.get_temp::<bool>(egui::Id::new("styles_hierarchical"))).unwrap_or(false));
+            },
+            app,
+        );
+        h.run_steps(4);
+        for label in ["New Style…", "Update to Match", "Clear", "Manage Styles…", "Style Inspector", "Hierarchical"] {
+            assert!(h.get_by_label(label).rect().max.x <= 1440.0, "{label} escapes the pane");
+        }
+        h.get_by_role_and_label(Role::CheckBox, "Hierarchical").click();
+        h.run_steps(3);
+        assert!(hierarchy.get());
+        h.get_by_role_and_label(Role::CheckBox, "Hierarchical").click();
+        h.run_steps(3);
+        assert!(!hierarchy.get());
+        h.get_by_role_and_label(Role::CheckBox, "Style Inspector").click();
+        h.run_steps(3);
+        assert!(h.state().session.view.style_inspector);
+    }
+
+    #[test]
     fn browser_mac_control_click_on_a_style_opens_modify() {
         use egui_kittest::kittest::Queryable;
         let mut app = crate::WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Default::default());
@@ -933,6 +1077,32 @@ mod tests {
 #[cfg(test)]
 mod navigation_tests {
     use super::*;
+
+    #[test]
+    fn objects_navigation_jumps_to_table_and_bookmark() {
+        use egui_kittest::kittest::Queryable;
+        let mut app =
+            crate::WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::from_text("Introduction")), crate::Services::default());
+        app.run("insert.bookmark", json!({"name": "Start"})).unwrap();
+        app.run("insert.table", json!({"rows": 1, "cols": 1})).unwrap();
+        app.run("view.navigationPane", json!({"value": true})).unwrap();
+        app.ui.nav_tab = "objects".into();
+        let mut h = egui_kittest::Harness::builder().with_size(vec2(1200.0, 800.0)).build_ui_state(
+            |ui, app: &mut crate::WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(4);
+        h.get_by_label("Table 1").click();
+        h.run_steps(3);
+        assert!(h.state().session.sel.focus.path.cell().is_some());
+        h.get_by_label("Start").click();
+        h.run_steps(3);
+        assert_eq!(h.state().session.sel.focus.path.depth(), 0);
+    }
 
     #[test]
     fn long_headings_truncate_without_stretching_navigation() {

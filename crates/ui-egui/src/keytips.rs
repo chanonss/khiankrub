@@ -326,8 +326,6 @@ fn controls(tab: &str) -> Vec<Control> {
             c("Draft", "view.draft"),
             c("Focus", "view.focus"),
             c("Immersive Reader", "view.immersive"),
-            c("Vertical", "view.vertical"),
-            c("Side to Side", "view.sideToSide"),
             d("Zoom", "zoom"),
             c("100%", "view.zoom100"),
             c("One Page", "view.onePage"),
@@ -338,7 +336,6 @@ fn controls(tab: &str) -> Vec<Control> {
             c("Arrange All", "view.arrangeAll"),
             c("Split", "view.split"),
             c("Full Screen", "view.fullScreen"),
-            c("Macros", "tools.macros"),
         ],
         "Help" => vec![d("Help", "about"), d("Commands", "commands")],
         "Table Design" => {

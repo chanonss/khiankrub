@@ -314,8 +314,10 @@ pub fn specs() -> Vec<CommandSpec> {
         .params(r#"{"title"?: string}"#),
         CommandSpec::new("references.tableOfFigures", "Insert Table of Figures", "References › Captions", |s, v| {
             // Without a label: the document's Thai figure captions when it has some, else Figure.
-            let thai = || ref_targets(s, "figure").iter().any(|(t, _)| t.starts_with(THAI_FIGURE));
-            let label = p::str(v, "label").map(str::to_string).unwrap_or_else(|| if thai() { THAI_FIGURE } else { "Figure" }.to_string());
+            let table = p::str(v, "kind") == Some("table");
+            let (kind, thai_label, english_label) = if table { ("table", THAI_TABLE, "Table") } else { ("figure", THAI_FIGURE, "Figure") };
+            let thai = || ref_targets(s, kind).iter().any(|(t, _)| t.starts_with(thai_label));
+            let label = p::str(v, "label").map(str::to_string).unwrap_or_else(|| if thai() { thai_label } else { english_label }.to_string());
             generated_list(s, &format!("TOC \\c \"{label}\""), "")?;
             sel_result(s)
         })
@@ -1121,15 +1123,19 @@ mod tests {
         s.run("references.caption", &json!({"label": THAI_FIGURE, "text": "เตาเผา"})).unwrap();
         s.run("select.text", &json!({"text": "ตาราง"})).unwrap();
         s.run("references.caption", &json!({"label": THAI_TABLE, "text": "ราคา"})).unwrap();
-        assert!(s.doc.plain_text(StoryRef::Body).contains("ภาพที่ 1: เตาเผา"), "{}", s.doc.plain_text(StoryRef::Body));
-        assert!(s.doc.plain_text(StoryRef::Body).contains("ตารางที่ 1: ราคา"));
+        assert!(s.doc.plain_text(StoryRef::Body).contains("ภาพที่ 1 เตาเผา"), "{}", s.doc.plain_text(StoryRef::Body));
+        assert!(s.doc.plain_text(StoryRef::Body).contains("ตารางที่ 1 ราคา"));
         assert_eq!(ref_targets(&s, "figure").len(), 1);
         assert_eq!(ref_targets(&s, "table").len(), 1);
         s.run("caret.docEnd", &json!({})).unwrap();
         s.run("text.newParagraph", &json!({})).unwrap();
         s.run("references.tableOfFigures", &json!({})).unwrap();
         assert!(fields(&s).iter().any(|(i, _)| i == "TOC \\c \"ภาพที่\""), "{:?}", fields(&s));
-        assert!(s.doc.plain_text(StoryRef::Body).contains("ภาพที่ 1: เตาเผา\t1"));
+        s.run("caret.docEnd", &json!({})).unwrap();
+        s.run("text.newParagraph", &json!({})).unwrap();
+        s.run("references.tableOfFigures", &json!({"kind": "table"})).unwrap();
+        assert!(fields(&s).iter().any(|(i, _)| i == "TOC \\c \"ตารางที่\""));
+        assert!(s.doc.plain_text(StoryRef::Body).contains("ภาพที่ 1 เตาเผา\t1"));
     }
 
     /// #661: References › Table of Authorities › Update Table picks up citations marked after the table.

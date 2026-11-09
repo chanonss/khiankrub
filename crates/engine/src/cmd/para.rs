@@ -138,7 +138,7 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("para.heading3", "Heading 3", "Home › Styles", |s, _| apply_style(s, &json!({"style": "Heading3"}))).key("Mod+Alt+3"),
         CommandSpec::new("para.bullets", "Bullets", "Home › Paragraph", |s, v| list(s, v, ListKind::Bullet)).params(r#"{"kind"?: "bullet" | single char, "off"?: bool}"#).key("Mod+Shift+L"),
         CommandSpec::new("para.numbering", "Numbering", "Home › Paragraph", |s, v| list(s, v, ListKind::Numbered))
-            .params(r#"{"kind"?: "numbered|numberedParen|upperLetter|lowerLetter|lowerRoman|outline|thaiNumbers|thaiLetters|thaiCounting", "off"?: bool}"#),
+            .params(r#"{"kind"?: "numbered|numberedParen|upperLetter|lowerLetter|lowerLetterDot|lowerRoman|outline|thaiNumbers|thaiLetters|thaiCounting", "off"?: bool}"#),
         CommandSpec::new("para.multilevel", "Multilevel List", "Home › Paragraph", |s, v| list(s, v, ListKind::Legal)).params(r#"{"kind"?: "legal|outline|thaiLegal|thaiOutline"}"#),
         CommandSpec::new("para.listLevel", "Change List Level", "Home › Paragraph › Bullets", |s, v| {
             let lvl = p::u64(v, "level").unwrap_or(0).min(8) as u8;
@@ -150,6 +150,7 @@ pub fn specs() -> Vec<CommandSpec> {
         })
         .params(r#"{"level": 0-8}"#),
         CommandSpec::new("para.restartNumbering", "Restart at 1", "Home › Paragraph › Numbering", restart_numbering),
+        CommandSpec::new("para.continueNumbering", "Continue Numbering", "Home › Paragraph › Numbering", continue_numbering),
         CommandSpec::new("para.moveUp", "Move Paragraph Up", "Home › Paragraph", |s, _| move_paras(s, true))
             .key(if cfg!(target_os = "macos") { "Ctrl+Shift+Up" } else { "Alt+Shift+Up" }),
         CommandSpec::new("para.moveDown", "Move Paragraph Down", "Home › Paragraph", |s, _| move_paras(s, false))
@@ -199,7 +200,7 @@ pub fn specs() -> Vec<CommandSpec> {
         .pure(),
         CommandSpec::new("styles.create", "Create a Style", "Home › Styles", create_style).params(r#"{"name": string, "basedOn"?: string, "fromSelection"?: bool}"#),
         CommandSpec::new("styles.modify", "Modify Style", "Home › Styles", modify_style)
-            .params(r#"{"style": string, "chr"?: CharProps, "para"?: ParaProps, "name"?: string, "next"?: string, "basedOn"?: style | null, "list"?: {"num": list id} | {"kind": "legal|outline|thaiLegal|thaiOutline"} (a new one) | null (none), "listLevel"?: 0-8, "clear"?: ["shading"|"borders"]}"#),
+            .params(r#"{"style": string, "chr"?: CharProps, "para"?: ParaProps, "name"?: string, "next"?: string, "basedOn"?: style | null, "resetFormatting"?: bool, "list"?: {"num": list id} | {"kind": "legal|outline|thaiLegal|thaiOutline"} (a new one) | null (none), "listLevel"?: 0-8, "clear"?: ["shading"|"borders"]}"#),
         CommandSpec::new("styles.updateToMatch", "Update Style to Match Selection", "Home › Styles", update_to_match).params(r#"{"style"?: string}"#),
         CommandSpec::new("styles.delete", "Delete Style", "Home › Styles", delete_style).params(r#"{"style": string (name or id; custom styles only)}"#),
         CommandSpec::new("styles.manage", "Manage Styles", "Home › Styles", |s, v| {
@@ -366,8 +367,16 @@ fn set_props(s: &mut Session, v: &Value) -> CmdResult {
     for path in super::selected_paths(s) {
         let Some(para) = s.doc.para(story, &path) else { continue };
         let rtl = s.doc.styles.resolve_para(&para.props.clone().overlaid(&props)).bidi;
+        let anchor_lock = props
+            .frame
+            .as_ref()
+            .filter(|frame| frame.anchor_lock.is_none())
+            .and_then(|_| para.props.frame.as_ref().and_then(|frame| frame.anchor_lock));
         let para = s.doc.para_mut(story, &path)?;
         para.props.overlay(&props);
+        if let (Some(anchor_lock), Some(frame)) = (anchor_lock, para.props.frame.as_mut()) {
+            frame.anchor_lock = Some(anchor_lock);
+        }
         if let Some(a) = align {
             para.props.align = Some(a.visual(rtl));
         }
@@ -588,6 +597,34 @@ fn restart_numbering(s: &mut Session, _: &Value) -> CmdResult {
                     break;
                 }
             }
+        }
+    }
+    sel_result(s)
+}
+
+/// Join this list instance to the nearest earlier instance of the same list definition.
+fn continue_numbering(s: &mut Session, _: &Value) -> CmdResult {
+    let f = s.sel.focus.clone();
+    let current =
+        s.doc.para_at(&f).and_then(|p| p.props.numbering).filter(|n| n.num != 0).ok_or_else(|| CmdError::Failed("not in a numbered list".into()))?;
+    let abstract_id = s.doc.numbering.num(current.num).map(|n| n.abstract_id).ok_or_else(|| CmdError::Failed("bad list".into()))?;
+    let paths = s.doc.para_paths(f.story);
+    let previous = paths
+        .iter()
+        .rev()
+        .filter(|path| **path < f.path)
+        .filter_map(|path| s.doc.para(f.story, path).and_then(|p| p.props.numbering).filter(|n| n.num != 0))
+        .find(|n| s.doc.numbering.num(n.num).is_some_and(|instance| instance.abstract_id == abstract_id))
+        .ok_or_else(|| CmdError::Failed("no previous compatible list".into()))?;
+    for path in paths.into_iter().filter(|path| *path >= f.path) {
+        let para = s.doc.para_mut(f.story, &path)?;
+        match para.props.numbering {
+            Some(n) if n.num == current.num => {
+                para.props.numbering = Some(NumRef { num: previous.num, level: n.level });
+                para.touch();
+            }
+            _ if !para.is_empty() => break,
+            _ => {}
         }
     }
     sel_result(s)
@@ -1028,6 +1065,10 @@ fn modify_style(s: &mut Session, v: &Value) -> CmdResult {
     let clear: Vec<String> =
         v.get("clear").and_then(Value::as_array).map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default();
     let st = s.doc.styles.get_mut(&id).ok_or_else(|| CmdError::Params("no such style".into()))?;
+    if p::bool(v, "resetFormatting").unwrap_or(false) {
+        st.chr = CharProps::default();
+        st.para = ParaProps::default();
+    }
     if let Some(c) = chr {
         st.chr.overlay(&c);
     }

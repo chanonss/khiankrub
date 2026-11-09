@@ -2986,6 +2986,50 @@ fn presses_grab_pictures_anywhere_and_text_boxes_by_their_border() {
     assert!(l.object_at(0, c.x, c.top + 2.0, 4.0).is_none());
 }
 
+#[test]
+fn a_press_inside_a_text_box_over_a_picture_goes_to_its_text() {
+    // A form scanned as a picture, with text boxes laid over it to fill in: a press inside a box
+    // grabbed the picture under it, so the box's text could not be reached.
+    use wordcraft_doc::para::{Anchor, Float, Wrap};
+    // Our model has no stacking order (`z`): the box, later in the paragraph, lies above the picture.
+    // Upstream's cases with a picture stacked above the box are left out.
+    let float = |wrap: Wrap| Float { wrap, h_rel: Anchor::Column, v_rel: Anchor::Paragraph, x: 0.0, y: 0.0, dist: 0.0, ..Default::default() };
+    let form = |wrap: Wrap, rot: f32| {
+        let mut d = Document::from_text("Form");
+        let picture =
+            InlineObject::Image { media: "form".into(), w: 300.0, h: 400.0, alt: String::new(), float: float(wrap), crop: [0.0; 4], ole: None };
+        // The box first, then the picture in front of it in the paragraph: the box comes later in
+        // the paragraph, so it is drawn (and hit) above the picture.
+        let id = text_box(&mut d, 0, "Name", 200.0, 100.0, Float { x: 50.0, y: 150.0, rot, ..float(wrap) });
+        d.insert_object(&Pos::body(0, 0), picture, &Default::default()).unwrap();
+        (lay(&d), id)
+    };
+    let (l, id) = form(Wrap::InFrontOfText, 0.0);
+    let b = box_rect(&l, id);
+    let (cx, cy) = (b.x + b.w / 2.0, b.y + b.h / 2.0);
+    // Inside the box: its text, not the picture under it.
+    assert!(l.object_at(0, cx, cy, 4.0).is_none());
+    assert_eq!(l.story_at(0, cx, cy), Some(StoryRef::Part(id)));
+    // The box's border grabs the box; the picture around the box grabs the picture.
+    assert_eq!(l.object_at(0, b.x + 1.0, cy, 4.0).map(|o| o.text_box), Some(Some(id)));
+    assert_eq!(l.object_at(0, cx, b.y - 40.0, 4.0).map(|o| o.text_box), Some(None));
+    // A box turned a quarter covers a tall strip: a press in it, below its unturned frame, is its
+    // text for both the object and the story hit test.
+    let (l, id) = form(Wrap::InFrontOfText, 90.0);
+    let b = box_rect(&l, id);
+    let (cx, y) = (b.x + b.w / 2.0, b.y + b.h / 2.0 + 80.0);
+    assert!(!b.contains(wordcraft_geom::Point::new(cx, y)), "{b:?}");
+    assert!(l.object_at(0, cx, y, 4.0).is_none());
+    assert_eq!(l.story_at(0, cx, y), Some(StoryRef::Part(id)));
+    assert_eq!(l.hit(0, cx, y, StoryRef::Part(id)).map(|p| p.story), Some(StoryRef::Part(id)));
+    // Both behind the text, away from the body text: the same.
+    let (l, id) = form(Wrap::BehindText, 0.0);
+    let b = box_rect(&l, id);
+    let (cx, cy) = (b.x + b.w / 2.0, b.y + b.h / 2.0);
+    assert!(l.object_at(0, cx, cy, 4.0).is_none());
+    assert_eq!(l.story_at(0, cx, cy), Some(StoryRef::Part(id)));
+}
+
 /// (lines placed, lines laid out) of a text box's story, and its area.
 fn box_lines(l: &DocLayout, id: u32) -> (usize, usize, wordcraft_geom::Rect) {
     let mut shown = 0;
@@ -7541,4 +7585,256 @@ fn kept_headings_measure_the_next_paragraph_through_the_cache() {
     let proofed = layout(&d, &mut LayoutCache::new(), &LayoutOptions { proofing: true, ..Default::default() });
     let starts = |l: &DocLayout| (0..d.body.len()).map(|i| l.caret(&Pos::body(i, 0)).map(|c| (c.page, c.top.to_bits()))).collect::<Vec<_>>();
     assert_eq!(starts(&l), starts(&proofed));
+}
+
+/// Measured in Word: leader dots are spaced by the dot's advance in whole 600-dpi pixels, sit on
+/// the page's grid of that pitch from the first place after the text before the tab, and stop at
+/// the last one that ends before the text after it.
+#[test]
+fn leader_dots_are_spaced_and_placed_as_in_word() {
+    use wordcraft_doc::props::{TabAlign, TabLeader, TabStop};
+    // TH SarabunPSK at 16 pt, Tahoma at 22 pt, Times New Roman at 12 pt and Arial at 10 pt; Arial
+    // at 14 pt and Tahoma at 20 pt, whose sizes (116.7 and 166.7 pixels) round up to 117 and 167.
+    let pitch = |units, upem, size| display::leader_pitch(units, upem, size);
+    for (got, want) in [
+        (pitch(162.0, 1000.0, 16.0), 2.64),
+        (pitch(620.0, 2048.0, 22.0), 6.6),
+        (pitch(512.0, 2048.0, 12.0), 3.0),
+        (pitch(569.0, 2048.0, 10.0), 2.76),
+        (pitch(569.0, 2048.0, 14.0), 3.96),
+        (pitch(620.0, 2048.0, 20.0), 6.12),
+    ] {
+        assert!((got - want).abs() < 1e-4, "pitch {got}, not {want}");
+    }
+    // A leader across most of the page keeps its last dot: from 72 to 528 pt at 2.64 pt the dots
+    // go from 73.92 to 525.36, the last ending on 528, each place worked out from its grid index.
+    let xs = display::leader_xs(72.0, 528.0, pitch(162.0, 1000.0, 16.0));
+    assert_eq!(xs.len(), 172, "{} dots, from {:?} to {:?}", xs.len(), xs.first(), xs.last());
+    assert!((xs[0] - 73.92).abs() < 1e-3 && (xs[171] - 525.36).abs() < 1e-3, "{:?} to {:?}", xs.first(), xs.last());
+    assert!(display::leader_xs(72.0, 528.0, f32::NAN).is_empty() && display::leader_xs(72.0, 528.0, 0.0).is_empty());
+    // Labels of several lengths and stops at several places: the text before the tab and the
+    // number after it end and start anywhere against the grid.
+    for label in ["E", "Entr", "Entry one", "Entry number two"] {
+        for k in 0..12 {
+            let pos = 300.0 + 9.7 * k as f32;
+            let mut d = Document::from_text(&format!("{label}\t12"));
+            d.format_paragraphs(&Pos::body(0, 0), &Pos::body(0, 0), &|p| {
+                p.tabs = Some(vec![TabStop { pos, align: TabAlign::Right, leader: TabLeader::Dot }]);
+            })
+            .unwrap();
+            let l = lay(&d);
+            let items = display::page_display(&d, &l.pages[0], &display::DisplayOptions::default());
+            let dots: Vec<f32> = items
+                .iter()
+                .filter_map(|i| {
+                    if let display::Draw::Glyphs { text, glyphs, .. } = i {
+                        text.is_empty().then(|| glyphs.iter().map(|g| g.1).collect::<Vec<_>>())
+                    } else {
+                        None
+                    }
+                })
+                .next()
+                .expect("a leader");
+            let step = dots[1] - dots[0];
+            let case = format!("{label:?} stop {pos}");
+            assert!(dots.windows(2).all(|w| (w[1] - w[0] - step).abs() < 1e-3), "{case}: evenly spaced: {dots:?}");
+            assert!((step * 600.0 / 72.0 - (step * 600.0 / 72.0).round()).abs() < 1e-3, "{case}: {step} pt is a whole number of 600-dpi pixels");
+            let n = label.len();
+            let (text_end, number) = (l.caret(&Pos::body(0, n)).unwrap().x, l.caret(&Pos::body(0, n + 1)).unwrap().x);
+            let first = (text_end / step - 0.001).ceil() * step;
+            let last = ((number - step) / step + 0.001).floor() * step;
+            assert!((dots[0] - first).abs() < 1e-2, "{case}: the first dot is at {}, not the first grid place after {text_end}: {first}", dots[0]);
+            let end = *dots.last().unwrap();
+            assert!((end - last).abs() < 1e-2, "{case}: the last dot is at {end}, not the last that ends before {number}: {last}");
+        }
+    }
+}
+
+/// #5036: paragraph side borders lie beyond their distance from the text.
+#[test]
+fn side_borders_lie_beyond_their_distance_from_the_text() {
+    // #5036: a thick border at no distance covered the first letter, in the shading's colour.
+    let fill = wordcraft_doc::props::Rgb(0x4F, 0x81, 0xBD);
+    for space in [0.0, 4.0] {
+        let bar = Some(Border { color: Some(fill), space, ..Border::single(3.0) });
+        let mut d = Document::from_text("Requirements");
+        let p = d.para_mut(StoryRef::Body, &Path::top(0)).unwrap();
+        p.props.borders = Some(Borders { top: bar, left: bar, right: bar, ..Borders::default() });
+        p.props.shading = Some(fill);
+        let l = lay(&d);
+        let items = &l.pages[0].items;
+        let (text, end) = items
+            .iter()
+            .find_map(|i| if let Placed::Lines { x, para, .. } = i { para.lines.first().map(|l| (*x, *x + l.right)) } else { None })
+            .unwrap();
+        let shade = items.iter().find_map(|i| if let Placed::Fill { rect, .. } = i { Some(*rect) } else { None }).unwrap();
+        let rules: Vec<(f32, f32)> = items.iter().filter_map(|i| if let Placed::Rule { x0, x1, .. } = i { Some((*x0, *x1)) } else { None }).collect();
+        assert_eq!(rules.len(), 3, "{rules:?}");
+        let (above, left, right) = (rules[0], rules[1], rules[2]);
+        assert!((left.0 + 1.5 - (text - space)).abs() < 0.01, "{left:?} {text}");
+        assert!((right.0 - 1.5 - (end + space)).abs() < 0.01, "{right:?} {end}");
+        // The top line and the shading reach the outer edges, so nothing shows through the joins.
+        assert!((above.0 - (left.0 - 1.5)).abs() < 0.01 && (above.1 - (right.0 + 1.5)).abs() < 0.01, "{rules:?}");
+        assert!((shade.x - above.0).abs() < 0.01 && (shade.right() - above.1).abs() < 0.01, "{rules:?} {shade:?}");
+    }
+}
+
+/// Sections starting continuously one after another still go onto new pages: a paragraph that
+/// doesn't fit below the text above it moves on rather than running off the page (#3907). A
+/// hundred one-line sections lay out like a hundred plain paragraphs.
+#[test]
+fn continuous_sections_running_off_a_page_go_onto_the_next() {
+    use wordcraft_doc::section::{SectionProps, SectionStart};
+    let marks = 100;
+    let text = format!("Start\n{}End", "x\n".repeat(marks));
+    let mut d = Document::from_text(&text);
+    for i in 1..=marks {
+        d.para_mut(StoryRef::Body, &Path::top(i)).unwrap().section =
+            Some(Box::new(SectionProps { start: SectionStart::Continuous, ..Default::default() }));
+    }
+    d.last_section.start = SectionStart::Continuous;
+    let end = lay(&d).caret(&Pos::body(marks + 1, 0)).unwrap();
+    let plain = lay(&Document::from_text(&text)).caret(&Pos::body(marks + 1, 0)).unwrap();
+    assert!(end.page > 0, "End past the first page: {end:?}");
+    assert_eq!((end.page, (end.top * 10.0).round()), (plain.page, (plain.top * 10.0).round()), "sections {end:?}, plain {plain:?}");
+}
+/// Spaces before a line's first character keep their width in justified and distributed lines:
+/// Thai official letters indent their paragraphs with a run of spaces. Measured in Word (left,
+/// `both`, `distribute` and `thaiDistribute`, Thai and Latin text, spaces at the paragraph start,
+/// after a line break and after a tab): the first character sits where it does left-aligned, and
+/// only the spaces between words stretch. WordCraft stretched the leading spaces too, so the
+/// first character of a justified line moved right by up to the line's whole slack. A
+/// distributed line also counted the space it wrapped at, so its text stopped short of the margin.
+#[test]
+fn leading_spaces_keep_their_width_in_justified_lines() {
+    let spaces = " ".repeat(20);
+    let body = "We tie the spend to a pipe and to the books, so it is in an ad hoc view of all of it. ".repeat(4);
+    // `hidden` (zero-width hidden text before the spaces) and `float` (a floating shape anchored
+    // before them): Word ignores those, and a bookmark, there too; the first character is still
+    // the one after the spaces.
+    // KhianKrub: in Word 2013+ mode our justified lines shrink spaces by an older model than
+    // upstream's (`88d936c3`, not ported), so a justified line fits more text and the line-break
+    // assertions below would test that model, not this fix. Upstream's assertions run in Word 2010
+    // mode (no shrinking); the end checks that shrinking leaves the leading spaces alone too.
+    let first_x_in = |align: Align, hidden: &str, float: bool, compat: u32| {
+        let mut d = Document::from_text(&format!("{hidden}{spaces}{body}"));
+        d.settings.compat_mode = compat;
+        d.format_paragraphs(&Pos::body(0, 0), &Pos::body(0, 0), &|p| p.align = Some(align)).unwrap();
+        if !hidden.is_empty() {
+            d.format_range(&Pos::body(0, 0), &Pos::body(0, hidden.len()), &|c| c.hidden = Some(true)).unwrap();
+        }
+        if float {
+            d.insert_object(&Pos::body(0, 0), rect_shape(20.0, 20.0, page_float(400.0, 600.0)), &Default::default()).unwrap();
+        }
+        let text = d.body[0].as_para().unwrap().text.clone();
+        let lead = text.len() - body.len();
+        let l = lay(&d);
+        let (para, x0) =
+            l.pages[0].items.iter().find_map(|it| if let Placed::Lines { para, x, .. } = it { Some((para.clone(), *x)) } else { None }).unwrap();
+        assert!(para.lines.len() > 1, "the paragraph wraps");
+        let line = &para.lines[0];
+        // The first line's last character (ASCII here): its index and left and right positions.
+        let end = line.start + text[line.start..line.stop].trim_end().len();
+        (para.x_of(0, lead).unwrap(), end, para.x_of(0, end - 1).unwrap() + x0, para.x_of(0, end).unwrap() + x0)
+    };
+    let first_x = |align: Align, hidden: &str, float: bool| first_x_in(align, hidden, float, 14);
+    for (hidden, float) in [("", false), ("hidden", false), ("", true)] {
+        let (left, left_end, left_from, left_to) = first_x(Align::Left, hidden, float);
+        for align in [Align::Justify, Align::Distribute] {
+            let (x, end, from, _) = first_x(align, hidden, float);
+            let case = format!("{align:?} hidden {hidden:?} float {float}");
+            assert!((x - left).abs() < 0.01, "{case}: the first character is at {x}, left-aligned at {left}");
+            assert_eq!(end, left_end, "{case}: the line breaks where it does left-aligned");
+            assert!(from > left_from + 1.0, "{case}: the line is still stretched ({from} vs {left_from})");
+            // The line ends with the space it wrapped at; its last character, keeping its own
+            // advance, still ends at the margin: no gap is left after it.
+            let ink_end = from + (left_to - left_from);
+            assert!((ink_end - 540.0).abs() < 0.05, "{case}: the line's last character ends at {ink_end}, not the margin");
+        }
+    }
+    // Word 2013+ mode, where justified lines may shrink their spaces: not the leading ones.
+    let current = wordcraft_doc::COMPAT_MODE_CURRENT;
+    let (left, ..) = first_x_in(Align::Left, "", false, current);
+    let (x, ..) = first_x_in(Align::Justify, "", false, current);
+    assert!((x - left).abs() < 0.01, "shrinking: the first character is at {x}, left-aligned at {left}");
+}
+
+/// A distributed line that ends in a manual line break stretches its characters to the margin, as
+/// in Word (measured with a synthetic `distribute` paragraph): the break itself takes no gap.
+#[test]
+fn distributed_line_ending_in_line_break_reaches_the_margin() {
+    let first = "We tie the spend";
+    let text = format!("{first}\nto a pipe");
+    // The left edge of the first line's last character and the position after it, on the page.
+    let last = |align: Align| {
+        let mut d = Document::from_text("");
+        let mut p = wordcraft_doc::Paragraph::with_text(&text, Default::default());
+        p.props = ParaProps { align: Some(align), ..Default::default() };
+        d.body = vec![wordcraft_doc::para_block(p)];
+        let l = lay(&d);
+        let (para, x) =
+            l.pages[0].items.iter().find_map(|it| if let Placed::Lines { para, x, .. } = it { Some((para.clone(), *x)) } else { None }).unwrap();
+        (para.x_of(0, first.len() - 1).unwrap() + x, para.x_of(0, first.len()).unwrap() + x)
+    };
+    let (left_from, left_to) = last(Align::Left);
+    let (from, _) = last(Align::Distribute);
+    // The last character keeps its own advance and ends at the margin: no gap is left after it.
+    let ink_end = from + (left_to - left_from);
+    assert!((ink_end - 540.0).abs() < 0.05, "the line's last character ends at {ink_end}, not the margin");
+}
+/// Native Word moves every ordinary-tab group with centered or right paragraph alignment.
+#[test]
+fn ordinary_tabs_move_as_line() {
+    use wordcraft_doc::props::{TabAlign, TabLeader, TabStop};
+    for stops in [
+        vec![(180.0, TabAlign::Left)],
+        vec![(234.0, TabAlign::Center)],
+        vec![(234.0, TabAlign::Center), (364.5, TabAlign::Right)],
+        vec![(234.0, TabAlign::Center), (468.0, TabAlign::Right)],
+    ] {
+        let text = if stops.len() == 1 { "Label\tfilename" } else { "Label\tfilename\ttime" };
+        let mut d = Document::from_text(text);
+        d.format_paragraphs(&Pos::body(0, 0), &Pos::body(0, 0), &|p| {
+            p.tabs = Some(stops.iter().map(|(pos, align)| TabStop { pos: *pos, align: *align, leader: TabLeader::None }).collect());
+        })
+        .unwrap();
+        let left = lay(&d);
+        let end = left.caret(&Pos::body(0, text.len())).unwrap().x;
+        let slack = 540.0 - end;
+        for (align, fraction) in [(Align::Center, 0.5), (Align::Right, 1.0)] {
+            d.format_paragraphs(&Pos::body(0, 0), &Pos::body(0, 0), &|p| p.align = Some(align)).unwrap();
+            let aligned = lay(&d);
+            for off in [0, 6, text.len()] {
+                let before = left.caret(&Pos::body(0, off)).unwrap().x;
+                let after = aligned.caret(&Pos::body(0, off)).unwrap().x;
+                assert!((after - before - slack * fraction).abs() < 0.1, "{align:?} {stops:?} offset {off}: {before} -> {after}, slack {slack}");
+            }
+        }
+    }
+}
+
+#[test]
+fn caret_on_an_empty_line_after_a_break_follows_alignment() {
+    // "BAB I", Shift+Enter: the empty line's caret sits where its alignment puts it (#4283).
+    let text = format!("BAB I{}", wordcraft_doc::para::LINE_BREAK);
+    for rtl in [false, true] {
+        for (align, ltr_x) in [(Align::Left, 72.0), (Align::Center, 306.0), (Align::Right, 540.0), (Align::Justify, 72.0)] {
+            let mut d = Document::new();
+            d.body = vec![wordcraft_doc::para_block(wordcraft_doc::Paragraph::with_text(&text, Default::default()))];
+            let at = Pos::body(0, 0);
+            d.format_paragraphs(&at, &at, &|p: &mut ParaProps| {
+                p.align = Some(align);
+                p.bidi = Some(rtl);
+            })
+            .unwrap();
+            let expected = if rtl { 612.0 - ltr_x } else { ltr_x };
+            let x = lay(&d).caret(&Pos::body(0, text.len())).unwrap().x;
+            assert!((x - expected).abs() < 1.0, "{align:?} rtl={rtl}: {x}, expected {expected}");
+        }
+    }
+    // An empty centred paragraph without a break was already centred.
+    let mut d = Document::from_text("");
+    d.format_paragraphs(&Pos::body(0, 0), &Pos::body(0, 0), &|p| p.align = Some(Align::Center)).unwrap();
+    let x = lay(&d).caret(&Pos::body(0, 0)).unwrap().x;
+    assert!((x - 306.0).abs() < 1.0, "{x}");
 }

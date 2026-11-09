@@ -31,6 +31,7 @@ pub enum LayoutDialog {
     Formula(FormulaForm),
     Sort(SortForm),
     PageNumberPosition(PageNumberForm),
+    PageNumberFormat(PageFormatForm),
 }
 
 impl LayoutDialog {
@@ -45,6 +46,7 @@ impl LayoutDialog {
             LayoutDialog::Formula(_) => "tableFormula",
             LayoutDialog::Sort(_) => "tableSort",
             LayoutDialog::PageNumberPosition(_) => "pageNumberPosition",
+            LayoutDialog::PageNumberFormat(_) => "pageNumberFormat",
         }
     }
 
@@ -60,6 +62,7 @@ impl LayoutDialog {
             LayoutDialog::Formula(_) => "Formula",
             LayoutDialog::Sort(_) => "Sort",
             LayoutDialog::PageNumberPosition(_) => "Page Number Position",
+            LayoutDialog::PageNumberFormat(_) => "Page Number Format",
         }
     }
 }
@@ -76,6 +79,7 @@ pub fn open(name: &str, app: &mut WordApp) -> Option<LayoutDialog> {
         "tableFormula" => LayoutDialog::Formula(FormulaForm::read(app)?),
         "tableSort" => LayoutDialog::Sort(SortForm::read(app)?),
         "pageNumberPosition" => LayoutDialog::PageNumberPosition(PageNumberForm::read(app)),
+        "pageNumberFormat" => LayoutDialog::PageNumberFormat(PageFormatForm::read(app)),
         _ => return None,
     })
 }
@@ -92,6 +96,7 @@ pub fn body(app: &mut WordApp, ui: &mut Ui, d: &mut LayoutDialog) -> bool {
         LayoutDialog::Formula(f) => formula_ui(app, ui, f),
         LayoutDialog::Sort(f) => sort_ui(app, ui, f),
         LayoutDialog::PageNumberPosition(f) => page_number_ui(app, ui, f),
+        LayoutDialog::PageNumberFormat(f) => page_format_ui(app, ui, f),
     }
 }
 
@@ -131,6 +136,83 @@ fn run(app: &mut WordApp, id: &str, params: Value) -> bool {
 
 fn unit() -> wordcraft_geom::Unit {
     crate::options::unit()
+}
+
+// ---------------------------------------------------------------------------------------------
+// Page Number Format
+
+/// The number formats Page Number Format offers, with how they count.
+pub const PAGE_NUMBER_FORMATS: [(&str, &str); 8] = [
+    ("decimal", "1, 2, 3, …"),
+    ("numberInDash", "- 1 -, - 2 -, - 3 -, …"),
+    ("lowerLetter", "a, b, c, …"),
+    ("upperLetter", "A, B, C, …"),
+    ("lowerRoman", "i, ii, iii, …"),
+    ("upperRoman", "I, II, III, …"),
+    ("thaiNumbers", "๑, ๒, ๓, …"),
+    ("thaiLetters", "ก, ข, ค, …"),
+];
+
+/// The Page Number Format dialog's fields (Insert or Header & Footer › Page Number › Format Page
+/// Numbers…), for the section being edited or the caret's: the number format, and whether its
+/// pages go on from the previous section or start again at `start`.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PageFormatForm {
+    pub format: String,
+    pub restart: bool,
+    pub start: u32,
+}
+
+impl PageFormatForm {
+    pub fn read(app: &mut WordApp) -> PageFormatForm {
+        let sect = wordcraft_engine::cmd::page::sect_here(&mut app.session);
+        PageFormatForm {
+            format: sect.page_num_format.ooxml().to_string(),
+            restart: sect.page_num_start.is_some(),
+            start: sect.page_num_start.unwrap_or(1),
+        }
+    }
+
+    /// `layout.pageNumberFormat` parameters.
+    pub fn params(&self) -> Value {
+        json!({"format": self.format, "start": if self.restart { json!(self.start) } else { Value::Null }})
+    }
+}
+
+fn page_format_ui(app: &mut WordApp, ui: &mut Ui, f: &mut PageFormatForm) -> bool {
+    let shown = PAGE_NUMBER_FORMATS.iter().find(|(id, _)| *id == f.format).map_or(f.format.as_str(), |(_, l)| l).to_string();
+    egui::Grid::new("pnf").num_columns(2).spacing(vec2(10.0, 8.0)).show(ui, |ui| {
+        ui.label(tl!("Number format:"));
+        egui::ComboBox::from_id_salt("pnf_format").selected_text(shown).width(180.0).show_ui(ui, |ui| {
+            for (id, label) in PAGE_NUMBER_FORMATS {
+                if ui.selectable_label(f.format == id, label).clicked() {
+                    f.format = id.into();
+                }
+            }
+        });
+        ui.end_row();
+    });
+    heading(ui, "Page numbering");
+    ui.radio_value(&mut f.restart, false, tl!("Continue from previous section"));
+    ui.horizontal(|ui| {
+        ui.radio_value(&mut f.restart, true, tl!("Start at:"));
+        let mut n = f.start as f32;
+        let r = ui.add_enabled(f.restart, crate::numfield::NumField::new(&mut n).speed(1.0).range(0.0..=100_000.0).max_decimals(0));
+        if r.changed() {
+            f.start = n.round().clamp(0.0, 100_000.0) as u32;
+        }
+    });
+    ui.label(
+        egui::RichText::new(tl!("For this section only. Unlink its header or footer (Link to Previous) to give it its own page numbers."))
+            .small()
+            .weak(),
+    );
+    let (ok, cancel) = buttons(ui, "OK", true);
+    if ok {
+        return run(app, "layout.pageNumberFormat", f.params());
+    }
+    cancel
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1007,6 +1089,28 @@ mod tests {
         assert!(!back.top && back.horizontal == "left" && back.hide_first, "{back:?}");
         assert!((back.from_edge - inch * 0.75).abs() < 0.01 && (back.from_side - inch * 1.5).abs() < 0.01, "{back:?}");
         assert!(!a.session.doc.parts.is_empty());
+    }
+
+    /// Format Page Numbers… opens with the section's format and restart; OK sets them, and
+    /// "Continue from previous section" takes the restart away again.
+    #[test]
+    fn page_number_format_dialog_sets_the_section_numbering() {
+        let mut a = app();
+        a.run("ui.dialog", json!({"name": "pageNumberFormat"})).unwrap();
+        let LayoutDialog::PageNumberFormat(mut f) = form(&mut a) else { panic!("page number format") };
+        assert_eq!((f.format.as_str(), f.restart, f.start), ("decimal", false, 1));
+        f.format = "thaiNumbers".into();
+        f.restart = true;
+        f.start = 5;
+        a.run("layout.pageNumberFormat", f.params()).unwrap();
+        let sect = wordcraft_engine::cmd::page::sect_here(&mut a.session);
+        assert_eq!((sect.page_num_format.ooxml(), sect.page_num_start), ("thaiNumbers", Some(5)));
+        a.run("ui.dialog", json!({"name": "pageNumberFormat"})).unwrap();
+        let LayoutDialog::PageNumberFormat(mut back) = form(&mut a) else { panic!("page number format") };
+        assert_eq!((back.format.as_str(), back.restart, back.start), ("thaiNumbers", true, 5));
+        back.restart = false;
+        a.run("layout.pageNumberFormat", back.params()).unwrap();
+        assert_eq!(wordcraft_engine::cmd::page::sect_here(&mut a.session).page_num_start, None);
     }
 
     /// #407: Line Numbering Options… opens with the section's numbering and OK sets every

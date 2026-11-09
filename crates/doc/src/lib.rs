@@ -11,6 +11,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 pub mod bidi;
+pub mod cfb_guard;
 pub mod chart;
 mod cjk_numbers;
 pub mod cluster;
@@ -731,6 +732,23 @@ impl Document {
         self.styles.apply_thai_defaults();
         self.settings.major_font = styles::THAI_FONT.into();
         self.settings.minor_font = styles::THAI_FONT.into();
+    }
+
+    /// Settings for a new KhianKrub blank document. Imported files and templates retain their own formatting.
+    pub fn apply_khiankrub_blank_defaults(&mut self) {
+        self.apply_thai_defaults();
+        self.styles.default_para.align = Some(Align::ThaiDistribute);
+        self.styles.default_para.space_before = Some(0.0);
+        self.styles.default_para.space_after = Some(0.0);
+        self.styles.default_para.space_before_auto = Some(false);
+        self.styles.default_para.space_after_auto = Some(false);
+        self.styles.default_para.line_spacing = Some(props::LineSpacing::Multiple(1.0));
+        self.last_section.page_w = 595.28;
+        self.last_section.page_h = 841.89;
+        self.last_section.margin_top = 72.0;
+        self.last_section.margin_bottom = 72.0;
+        self.last_section.margin_left = 72.0;
+        self.last_section.margin_right = 72.0;
     }
 
     /// Every story must hold at least one paragraph, and every cell too.

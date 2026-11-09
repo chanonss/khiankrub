@@ -159,6 +159,9 @@ pub struct DisplayOptions {
     /// Dim headers/footers (editing the body) or the body (editing a header/footer).
     pub dim_header: bool,
     pub dim_body: bool,
+    /// Header & Footer › Show Document Text off: the body is left out while a header or footer is
+    /// edited (on screen only).
+    pub hide_body: bool,
     /// Show tracked changes as markup (coloured, underlined/struck).
     pub markup: bool,
     /// Show on-screen-only marks: equation placeholders and prompts (never in print or PDF).
@@ -167,6 +170,9 @@ pub struct DisplayOptions {
     pub hide_ink: bool,
     /// How tracked changes and comments are marked when `markup` is on (Track Changes Options).
     pub revisions: MarkupOptions,
+    /// The text box being edited (`Document::parts` id): its text is drawn upright even in a
+    /// turned shape, so the caret and the selection, which are upright, line up with it.
+    pub upright_box: Option<u32>,
 }
 
 impl Default for DisplayOptions {
@@ -176,10 +182,12 @@ impl Default for DisplayOptions {
             always: FormattingMarks::default(),
             dim_header: true,
             dim_body: false,
+            hide_body: false,
             markup: true,
             placeholders: false,
             hide_ink: false,
             revisions: MarkupOptions::default(),
+            upright_box: None,
         }
     }
 }
@@ -346,8 +354,11 @@ pub fn page_display(doc: &Document, page: &Page, opts: &DisplayOptions) -> Vec<D
     let mut out = Vec::new();
     let ha = if opts.dim_header { 0.45 } else { 1.0 };
     let ba = if opts.dim_body { 0.45 } else { 1.0 };
-    for (items, a) in [(&page.header, ha), (&page.footer, ha), (&page.items, ba)] {
+    let none = Vec::new();
+    let body = if opts.hide_body { &none } else { &page.items };
+    for (items, a) in [(&page.header, ha), (&page.footer, ha), (body, ba)] {
         let warps = warped_boxes(doc, items);
+        let turned = turned_boxes(items, opts.upright_box);
         let clips = clipped_cells(items);
         let mut done: Vec<u32> = Vec::new();
         for it in items.iter() {
@@ -369,8 +380,15 @@ pub fn page_display(doc: &Document, page: &Page, opts: &DisplayOptions) -> Vec<D
                     if let Some((_, rect, warp)) = warps.iter().find(|(w, ..)| w == id) {
                         let lines: Vec<&Placed> =
                             items.iter().filter(|i| matches!(i, Placed::Lines { story: StoryRef::Part(s), .. } if s == id)).collect();
-                        warped_text(doc, &lines, *rect, warp, opts, a, &mut out);
+                        let mut bent = Vec::new();
+                        warped_text(doc, &lines, *rect, warp, opts, a, &mut bent);
+                        turn_with_box(&turned, *id, bent, &mut out);
                     }
+                }
+                Placed::Lines { story: StoryRef::Part(id), .. } if turned.iter().any(|(t, ..)| t == id) => {
+                    let mut lines = Vec::new();
+                    item(doc, it, opts, a, &mut lines);
+                    turn_with_box(&turned, *id, lines, &mut out);
                 }
                 _ => item(doc, it, opts, a, &mut out),
             }
@@ -422,6 +440,28 @@ fn cell_clip(clips: &[(StoryRef, Vec<u32>, Rect)], story: StoryRef, path: &[u32]
 
 /// The text boxes among `items` whose text is warped (Text Effects › Transform, drawn bent): their
 /// story, frame and warp. Empty, without a walk of the document, when none is.
+/// The text boxes of turned shapes on a page, with the shape's centre and turn: their text turns
+/// with the shape, as in Word (the box being edited, `upright`, excepted). Mirroring a shape
+/// doesn't mirror its text.
+fn turned_boxes(items: &[Placed], upright: Option<u32>) -> Vec<(u32, f32, f32, Spin)> {
+    items
+        .iter()
+        .filter_map(|it| {
+            let Placed::Object { rect, spin, text_box: Some(id), .. } = it else { return None };
+            let turn = Spin::new(spin.deg, false, false);
+            (!turn.is_identity() && upright != Some(*id)).then(|| (*id, rect.x + rect.w / 2.0, rect.y + rect.h / 2.0, turn))
+        })
+        .collect()
+}
+
+/// `draws` of text box `id`, turned with its shape when it is one of `turned`.
+fn turn_with_box(turned: &[(u32, f32, f32, Spin)], id: u32, draws: Vec<Draw>, out: &mut Vec<Draw>) {
+    match turned.iter().find(|(t, ..)| *t == id) {
+        Some(&(_, cx, cy, spin)) if !draws.is_empty() => out.push(Draw::Rotated { cx, cy, spin, items: draws }),
+        _ => out.extend(draws),
+    }
+}
+
 fn warped_boxes(doc: &Document, items: &[Placed]) -> Vec<(u32, Rect, wordcraft_doc::wordart::TextWarp)> {
     items
         .iter()
@@ -570,6 +610,42 @@ fn char_box(b: &Border, x0: f32, x1: f32, top: f32, bottom: f32, alpha: f32, out
 
 fn item(doc: &Document, it: &Placed, opts: &DisplayOptions, alpha: f32, out: &mut Vec<Draw>) {
     item_in(doc, it, opts, alpha, Spin::default(), out)
+}
+/// Where a tab leader's glyphs go between page x `left` (the end of the text before the tab) and
+/// `right` (the start of the text after it), `pitch` apart: on the page's grid of that pitch, from
+/// the first place at or after `left` to the last glyph that ends by `right`, as Word draws them.
+/// Each place is worked out from its grid index, so a long leader doesn't drift and lose its last
+/// glyph to rounding.
+pub(crate) fn leader_xs(left: f32, right: f32, pitch: f32) -> Vec<f32> {
+    if !(left.is_finite() && right.is_finite() && pitch.is_finite() && pitch > 0.0) {
+        return Vec::new();
+    }
+    let first = (left / pitch - LEADER_GRID_SLACK).ceil() as i64;
+    (first..first.saturating_add(MAX_LEADER_GLYPHS)).map(|k| k as f32 * pitch).take_while(|x| x + pitch <= right + LEADER_FIT_SLACK).collect()
+}
+
+/// How far, in grid places, `left` may be past a place and still start the leader there: so text
+/// ending on a grid place, give or take float rounding, doesn't lose the first glyph.
+const LEADER_GRID_SLACK: f32 = 0.001;
+
+/// How far, in points, a leader's last glyph may end past `right` and still be drawn: the same
+/// allowance for rounding at the other end.
+const LEADER_FIT_SLACK: f32 = 0.001;
+
+/// The most glyphs one leader draws, so a hostile tab position can't make it loop for long.
+const MAX_LEADER_GLYPHS: i64 = 2000;
+
+/// How far apart a tab leader's glyphs are drawn, as measured in Word: the glyph's advance (`units`
+/// of the font's `upem`) at the font size rounded to whole 600-dpi pixels, rounded to a whole
+/// pixel. So a TH SarabunPSK dot at 16 pt (133 px, 162/1000 em: 21.5 px) is drawn every 22 px,
+/// 2.64 pt rather than 2.59, a Tahoma one at 22 pt (183 px, 620/2048 em: 55.4 px) every 55 px,
+/// 6.6 pt, and an Arial one at 14 pt (116.7 px, so 117; 569/2048 em: 32.5 px) every 33 px,
+/// 3.96 pt. At least 1 pt.
+pub(crate) fn leader_pitch(units: f32, upem: f32, size: f32) -> f32 {
+    const DPI: f32 = 600.0;
+    let ppem = (size * DPI / 72.0).round();
+    let px = (units * ppem / upem.max(1.0)).round();
+    (px * 72.0 / DPI).max(1.0)
 }
 
 /// [`item`] drawn inside the turn `outer` (a turned Drawing Canvas's members): a shape's
@@ -1008,15 +1084,8 @@ fn lines(
             let Some(st) = pl.styles.get(c.style as usize) else { continue };
             let Some(ch) = leader.char() else { continue };
             let gid = st.face.glyph_for(ch);
-            let adv = (st.face.advance(gid) as f32 * st.size / st.face.upem.max(1.0) as f32).max(1.0);
-            let (mut gx, end) = (x + a + adv * 0.5, x + b - adv * 1.2);
-            let mut glyphs = Vec::new();
-            // Align leader dots to a grid so consecutive lines line up.
-            gx = (gx / adv).ceil() * adv;
-            while gx < end && glyphs.len() < 2000 {
-                glyphs.push((gid, gx, base));
-                gx += adv;
-            }
+            let adv = leader_pitch(st.face.advance(gid) as f32, st.face.upem as f32, st.size);
+            let glyphs = leader_xs(x + a, x + b, adv).into_iter().map(|gx| (gid, gx, base)).collect();
             out.push(Draw::Glyphs {
                 face: st.face,
                 size: st.size,

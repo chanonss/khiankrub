@@ -478,11 +478,65 @@ impl Document {
 
     /// Copy `a..b` into a fragment (with copies of the text boxes in it).
     pub fn copy_range(&self, a: &Pos, b: &Pos) -> Fragment {
-        let mut blocks = self.copy_blocks(a, b);
         // Half a content control (one marker without the other) isn't copied.
+        self.fragment_of(self.copy_blocks(a, b))
+    }
+
+    /// A copy of the block at `path` (a whole table, say) as a fragment, with its text boxes.
+    pub fn copy_block(&self, story: crate::StoryRef, path: &Path) -> Option<Fragment> {
+        Some(self.fragment_of(vec![self.block(story, path)?.clone()]))
+    }
+
+    /// A copy of rows `rows` of the table at `tp`, with the cells of each that reach into grid
+    /// columns `cols` (see [`crate::Table::slice`]), as a fragment holding that table.
+    pub fn copy_table_cells(&self, story: crate::StoryRef, tp: &Path, rows: (usize, usize), cols: (usize, usize)) -> Option<Fragment> {
+        let t = self.table(story, tp)?.slice(rows, cols);
+        if t.rows.is_empty() {
+            return None;
+        }
+        Some(self.fragment_of(vec![Block::Table(t)]))
+    }
+
+    /// `blocks` as a fragment: half content controls dropped, text boxes copied along.
+    fn fragment_of(&self, mut blocks: Vec<Block>) -> Fragment {
         crate::control::balance_blocks(&mut blocks);
         let parts = self.text_box_parts(&blocks);
         Fragment { blocks, parts }
+    }
+
+    /// The table whose whole text `a..b` covers when the range runs across its cells: from the
+    /// start of its first paragraph to the end of its last. Of the tables holding both ends, the
+    /// outermost one covered whole (a table nested in a cell when the range covers just it).
+    /// `None` for a range inside one cell, or one that doesn't cover a whole table.
+    pub fn whole_table(&self, a: &Pos, b: &Pos) -> Option<Path> {
+        let (a, b) = order(a, b);
+        if a.story != b.story || a.off != 0 || a.path.parent() == b.path.parent() {
+            return None;
+        }
+        let mut paths: Option<Vec<Path>> = None;
+        // Table block paths are the prefixes of a cell paragraph's path one block deep, then
+        // every three steps (block, row, cell) deeper.
+        let mut n = 1usize;
+        while n.saturating_add(3) <= a.path.0.len() {
+            let pre = a.path.0.get(..n)?;
+            if !b.path.0.starts_with(pre) {
+                return None;
+            }
+            let tp = Path(pre.to_vec());
+            if self.table(a.story, &tp).is_some() {
+                let paths = paths.get_or_insert_with(|| self.para_paths(a.story));
+                let mut inside = paths.iter().filter(|p| p.0.starts_with(pre));
+                if let Some(first) = inside.next() {
+                    let last = inside.next_back().unwrap_or(first);
+                    let end = self.para(a.story, last).map_or(0, Paragraph::len);
+                    if *first == a.path && *last == b.path && b.off >= end {
+                        return Some(tp);
+                    }
+                }
+            }
+            n = n.saturating_add(3);
+        }
+        None
     }
 
     /// The whole body as a fragment (with its text boxes), to insert into another document.
@@ -537,6 +591,13 @@ impl Document {
                     Block::Table(t) => out.push(Block::Table(t.clone())),
                 }
             }
+            return out;
+        }
+        // Across the cells of a whole table: the table itself, not its cells' paragraphs (#1744).
+        if let Some(tp) = self.whole_table(&a, &b)
+            && let Some(blk) = self.block(a.story, &tp)
+        {
+            out.push(blk.clone());
             return out;
         }
         for p in self.paths_between(&a, &b) {

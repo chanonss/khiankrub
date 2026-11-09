@@ -157,6 +157,8 @@ pub struct CanvasState {
     /// The character an Alt code just typed: if the platform also sends its own composed
     /// character as text on the Alt release (Windows does), it isn't typed twice.
     pub(crate) alt_code_echo: Option<crate::keys::AltCodeEcho>,
+    /// Alt+numpad entry in the focused text box, while the page doesn't have the keyboard (#4403).
+    pub(crate) field_alt_code: crate::keys::FieldAltCode,
     /// Create Link is waiting for a click on the text box to link to: the linking box's object.
     pub(crate) link_from: Option<wordcraft_doc::Pos>,
     /// What screen readers were last told about the document (#488).
@@ -237,6 +239,7 @@ impl Default for CanvasState {
             swallow_text: false,
             alt_code: String::new(),
             alt_code_echo: None,
+            field_alt_code: Default::default(),
             wheel: Default::default(),
             auto_scroll: Default::default(),
             scroll_offset: egui::Vec2::ZERO,
@@ -306,8 +309,9 @@ const SEAM: f32 = 1.0;
 
 /// Hide White Space: stack single-column pages (`rects`, full pages) so that only each page's
 /// text area (`bodies`: top and bottom of the body in points, plus a little room) shows, with a
-/// [`SEAM`] between pages. The first page keeps its top and the last its bottom. Rects keep the
-/// full page size, so page coordinates still map as `(p - rect.min) / scale`; neighbouring rects
+/// [`SEAM`] between pages. The top and bottom margins are hidden on every page, including a
+/// single page. Rects keep their full size, so page coordinates still map as
+/// `(p - rect.min) / scale`; neighbouring rects
 /// overlap in the hidden margins. Returns the moved rects, the visible band of each, and the
 /// content height.
 fn collapse_white_space(rects: &[Rect], bodies: &[(f32, f32)], scale: f32, avail_h: f32) -> (Vec<Rect>, Vec<(f32, f32)>, f32) {
@@ -320,10 +324,10 @@ fn collapse_white_space(rects: &[Rect], bodies: &[(f32, f32)], scale: f32, avail
     let mut cursor = first.min.y;
     for (i, r) in rects.iter().enumerate() {
         let h = if r.height().is_finite() { r.height().max(0.0) } else { 0.0 };
-        let (bt, bb) = bodies.get(i).copied().unwrap_or((0.0, h));
+        let (bt, bb) = bodies.get(i).copied().unwrap_or((0.0, h / scale));
         let fin = |v: f32, d: f32| if v.is_finite() { v } else { d };
-        let top = if i == 0 { 0.0 } else { (fin(bt, 0.0) * scale - WHITE_SPACE_PAD * scale).clamp(0.0, h) };
-        let bot = if i + 1 == n { h } else { (fin(bb, 0.0) * scale + WHITE_SPACE_PAD * scale).clamp(top, h) };
+        let top = ((fin(bt, 0.0) - WHITE_SPACE_PAD) * scale).clamp(0.0, h);
+        let bot = ((fin(bb, h / scale) + WHITE_SPACE_PAD) * scale).clamp(top, h);
         let y = cursor - top;
         out.push(Rect::from_min_size(pos2(r.min.x, y), r.size()));
         bands.push((top, bot));
@@ -552,6 +556,16 @@ fn read_wheel_turns(events: &[egui::Event], hovered: bool, accum: &mut f32) -> i
     turns.clamp(-5, 5)
 }
 
+/// White-space bands apply to a vertical Print Layout while the header/footer editor is closed.
+pub(crate) fn can_hide_white_space(app: &WordApp) -> bool {
+    let view = &app.session.view;
+    view.mode == wordcraft_layout::ViewMode::Print
+        && !view.read_mode
+        && !view.multi_page
+        && view.fit != "multiplePages"
+        && !matches!(app.session.sel.focus.story, StoryRef::Part(_))
+}
+
 pub fn geometry(app: &WordApp, l: &DocLayout, avail: egui::Vec2) -> Geometry {
     let v = &app.session.view;
     let markup = markup_width(app);
@@ -581,7 +595,8 @@ pub fn geometry(app: &WordApp, l: &DocLayout, avail: egui::Vec2) -> Geometry {
     }
     // Pages flow side by side in Print Layout whenever more than one fits across; One Page and
     // Page Width show one per row (and so does a zoom after One Page, #768), Web Layout has no pages. Reading Mode is handled above.
-    let (min_cols, auto) = if web || v.fit == "onePage" || v.fit == "pageWidth" || v.single_column {
+    let hide_white_space = v.hide_white_space && can_hide_white_space(app);
+    let (min_cols, auto) = if web || hide_white_space || v.fit == "onePage" || v.fit == "pageWidth" || v.single_column {
         (1, false)
     } else if v.multi_page {
         (2, true)
@@ -592,8 +607,7 @@ pub fn geometry(app: &WordApp, l: &DocLayout, avail: egui::Vec2) -> Geometry {
     let sizes: Vec<(f32, f32)> = l.pages.iter().map(|p| (p.w, p.h)).collect();
     let (mut rects, mut size) = place_pages(&sizes, markup, scale, cols, avail);
     let mut bands: Vec<(f32, f32)> = rects.iter().map(|r| (0.0, r.height())).collect();
-    let editing_part = matches!(app.session.sel.focus.story, StoryRef::Part(_));
-    if v.hide_white_space && v.mode == wordcraft_layout::ViewMode::Print && !v.read_mode && cols == 1 && !editing_part && rects.len() > 1 {
+    if hide_white_space {
         let bodies: Vec<(f32, f32)> = l.pages.iter().map(|p| (p.body.y, p.body.bottom())).collect();
         let (r, b, h) = collapse_white_space(&rects, &bodies, scale, avail.y);
         (rects, bands) = (r, b);
@@ -623,6 +637,8 @@ fn view_key(app: &WordApp, dim_body: bool) -> u64 {
     (v.marks, app.session.prefs.marks, v.show_markup, v.dark_mode, wordcraft_render::DARK_PAPER, v.hide_ink, v.draw.replay).hash(&mut h);
     app.session.prefs.markup.hash(&mut h);
     dim_body.hash(&mut h);
+    hides_body(app, dim_body).hash(&mut h);
+    editing_box(app).hash(&mut h);
     format!("{:?}{:?}{:?}", app.session.doc.settings.page_color, app.session.doc.settings.page_picture, app.session.doc.settings.watermark)
         .hash(&mut h);
     app.session.doc.media.len().hash(&mut h);
@@ -1170,17 +1186,35 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 painter.image(tex.id(), visual_sr, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
             }
             let page_scale = page_screen_scale(visual_sr, page, geo.scale);
-            // Header/footer editing chrome.
-            if let StoryRef::Part(id) = app.session.sel.focus.story {
+            // Header/footer editing chrome, on every page while a header or footer is edited:
+            // dashed lines with the header and footer tags ("Header -Section 2-" with several
+            // sections) and "Same as Previous" where the section uses the previous one's.
+            if app.session.in_header_footer()
+                && let Some(labels) = wordcraft_engine::cmd::hf::page_labels(&app.session, &layout, i)
+            {
                 let sect_body = page.body;
-                if page.header_story == Some(id) || page.footer_story == Some(id) {
-                    let hy = visual_sr.min.y + sect_body.y * page_scale - 4.0;
-                    let fy = visual_sr.min.y + sect_body.bottom() * page_scale + 4.0;
-                    for (y, label) in [(hy, "Header"), (fy, "Footer")] {
-                        dashed(&painter, pos2(visual_sr.min.x, y), pos2(visual_sr.max.x, y), Stroke::new(1.0, t.accent));
-                        let tr = Rect::from_min_size(pos2(visual_sr.min.x + 2.0, if label == "Header" { y } else { y - 18.0 }), vec2(52.0, 18.0));
+                let hy = visual_sr.min.y + sect_body.y * page_scale - 4.0;
+                let fy = visual_sr.min.y + sect_body.bottom() * page_scale + 4.0;
+                // The tags shrink with the zoom, so they stay in the margin between the header
+                // (or footer) text and the body at any zoom.
+                let k = page_scale.clamp(0.55, 1.0);
+                let (tag_h, font) = (18.0 * k, regular(11.0 * k));
+                for ((y, header), (label, linked)) in [(hy, true), (fy, false)].into_iter().zip(labels) {
+                    dashed(&painter, pos2(visual_sr.min.x, y), pos2(visual_sr.max.x, y), Stroke::new(1.0, t.accent));
+                    // In the margin, clear of the body's first and last lines: the header's tags
+                    // sit on its line, the footer's hang from its line.
+                    let top = if header { y - tag_h } else { y };
+                    let tag = |painter: &egui::Painter, text: &str, left: bool| {
+                        let galley = painter.layout_no_wrap(text.to_string(), font.clone(), t.accent_text);
+                        let w = galley.size().x + 12.0 * k;
+                        let x = if left { visual_sr.min.x + 2.0 } else { visual_sr.max.x - 2.0 - w };
+                        let tr = Rect::from_min_size(pos2(x, top), vec2(w, tag_h));
                         painter.rect_filled(tr, 2.0, t.checked);
-                        painter.text(tr.center(), egui::Align2::CENTER_CENTER, tl!(label), regular(11.0), t.accent_text);
+                        painter.galley(pos2(tr.min.x + 6.0 * k, tr.center().y - galley.size().y / 2.0), galley, t.accent_text);
+                    };
+                    tag(&painter, &hf_label(&label), true);
+                    if linked {
+                        tag(&painter, tl!("Same as Previous"), false);
                     }
                 }
             }
@@ -1491,8 +1525,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
     let middle_gesture = app.canvas.auto_scroll.blocks_input();
     // Double-click the space between two pages (or the line between them) to hide or show it.
     if resp.double_clicked()
-        && app.session.view.mode == wordcraft_layout::ViewMode::Print
-        && !app.session.view.read_mode
+        && can_hide_white_space(app)
         && let Some(p) = resp.interact_pointer_pos()
         && on_page_gap(&rects, &geo.bands, p)
     {
@@ -2198,9 +2231,32 @@ fn mouse(app: &mut WordApp, ui: &Ui, resp: &egui::Response, rects: &[Rect], layo
     } else {
         None
     };
+    // While editing headers and footers, a single click in another page's header/footer
+    // switches the active story without leaving the contextual editing mode.
+    if ui.input(|i| i.pointer.primary_pressed())
+        && resp.contains_pointer()
+        && matches!(story, StoryRef::Part(_))
+        && !in_text_box(app)
+        && let Some((_, header)) = hf_zone
+        && (page != app.session.page_hint
+            || layout.pages.get(page).and_then(|p| if header { p.header_story } else { p.footer_story }).map(StoryRef::Part) != Some(story))
+    {
+        let id = if header { "insert.editHeader" } else { "insert.editFooter" };
+        if app.run(id, json!({ "page": page })).is_ok()
+            && let Some(pos) = app.session.layout().hit(page, x, y, app.session.sel.focus.story)
+        {
+            app.session.sel = wordcraft_engine::Selection::caret(pos);
+        }
+        return;
+    }
     if resp.double_clicked() {
         if let Some((_, header)) = hf_zone
-            && story == StoryRef::Body
+            && (story == StoryRef::Body
+                || matches!(story, StoryRef::Part(_))
+                    && !in_text_box(app)
+                    && (page != app.session.page_hint
+                        || layout.pages.get(page).and_then(|p| if header { p.header_story } else { p.footer_story }).map(StoryRef::Part)
+                            != Some(story)))
         {
             let id = if header { "insert.editHeader" } else { "insert.editFooter" };
             if app.run(id, json!({ "page": page })).is_ok()
@@ -2975,8 +3031,9 @@ fn context_menu(app: &mut WordApp, ui: &mut Ui) {
     }
     item(ui, app, "Font…", "ui.dialog", json!({"name": "font"}));
     if crate::number_select::active(app).is_some() {
+        item(ui, app, "Continue Numbering", "para.continueNumbering", json!({}));
         item(ui, app, "Restart at 1", "para.restartNumbering", json!({}));
-        item(ui, app, "Define New Multilevel List…", "list.define", json!({}));
+        item(ui, app, "Modify Multilevel List…", "ui.dialog", json!({"name": "modifyList"}));
         item(ui, app, "Increase Indent", "para.indent", json!({}));
         item(ui, app, "Decrease Indent", "para.outdent", json!({}));
     }
@@ -3115,7 +3172,34 @@ fn page_render_options(app: &WordApp, dim_body: bool) -> wordcraft_render::Rende
     opts.dark_paper = wordcraft_render::DARK_PAPER;
     opts.display.dim_header = !dim_body;
     opts.display.dim_body = dim_body;
+    opts.display.hide_body = hides_body(app, dim_body);
+    opts.display.upright_box = editing_box(app);
     opts
+}
+
+/// A header/footer tag from `wordcraft_engine::cmd::hf::page_labels` in the interface language:
+/// the kind ("First Page Header") and the section ("-Section 2-") translated apart.
+fn hf_label(label: &str) -> String {
+    match label.split_once(" -Section ") {
+        Some((kind, rest)) => {
+            let n = rest.trim_end_matches('-');
+            crate::i18n::fmt(tl!("{kind} -Section {n}-"), &[("kind", tl!(kind)), ("n", n)])
+        }
+        None => tl!(label).to_string(),
+    }
+}
+
+/// Header & Footer › Show Document Text is off and a header or footer is being edited.
+fn hides_body(app: &WordApp, dim_body: bool) -> bool {
+    dim_body && !app.session.view.hf_document_text && app.session.in_header_footer()
+}
+
+/// The text box the caret is in, whose text is drawn upright while it is edited.
+fn editing_box(app: &WordApp) -> Option<u32> {
+    match app.session.sel.focus.story {
+        StoryRef::Part(id) if app.session.doc.parts.get(&id).is_some_and(|p| p.kind == wordcraft_doc::PartKind::TextBox) => Some(id),
+        _ => None,
+    }
 }
 
 /// The caret colour that shows against `bg`: black or white, whichever contrasts more (WCAG
@@ -4841,9 +4925,7 @@ mod tests {
         // Body from 72 to 720 pt on every page.
         let bodies = [(72.0, 720.0); 3];
         let (moved, bands, h) = collapse_white_space(&rects, &bodies, scale, 600.0);
-        assert_eq!(bands[0].0, 0.0, "first page keeps its top");
-        assert_eq!(bands[2].1, 792.0, "last page keeps its bottom");
-        assert_eq!(bands[1], (66.0, 726.0));
+        assert_eq!(bands, [(66.0, 726.0); 3], "all pages lose their top and bottom margins");
         // Bands abut with one seam, so the content is much shorter than three full pages.
         assert_eq!(moved[1].min.y + bands[1].0, moved[0].min.y + bands[0].1 + SEAM);
         assert!(h < rects[2].bottom() - 2.0 * 66.0 * 2.0);
@@ -4859,6 +4941,39 @@ mod tests {
         // Hostile numbers never panic.
         let _ = collapse_white_space(&rects, &[(f32::NAN, f32::INFINITY), (-1e9, 1e9)], f32::NAN, f32::NAN);
         let _ = collapse_white_space(&[], &[], 1.0, 1.0);
+    }
+
+    #[test]
+    fn hiding_white_space_changes_single_page_geometry() {
+        let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Default::default());
+        let layout = app.session.layout();
+        let avail = vec2(900.0, 600.0);
+        let shown = geometry(&app, &layout, avail);
+        assert_eq!(shown.rects.len(), 1);
+        app.run("view.hideWhiteSpace", json!({})).unwrap();
+        let hidden = geometry(&app, &layout, avail);
+        assert!(hidden.bands[0].0 > 0.0 && hidden.bands[0].1 < hidden.rects[0].height());
+        assert!(hidden.size.y < shown.size.y);
+        app.run("view.hideWhiteSpace", json!({})).unwrap();
+        assert_eq!(geometry(&app, &layout, avail).bands, shown.bands);
+    }
+
+    #[test]
+    fn hiding_white_space_stacks_automatically_arranged_pages() {
+        let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Default::default());
+        app.run("insert.pageBreak", json!({})).unwrap();
+        app.run("insert.pageBreak", json!({})).unwrap();
+        app.session.view.single_column = false;
+        let layout = app.session.layout();
+        let avail = vec2(3200.0, 600.0);
+        let shown = geometry(&app, &layout, avail);
+        assert!(shown.cols > 1);
+        app.run("view.hideWhiteSpace", json!({})).unwrap();
+        let hidden = geometry(&app, &layout, avail);
+        assert_eq!(hidden.cols, 1);
+        assert!(white_space_hidden(&hidden.rects, &hidden.bands));
+        app.run("view.hideWhiteSpace", json!({})).unwrap();
+        assert_eq!(geometry(&app, &layout, avail).cols, shown.cols);
     }
 
     /// #1169: Space and Enter count as `Response::clicked` on the focused canvas, and

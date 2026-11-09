@@ -154,7 +154,7 @@ impl MathAtlas {
 
 impl Previews {
     /// The font list: installed families, each by its name in the interface language when it has
-    /// one (宋体 for SimSun in Chinese, #505), like Word's.
+    /// one (宋体 for SimSun in Chinese, #505), plus the common Thai document font TH Sarabun IT9.
     pub fn families(&mut self) -> Vec<String> {
         let lang = crate::i18n::current().code();
         let generation = wordcraft_fonts::FontDb::global().generation();
@@ -166,6 +166,9 @@ impl Previews {
                 if !f.iter().any(|x| x == w) {
                     f.push(w.to_string());
                 }
+            }
+            if !f.iter().any(|x| x.eq_ignore_ascii_case("TH Sarabun IT9")) {
+                f.push("TH Sarabun IT9".to_string());
             }
             f.sort_by_key(|a| a.to_lowercase());
             f.dedup();
@@ -233,6 +236,13 @@ impl Previews {
                 ui.painter().rect_filled(r, 3.0, t.hover);
             }
             let tex = tex.or_else(|| {
+                // A family the web loads on request: ask for it and show the name plainly until it
+                // arrives (nothing is cached, so the entry is drawn in its own face afterwards).
+                let db = wordcraft_fonts::FontDb::global();
+                if db.is_pending(name) {
+                    db.request_family(name);
+                    return None;
+                }
                 // Context accessors share a lock: read input before taking the data write lock.
                 let now = ui.input(|i| i.time);
                 let n = ui.ctx().data_mut(|d| {
@@ -684,40 +694,62 @@ pub fn style_set_gallery(app: &mut WordApp, ui: &mut Ui) {
     }
 }
 
-/// Table Design: a tile previewing a table style.
-pub fn table_style_tile(ui: &mut Ui, app: &mut WordApp, style: &str) -> Response {
+/// One table-style thumbnail in `r` (a 5 × 4 sample table drawn in that style); `checked` marks
+/// the caret table's style. `name` is its tooltip and accessible name.
+pub fn table_style_tile(ui: &mut Ui, app: &mut WordApp, style: &str, name: &str, r: Rect, checked: bool) -> Response {
     let t = Tokens::get(ui.ctx());
     let ppp = ui.ctx().pixels_per_point();
-    let (r, resp) = ui.allocate_exact_size(vec2(58.0, 46.0), Sense::click());
-    if resp.hovered() {
+    let resp = ui.interact(r, ui.id().with(("table_style_tile", style)), Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::SelectableLabel, true, checked, name));
+    if checked {
+        ui.painter().rect(r, 3.0, t.checked, Stroke::new(1.0, t.checked_border), egui::StrokeKind::Inside);
+    } else if resp.hovered() {
         ui.painter().rect_filled(r, 3.0, t.hover);
     }
+    // The sample is drawn to fill the tile: 100 pt of table plus 2 pt of margin each side.
+    let scale = ((r.width() - 8.0) / 104.0).max(0.1);
     // Keyed by the style sheet too, so a modified table style redraws.
     let skey = app.previews.styles_key(&app.session.doc, app.session.rev());
-    let key = format!("tstyle:{style}:{skey}:{ppp}");
+    let key = format!("tstyle:{style}:{skey}:{ppp}:{:.2}", scale);
     let doc = &app.session.doc;
     let tex = app.previews.get_or(ui.ctx(), &key, || {
         let mut tb = Table::new(5, 4, 100.0);
         tb.props.style = Some(style.to_string());
         for row in &mut tb.rows {
             for c in &mut row.cells {
-                c.blocks = vec![para_block(Paragraph::with_text(" ", CharProps { size: Some(5.0), ..Default::default() }))];
+                c.blocks = vec![para_block(Paragraph::with_text(" ", CharProps { size: Some(8.0), ..Default::default() }))];
             }
         }
-        snippet_blocks(doc, vec![Block::Table(tb), Block::Para(Paragraph::new())], 104.0, 70.0, ppp * 0.48, 4.0, None, false)
+        let img = snippet_blocks(doc, vec![Block::Table(tb), Block::Para(Paragraph::new())], 104.0, 90.0, ppp * scale, 4.0, None, false)?;
+        // Crop to the table itself (its width is known; its height ends at the last inked row),
+        // so the sample can fill the tile.
+        let [w, h] = img.size;
+        let m = (4.0 * ppp * scale).round() as usize;
+        let white = |c: &egui::Color32| c.r() > 250 && c.g() > 250 && c.b() > 250;
+        let last = (0..h).rev().find(|&y| img.pixels[y * w..(y + 1) * w].iter().any(|c| !white(c))).unwrap_or(h.saturating_sub(1));
+        let (x0, x1) = (m.min(w), w.saturating_sub(m).max(m.min(w)));
+        let (y0, y1) = (m.min(h), (last + 1).clamp(m.min(h), h));
+        if x1 <= x0 || y1 <= y0 {
+            return Some(img);
+        }
+        Some(img.region(&egui::Rect::from_min_max(pos2(x0 as f32, y0 as f32), pos2(x1 as f32, y1 as f32)), Some(1.0)))
     });
     if let Some(h) = tex {
-        let sz = h.size_vec2() / ppp;
-        let ir = Rect::from_center_size(r.center(), sz.min(vec2(54.0, 42.0)));
-        let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2((ir.width() / sz.x).min(1.0), (ir.height() / sz.y).min(1.0)));
-        ui.painter().image(h.id(), ir, uv, preview_tint(&t, false));
+        // Stretched to fill the tile, with a small inset.
+        let ir = r.shrink2(vec2(5.0, 5.0));
+        ui.painter().image(h.id(), ir, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), preview_tint(&t, false));
     }
-    resp
+    resp.on_hover_text(name)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn font_list_offers_th_sarabun_it9_by_its_common_name() {
+        assert!(Previews::default().families().iter().any(|f| f == "TH Sarabun IT9"));
+    }
 
     /// Font-menu entries: small-looking faces such as the SIPA fonts (x-height
     /// about a third of the em) draw larger, a typical face stays at 13 pt, a very large face

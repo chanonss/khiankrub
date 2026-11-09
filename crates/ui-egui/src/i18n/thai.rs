@@ -35,6 +35,18 @@ fn seen_on_tabs_and_file() -> BTreeSet<(String, String)> {
         h.state_mut().ui.tab = (*tab).into();
         h.run_steps(3);
     }
+    // The Header & Footer tab and the page's header tags, in a second section's header that is
+    // the same as the first's.
+    let _ = h.state_mut().run("caret.docEnd", json!({}));
+    let _ = h.state_mut().run("layout.break", json!({"kind": "nextPage"}));
+    let _ = h.state_mut().run("insert.editHeader", json!({"page": 1}));
+    h.run_steps(4);
+    let _ = h.state_mut().run("layout.differentFirstPage", json!({"value": true}));
+    h.run_steps(3);
+    let _ = h.state_mut().run("layout.differentOddEven", json!({"value": true}));
+    h.run_steps(3);
+    let _ = h.state_mut().run("insert.closeHeader", json!({}));
+    h.run_steps(2);
     for page in ["home", "new", "open", "info", "recover", "save", "saveAs", "print", "export", "close"] {
         h.state_mut().ui.backstage = true;
         h.state_mut().ui.backstage_page = page.into();
@@ -72,11 +84,27 @@ fn right_click_labels() -> BTreeSet<String> {
 /// Text that depends on the clock or the document's state, so one run draws only some of it: the
 /// File page's greeting and the title bar's saved state.
 fn shown_some_of_the_time() -> BTreeSet<String> {
-    ["Good morning", "Good afternoon", "Good evening", "Edited", "Saved", "Not saved"].map(String::from).into()
+    ["Good morning", "Good afternoon", "Good evening", "Edited", "Saved", "Not saved", "draft", "Saved on this device", "Saving…"]
+        .map(String::from)
+        .into()
 }
 
 /// Shown as they are in Thai too: numbers, and product and format names.
-const KEEP: [&str; 7] = ["100%", "Zotero", "SmartArt", "WordArt", "LaTeX (*.tex)", "Markdown (*.md)", "Rich Text Format (*.rtf)"];
+const KEEP: &[&str] = &[
+    "100%",
+    "Zotero",
+    "SmartArt",
+    "WordArt",
+    "LaTeX (*.tex)",
+    "Markdown (*.md)",
+    "Rich Text Format (*.rtf)",
+    // Previews and paper sizes, and a label that is already Thai.
+    "........",
+    "AaBbYyZz",
+    "{n} pt",
+    "Letter",
+    "ตารางที่",
+];
 
 fn thai() -> Lang {
     Lang::from_code("th").expect("Thai is a built-in interface language")
@@ -126,4 +154,225 @@ fn choosing_thai_shows_the_ribbon_in_thai() {
     h.state_mut().run("ui.language", json!({"value": "en"})).unwrap();
     h.run_steps(2);
     super::set_current(Lang::EN);
+}
+
+/// The dialogs people open most, each `(name, tabs)`: the `ui.dialog` name and the labels of its
+/// other tabs, clicked in turn.
+const COMMON_DIALOGS: &[(&str, &[&str])] = &[
+    ("font", &["Advanced"]),
+    ("paragraph", &["Line and Page Breaks"]),
+    ("tabs", &[]),
+    ("borders", &[]),
+    ("pageBorders", &[]),
+    ("shading", &[]),
+    ("find", &[]),
+    ("replace", &[]),
+    ("goto", &[]),
+    ("insertTable", &[]),
+    ("pageSetup", &["Paper", "Layout"]),
+    ("link", &[]),
+    ("bookmark", &[]),
+    ("wordCount", &[]),
+    ("zoom", &[]),
+    ("watermark", &[]),
+    ("symbol", &[]),
+    ("specialCharacters", &[]),
+    ("columns", &[]),
+    ("lineNumbers", &[]),
+    ("hyphenation", &[]),
+    ("language", &[]),
+    ("pageNumberPosition", &[]),
+    ("defineList", &[]),
+    ("renameDocument", &[]),
+    ("pasteSpecial", &[]),
+    ("tableProperties", &["Row", "Column", "Cell"]),
+    ("caption", &[]),
+    ("crossReference", &[]),
+    ("toc", &[]),
+    ("noteOptions", &[]),
+    ("trackChangesOptions", &[]),
+    ("encryptPassword", &[]),
+    ("autoCorrect", &[]),
+    ("newStyle", &[]),
+    ("manageStyles", &[]),
+];
+
+/// The File › Options panes.
+const OPTION_PANES: &[&str] = &["general", "display", "proofing", "save", "language", "accessibility", "advanced"];
+
+/// Every English string drawn in the common dialogs (each tab) and File › Options.
+fn seen_in_common_dialogs() -> BTreeSet<(String, String)> {
+    let mut h = window();
+    h.state_mut().ui.language = "en".into();
+    h.run_steps(4);
+    record::start();
+    for (name, tabs) in COMMON_DIALOGS {
+        if h.state_mut().run("ui.dialog", json!({"name": name})).is_err() {
+            continue;
+        }
+        h.run_steps(3);
+        for tab in *tabs {
+            use egui_kittest::kittest::Queryable;
+            if let Some(node) = h.query_all_by_label(tab).last() {
+                node.click();
+                h.run_steps(3);
+            }
+        }
+        h.state_mut().dialog = None;
+        h.run_steps(2);
+    }
+    for pane in OPTION_PANES {
+        h.state_mut().ui.backstage = true;
+        h.state_mut().ui.backstage_page = "options".into();
+        h.state_mut().ui.options_pane = (*pane).into();
+        h.run_steps(3);
+    }
+    record::stop()
+}
+
+/// The dialogs people open most (each tab) and File › Options are in Thai, so a new label there
+/// fails here until it is translated.
+#[test]
+fn the_common_dialogs_are_in_thai() {
+    let th = thai();
+    let missing: Vec<String> = seen_in_common_dialogs()
+        .into_iter()
+        .filter(|(_, s)| !KEEP.contains(&s.as_str()))
+        .filter(|(ctx, s)| if ctx.is_empty() { !super::has(th, s) } else { super::trc(th, ctx, s) == s })
+        .map(|(ctx, s)| format!("{ctx}\t{}", s.replace('\n', "\\n")))
+        .collect();
+    assert!(missing.is_empty(), "add these to th.tsv:\n{}", missing.join("\n"));
+}
+
+#[test]
+fn shape_format_controls_and_effects_are_translated() {
+    use egui_kittest::kittest::Queryable;
+    let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+    app.run("ui.language", json!({"value": "th"})).unwrap();
+    app.run("insert.shape", json!({"kind": "rectangle"})).unwrap();
+    app.run("ui.tab", json!({"tab": "Shape Format"})).unwrap();
+    let mut h = egui_kittest::Harness::builder().with_size(vec2(2200.0, 400.0)).build_ui_state(
+        |ui, app: &mut WordApp| {
+            let ctx = ui.ctx().clone();
+            app.logic(&ctx);
+            app.ui(ui);
+        },
+        app,
+    );
+    h.run_steps(4);
+    for label in ["สีเติมรูปร่าง", "เส้นกรอบรูปร่าง", "เงา แสงเรือง และขอบนุ่ม", "สีเติมข้อความ", "เส้นกรอบข้อความ", "เอฟเฟกต์ข้อความ"]
+    {
+        assert!(h.query_by_label(label).is_some(), "missing translated control: {label}");
+    }
+    let th = Lang::from_code("th").unwrap();
+    for source in [
+        "Shape Format",
+        "Alt Text",
+        "Glow",
+        "No Glow",
+        "Glow Colors",
+        "Soft Edges",
+        "No Soft Edges",
+        "Reflection",
+        "Transform",
+        "Create Link",
+        "Break Link",
+    ] {
+        assert_ne!(super::tr(th, source), source, "missing translation: {source}");
+    }
+}
+
+#[test]
+fn chart_design_controls_are_translated() {
+    use egui_kittest::kittest::Queryable;
+    let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+    app.run("ui.language", json!({"value": "th"})).unwrap();
+    app.run("insert.chart", json!({"type": "column"})).unwrap();
+    app.run("ui.tab", json!({"tab": "Chart Design"})).unwrap();
+    let mut h = egui_kittest::Harness::builder().with_size(vec2(2000.0, 400.0)).build_ui_state(
+        |ui, app: &mut WordApp| {
+            let ctx = ui.ctx().clone();
+            app.logic(&ctx);
+            app.ui(ui);
+        },
+        app,
+    );
+    h.run_steps(4);
+    for label in ["ชื่อแผนภูมิ", "คำอธิบายแผนภูมิ", "ป้ายชื่อข้อมูล"]
+    {
+        assert!(h.query_by_label(label).is_some(), "missing translated control: {label}");
+    }
+    let th = Lang::from_code("th").unwrap();
+    for label in ["Chart Design", "Edit\nData", "Change\nChart Type", "Above Chart", "Insert SmartArt"] {
+        assert_ne!(super::tr(th, label), label, "missing translation: {label}");
+    }
+}
+
+#[test]
+fn home_menu_labels_are_translated() {
+    let th = Lang::from_code("th").unwrap();
+    for label in [
+        "Advanced Find…",
+        "Go To…",
+        "Select All",
+        "Select Paragraph",
+        "Select Sentence",
+        "Dot-dash",
+        "Small Caps",
+        "All Caps",
+        "Double Strikethrough",
+        "Standard Colors",
+        "More Colors…",
+        "Add Space Before Paragraph",
+        "Remove Space After Paragraph",
+        "Line Spacing Options…",
+        "Bottom Border",
+        "Top Border",
+        "Left Border",
+        "Right Border",
+        "No Border",
+        "All Borders",
+        "Outside Borders",
+        "Inside Borders",
+        "Inside Horizontal Border",
+        "Inside Vertical Border",
+        "Diagonal Down Border",
+        "Diagonal Up Border",
+        "Horizontal Line",
+        "Draw Table",
+        "View Gridlines",
+        "Borders and Shading…",
+        "Keep Text Only",
+        "Merge Formatting",
+        "Paste Special…",
+    ] {
+        assert_ne!(super::tr(th, label), label, "missing Thai translation: {label}");
+    }
+}
+
+#[test]
+fn header_footer_and_print_range_labels_are_translated() {
+    let th = Lang::from_code("th").unwrap();
+    for label in [
+        "Blank",
+        "Blank (Three Columns)",
+        "Document Title",
+        "Edit Header",
+        "Remove Header",
+        "Edit Footer",
+        "Remove Footer",
+        "Top of Page",
+        "Bottom of Page",
+        "Page X of Y",
+        "Current Position",
+        "Format Page Numbers…",
+        "Page Number Position…",
+        "Current page",
+        "Selected pages",
+        "Custom range",
+        "Odd pages only",
+        "Even pages only",
+    ] {
+        assert_ne!(super::tr(th, label), label, "missing Thai translation: {label}");
+    }
 }

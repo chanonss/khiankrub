@@ -706,7 +706,15 @@ fn styles_xml(doc: &Document) -> Vec<u8> {
     w.open("w:docDefaults", &[]);
     w.open("w:rPrDefault", &[]);
     w.open("w:rPr", &[]);
-    props::rpr_inner(&mut w, &s.default_chr);
+    if s.default_chr.size.is_none() {
+        // The reader reads an omitted `w:sz` as 10 pt, but the resolver falls back to
+        // DEFAULT_FONT_SIZE, so writing nothing would change the size on reopening.
+        let mut chr = s.default_chr.clone();
+        chr.size = Some(wordcraft_doc::props::DEFAULT_FONT_SIZE);
+        props::rpr_inner(&mut w, &chr);
+    } else {
+        props::rpr_inner(&mut w, &s.default_chr);
+    }
     w.close("w:rPr");
     w.close("w:rPrDefault");
     if s.default_para_present || s.default_para != wordcraft_doc::props::ParaProps::default() {
@@ -777,7 +785,9 @@ fn style_xml(w: &mut W, st: &Style, flagged: &[StyleKind]) {
     }
     if !st.para.is_empty() && st.kind != StyleKind::Character {
         w.open("w:pPr", &[]);
-        props::ppr_inner(w, &st.para, false, None);
+        // A style's drop-cap setting belongs in its paragraph properties too; otherwise it is
+        // lost when a document using the style is saved and reopened.
+        props::ppr_inner(w, &st.para, true, None);
         w.close("w:pPr");
     }
     if props::has_rpr(&st.chr) && st.kind != StyleKind::Numbering {

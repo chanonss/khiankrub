@@ -28,7 +28,7 @@ render "$SVG" 1024 "$DIR/wordcraft-1024.png"
 render "$MAC" 512 "$DIR/wordcraft-macos-512.png"
 
 # Linux hicolor theme.
-for s in 16 24 32 48 64 128 256 512; do
+for s in 16 24 32 48 64 128 192 256 512; do
   mkdir -p "$DIR/hicolor/${s}x${s}/apps"
   render "$SVG" "$s" "$DIR/hicolor/${s}x${s}/apps/$ID.png"
 done

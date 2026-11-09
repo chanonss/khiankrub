@@ -1,6 +1,6 @@
 # WordCraft v0.12 updates for KhianKrub
 
-Status: ported to the desktop app · 2026-11-02 · Task UP12 (first done in the web app on 2026-10-29)
+Status: implemented and validated locally · 2026-10-29 · Task UP12
 
 Source release: [WordCraft v0.12.0](https://github.com/storytold/wordcraft/releases/tag/v0.12.0), published 2026-10-28. These are selected backports to KhianKrub's existing Rust and egui 0.36 code; no application framework migration is required.
 
@@ -27,15 +27,18 @@ Source release: [WordCraft v0.12.0](https://github.com/storytold/wordcraft/relea
 
 ## Validation
 
-- `cargo xtask ci` on the desktop source: see the desktop sync notes ([desktop-sync.md](desktop-sync.md)) for the result of this port.
+- `cargo xtask ci`: all six gates pass (format, Clippy with warnings denied, workspace tests, asset attribution, dependency layers and all 16 supported WebAssembly crate checks). Native suites: **2,894 passed, 4 ignored**; the ignored tests are unchanged.
+- `cargo check --locked --target wasm32-unknown-unknown -p wordcraft-web`: passes for the actual browser app.
+- The external browser Sarabun bundle passes `web_document_fonts_use_the_exact_original_faces` with `KHIANKRUB_WEB_FONTS_DIR=target/khiankrub-web/fonts` (both families and all eight original faces).
 - Added regressions cover reverse Thai paragraph selections and undo, Thai style defaults/imported font preservation through DOCX save/reopen and undo, hostile fonts/XML/layout, manual-break justification in Thai and English, NBSP and bookmark layout, Standard encryption and regex replacement groups.
 - `kept_heading_cache_preserves_mixed_thai_english_pdf_bytes` confirms identical PDF bytes with cached and uncached heading lookahead. Shaping equivalence and the 64-plan bound are also tested.
-- English and Thai context-menu tests activate Crop through the actual menu (the Thai menu shows **ครอบตัด**).
-- No fresh Word GUI measurements or real Word-written encrypted-file corpus were used; that interoperability validation remains in `docs/gaps.md`.
+- English and Thai context-menu tests activate Crop through the actual menu. Offscreen window previews were inspected: the Thai menu shows **ครอบตัด** with the existing original crop icon, and clicking it displays crop handles.
+- The bounded `export_bench` example exported 40 sample-document copies five times successfully. This is a native smoke check, not a browser speedup measurement.
+
+The changes are local. No deployment is included. No fresh Word GUI measurements or real Word-written encrypted-file corpus were used; that interoperability validation remains in `docs/gaps.md`.
 
 ## Revision history
 
 | Date | Change |
 |---|---|
-| 2026-10-29 | UP12: selected changes and fork-specific adaptations recorded (web app) |
-| 2026-11-02 | UP12 ported to the desktop app |
+| 2026-10-29 | UP12: selected changes and fork-specific adaptations recorded |

@@ -1,12 +1,40 @@
 # UI parity with Microsoft Word
 
-> **KhianKrub status — 2026-11-02:** UP12.1: preserve style-set inputs. Applying a style set changes matching styles without discarding other imported styles, latent styles or document defaults. Theme font/accent application is restricted to the incoming set, preserving Thai defaults and unrelated font choices.
+> **2026-11-08 · Modify Style localization:** Thai labels cover the dialog's pages, controls and option lists. Built-in style names and choices use localized display names; stored and user-defined names are preserved unless the name is edited.
 
-> **KhianKrub status — 2026-11-02:** UP12.3: the picture context menu has a direct localized Crop action that displays handles; regex Replace supports numbered/named groups, whole matches, literal dollars, tabs and paragraph breaks, including Replace All from the dialog.
+> **2026-11-08 · Type 2 Show group:** Each row shares the same outer width, with extra width inside the controls and no column-sized gaps. Widths are measured from the active language's labels.
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-02 · **Change:** trivial (Modify Table Style formats every table style part, #714); previously trivial: a click on the ribbon chrome hands the keyboard to the page in the same frame, #1093 follow-up; previously trivial: Page Setup vertical alignment, #1320; previously trivial: the app opens on the Home tab every launch, as in Word; previously trivial: no document behind the Start screen, #1129; previously trivial: equation pictures share a few textures, #1002; previously trivial: selection bar in the left margin, #856; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously major: first version; ribbon, dialogs, shortcuts and on-canvas interaction measured from `crates/ui-egui` and the command registry) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
+> **2026-11-08 · View ribbon adjustment:** Show controls are laid out row by row, avoiding gaps caused by the wider Navigation Pane button.
 
-Desktop sync (2026-10-28): ported the web File-tab fix, document context-menu icons and numbering actions, and problem-report form. See [desktop sync notes](desktop-sync.md).
+> **2026-11-08 · Ribbon layout pilot:** Clipboard combines a large Paste menu with a three-row small-button column; Home › Paragraph groups its controls in three aligned rows. View keeps the approved compact Zoom group. Existing commands and menus are retained.
+
+> **2026-11-08 · Compact View ribbon:** Print Preview, Zoom, zoom steps and 100% share the first row; One Page, Multiple Pages and Page Width share the second row.
+
+> **2026-11-08 · Print preview:** Dedicated read-only preview from View and File › Print, with a configurable page grid, facing-page and cover spreads, page navigation and preview-only zoom.
+
+> **2026-11-08 · Menu icons:** Paste, Find, Select, editing mode and paragraph spacing menus display small original icons beside their items while retaining their labels and shortcuts.
+
+> **2026-11-07 · Ribbon integration:** Centered ribbon tabs with optional number badges, icon-only right actions, updated controls and aligned View groups. Hide White Space also collapses a single page and automatically arranged pages.
+
+> **KhianKrub status — 2026-11-07:** Thai captions omit the English colon; References includes Table of Tables; header/footer editing switches directly between separated stories; list context menus modify existing multilevel lists and continue numbering; the font list includes the common TH Sarabun IT9 name and resolves the IT๙ spelling when installed; UI fonts use the system interface font.
+
+> **2026-11-01 · ICON.6:** Approved square ท icon replaces the old Thai Distribution mark in KhianKrub; shared geometry is synchronized across all three apps.
+
+> **2026-11-01 · ICON.3:** Approved Balanced toolbar gold: `#F2B705`, 230/255 primary alpha and 107/255 soft-surface alpha, multiplied by caller transparency. Flat and disabled icons remain monochrome; stored document/workbook artwork is unchanged. See [icon design](icon-design.md).
+
+> **KhianKrub status — 2026-10-30:** WEB.4: the web start screen opens a new or recent (draft) document in a new tab (`./?new=<template>`, `./?draft=<id>`) and keeps itself; the draft list refreshes when its tab is visited again; the KrubOffice launcher's app tile opens in a new tab; the top bar's "All apps" text button is an app switcher (grid button; menu with KhianKrub marked, KhitKrub and PhutKrub faded as coming soon, and a link to kruboffice.app).
+>
+> **KhianKrub status — 2026-10-30:** WEB.3: the web bundle adds eight TLWG Thai families (Garuda, Kinnari, Laksaman, Loma, Norasi, Sawasdee, Umpush, Waree; TLWG 0.7.4, 38 faces, unmodified) loaded on request, with their licence texts and the GPL source release shipped beside them.
+>
+> **KhianKrub status — 2026-10-30:** WEB.2: khiankrub.app opens the editor on its start screen (old /khian/ links redirect); the KrubOffice launcher moved to kruboffice.app (not installable) and All apps opens it; fonts load on request, and a PDF or print is refused with "Fonts are still loading" until the document's fonts have arrived.
+>
+> **KhianKrub status — 2026-10-29:** WEB.1: khiankrub.app opens a KrubOffice launcher (เขียนครับ, with คิดครับ and พูดครับ marked รอว่างก่อนนะครับ); the editor moved to /khian/ and opens on a web start screen (top bar with Open file, Google Drive, Options and All apps; greeting; every template; the drafts kept in this browser with keep writing, download and discard).
+
+> **KhianKrub status — 2026-10-29:** UP12.1: preserve style-set inputs. Applying a style set changes matching styles without discarding other imported styles, latent styles or document defaults. Theme font/accent application is restricted to the incoming set, preserving Thai defaults and unrelated font choices.
+
+> **KhianKrub status — 2026-10-29:** UP12.3: the picture context menu has a direct localized Crop action that displays handles; regex Replace supports numbered/named groups, whole matches, literal dollars, tabs and paragraph breaks, including Replace All from the dialog.
+
+> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-11-01 · **Change:** trivial (Modify Table Style formats every table style part, #714); previously trivial: a click on the ribbon chrome hands the keyboard to the page in the same frame, #1093 follow-up; previously trivial: Page Setup vertical alignment, #1320; previously trivial: the app opens on the Home tab every launch, as in Word; previously trivial: no document behind the Start screen, #1129; previously trivial: equation pictures share a few textures, #1002; previously trivial: selection bar in the left margin, #856; previously trivial: table column and row markers on the rulers, #700; previously trivial: table borders and the resize handle drag on the page, #217; previously major: first version; ribbon, dialogs, shortcuts and on-canvas interaction measured from `crates/ui-egui` and the command registry) · **Target:** Microsoft Word (Microsoft 365) for Mac 16.113.4
 
 How WordCraft looks and feels next to Word: ribbon, dialogs, panes, keyboard, mouse and touch.
 Typing behaviour has its own checklist ([`typing-parity.md`](typing-parity.md)). All assets are our
@@ -63,12 +91,14 @@ Document title opens Rename Document; the account badge opens Options › Genera
 
 ## Revision history
 
-2026-10-28 · minor · Desktop web-update port; see desktop sync notes.
-
 | Date | Change | Summary |
 |---|---|---|
-| 2026-11-02 | minor | UP12.3: the picture context menu has a direct localized Crop action that displays handles; regex Replace supports numbered/named groups, whole matches, literal dollars, tabs and paragraph breaks, including Replace All from the dialog. |
-| 2026-11-02 | minor | UP12.1: preserve style-set inputs. Applying a style set changes matching styles without discarding other imported styles, latent styles or document defaults. Theme font/accent application is restricted to the incoming set, preserving Thai defaults and unrelated font choices. |
+| 2026-10-30 | minor | WEB.4: start screen templates and drafts open in a new browser tab (the page reads `?new=` and `?draft=` on startup); the KrubOffice launcher opens an app in a new tab; the top bar gets an app switcher (menu of the KrubOffice apps) in place of "All apps". |
+| 2026-10-30 | minor | WEB.3: eight TLWG font families join the on-request web fonts (pinned manifest `packaging/web/tlwg-fonts.json`, publisher's prebuilt TTFs, licences and the source release kept in `fonts/`). |
+| 2026-10-30 | minor | WEB.2: the web editor is the root of khiankrub.app (/khian/ redirects, same origin so drafts, Drive and installs carry on); the KrubOffice launcher is kruboffice.app and All apps opens it; PDF export and print wait for on-request fonts instead of using the fallback. |
+| 2026-10-29 | minor | WEB.1: the web editor (now at khiankrub.app/khian/) opens on its own start screen (top bar with KhianKrub, Open file, Google Drive, Options and All apps back to KrubOffice; a greeting; every template), not File's sidebar; it and File › Home list the recovery drafts kept in the browser instead of Recent: click to keep writing, ⋮ or right-click to download a .docx copy or discard (after asking); loading, empty and recovery-off states say so. The site root is a static KrubOffice launcher. |
+| 2026-10-29 | minor | UP12.3: the picture context menu has a direct localized Crop action that displays handles; regex Replace supports numbered/named groups, whole matches, literal dollars, tabs and paragraph breaks, including Replace All from the dialog. |
+| 2026-10-29 | minor | UP12.1: preserve style-set inputs. Applying a style set changes matching styles without discarding other imported styles, latent styles or document defaults. Theme font/accent application is restricted to the incoming set, preserving Thai defaults and unrelated font choices. |
 | 2026-10-13 | trivial | New/Modify Table Style: No Border on a part that inherits its lines hides them; emptying the font box makes the part's font inherited again (#1288) |
 | 2026-10-14 | trivial | Tab stops edited on the ruler: corner kind selector, click to set, drag to move or off to clear, per-kind markers mirrored for RTL; each gesture one `para.tabs` call and one undo step; Rulers 85% → 90% |
 | 2026-10-12 | trivial | Tables on the page: one selected cell (Select Cell, or a click along its left edge) is a cell selection when its border is dragged: the border moves in its row only (#962) |
@@ -201,3 +231,17 @@ labels unambiguous. Those extra-number assignments have not been compared with W
 | 2026-10-11 | trivial | Draw: Lasso, Add Pen gallery, Ink to Shape and Ink Replay (#395) |
 | 2026-10-12 | trivial | Recipient List dialog: Filter and Sort section (conditions joined by And/Or, three sort keys, merge order column), .xls in the picker (#778) |
 | 2026-10-13 | trivial | Double-clicking the top or bottom margin of a page with no header or footer creates the one that page shows and edits it, as in Word; one left empty is taken away again on leaving; `insert.editHeader`/`insert.editFooter {"page"}` for agents (#960); making one is an undo step (`insert.createHeader`/`insert.createFooter`), refused read-only, linked from the first section |
+
+### KrubOffice revision history
+
+| Date | Change |
+|---|---|
+| 2026-11-01 | ICON.1: working preview; icon standardization remains partial. |
+
+| 2026-11-01 | ICON.2: all UI icon catalogs consolidated, common-action geometry unified, specialized symbols restyled. |
+
+| 2026-11-01 | ICON.3: approved Balanced gold roles; preserve dimmed alpha and monochrome flat/disabled states. |
+
+| 2026-11-01 | LOCAL.1: fresh full web previews verified for all three apps; Khian install-icon manifest paths corrected. |
+
+| 2026-11-01 | ICON.6: approved square ท icon and PhutKrub Thai Distribution control. |

@@ -192,9 +192,8 @@ Everything that differs from the original, newest first, is in [FORK-CHANGES.md]
 ### Mac
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
-   **KhianKrub-0.9.2-macos-universal.dmg** under *Assets*.
-2. Open the DMG and drag **KhianKrub** onto **Applications**. The universal zip is an alternative:
-   unzip it, then drag KhianKrub into Applications.
+   **KhianKrub-0.15.0-macos-universal.zip** under *Assets*.
+2. Unzip it and drag **KhianKrub** onto **Applications**.
 3. **First time only: right-click › Open.** The app is not signed by Apple, so macOS says it cannot verify the
    developer. Right-click (or Control-click) KhianKrub, choose **Open**, then click **Open** again. If the dialog
    only offers *Move to Trash*, open **System Settings › Privacy & Security** and click **Open Anyway** next to
@@ -209,7 +208,7 @@ Intel Macs; 0.7.3 and earlier run on Apple silicon only.
 ### Windows
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
-   **khiankrub-0.9.2-windows-x64.msi** (under *Assets*), then double-click it.
+   **khiankrub-0.15.0-windows-x64.msi** (under *Assets*), then double-click it.
 2. **First time only: More info › Run anyway.** The installer is not signed (see [Code signing policy](#code-signing-policy)), so
    Windows says "Windows protected your PC". Click **More info**, then **Run anyway**, and click **Yes** when Windows asks for permission. KhianKrub is
    then in the Start menu.

@@ -18,6 +18,7 @@ pub mod find_pattern;
 pub mod fmt_revisions;
 pub mod font;
 pub mod format;
+pub mod hf;
 pub mod index;
 pub mod ink_shape;
 pub mod insert;
@@ -72,6 +73,7 @@ pub fn registry() -> Registry {
     v.extend(view::specs());
     v.extend(outline::specs());
     v.extend(insert::specs());
+    v.extend(hf::specs());
     v.extend(equation::specs());
     v.extend(page::specs());
     v.extend(table::specs());
@@ -460,6 +462,18 @@ pub fn now_local_iso() -> String {
     iso.trim_end_matches('Z').to_string()
 }
 
+/// The local day of the instant `unix` (seconds since 1970, UTC) in a zone `offset_secs` east of
+/// UTC, as days since 1970-01-01: the day the weekday and the date picker's "today" follow. Before
+/// 07:00 in Thailand, UTC is still on the day before (#1707).
+pub fn local_day(unix: u64, offset_secs: i64) -> i64 {
+    i64::try_from(unix).unwrap_or(i64::MAX).saturating_add(offset_secs.clamp(-26 * 3600, 26 * 3600)).div_euclid(86_400)
+}
+
+/// Today's local day, as days since 1970-01-01 (see [`local_day`]).
+pub fn local_day_now() -> i64 {
+    local_day(now_unix(), local_utc_offset())
+}
+
 /// Days since 1970-01-01 → (year, month, day) (Howard Hinnant's algorithm).
 pub fn civil_from_days(z: i64) -> (i64, u32, u32) {
     let z = z + 719_468;
@@ -517,6 +531,20 @@ mod iso_tests {
 
 #[cfg(test)]
 mod local_time_tests {
+    /// The weekday and the date picker follow the local day (#1707): at 06:30 in Bangkok on a
+    /// Thursday it is still Wednesday in UTC. A hostile offset saturates instead of overflowing.
+    #[test]
+    fn the_local_day_follows_the_offset() {
+        // 2026-11-04T23:30:00Z is 2026-11-05 06:30 in Thailand (UTC+7), a Thursday.
+        let unix = 1_793_835_000;
+        let bangkok = super::local_day(unix, 7 * 3600);
+        assert_eq!(super::civil_from_days(bangkok), (2026, 11, 5));
+        assert_eq!(super::civil_from_days(super::local_day(unix, 0)), (2026, 11, 4));
+        assert_eq!(crate::cmd::insert::format_date_parts("dddd", 2026, 11, 5, (6, 30, 0), bangkok), "Thursday");
+        let _ = super::local_day(u64::MAX, i64::MAX);
+        let _ = super::local_day(0, i64::MIN);
+    }
+
     /// The local clock is the UTC clock moved by the computer's offset, without a zone letter, and
     /// the offset is a real one (within ±14 hours).
     #[test]

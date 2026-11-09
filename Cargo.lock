@@ -708,6 +708,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "chrono"
+version = "0.4.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "cipher"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1591,17 +1600,6 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff2abc00be7fca6ebc474524697ae276ad847ad0a6b3faa4bcb027e9a4614ad0"
-dependencies = [
- "cfg-if",
- "libc",
- "wasi",
-]
-
-[[package]]
-name = "getrandom"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
@@ -2391,6 +2389,24 @@ dependencies = [
  "xmp-writer",
  "yoke",
  "zune-jpeg",
+]
+
+[[package]]
+name = "krub-drive"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "krub-icons"
+version = "0.1.0"
+dependencies = [
+ "egui",
 ]
 
 [[package]]
@@ -3631,20 +3647,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ring"
-version = "0.17.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4689e6c2294d81e88dc6261c768b63bc4fcdb852be6d1352498b114f61383b7"
-dependencies = [
- "cc",
- "cfg-if",
- "getrandom 0.2.17",
- "libc",
- "untrusted",
- "windows-sys 0.52.0",
-]
-
-[[package]]
 name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3689,41 +3691,6 @@ dependencies = [
  "libc",
  "linux-raw-sys 0.12.1",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "rustls"
-version = "0.23.46"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
-dependencies = [
- "log",
- "once_cell",
- "ring",
- "rustls-pki-types",
- "rustls-webpki",
- "subtle",
- "zeroize",
-]
-
-[[package]]
-name = "rustls-pki-types"
-version = "1.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f4925028c7eb5d1fcdaf196971378ed9d2c1c4efc7dc5d011256f76c99c0a96"
-dependencies = [
- "zeroize",
-]
-
-[[package]]
-name = "rustls-webpki"
-version = "0.103.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4443b1b6d39d7c663139942cc4558262562d2c84123bb6282ef177009ca8b281"
-dependencies = [
- "ring",
- "rustls-pki-types",
- "untrusted",
 ]
 
 [[package]]
@@ -4096,12 +4063,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "subtle"
-version = "2.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
-
-[[package]]
 name = "syn"
 version = "2.0.119"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4458,27 +4419,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
-name = "untrusted"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ecb6da28b8a351d773b68d5825ac39017e680750f980f3a1a85cd8dd28a47c1"
-
-[[package]]
-name = "ureq"
-version = "2.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02d1a66277ed75f640d608235660df48c8e3c19f3b4edb6a263315626cc3c01d"
-dependencies = [
- "base64",
- "log",
- "once_cell",
- "rustls",
- "rustls-pki-types",
- "url",
- "webpki-roots 0.26.11",
-]
-
-[[package]]
 name = "url"
 version = "2.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4591,12 +4531,6 @@ dependencies = [
  "same-file",
  "winapi-util",
 ]
-
-[[package]]
-name = "wasi"
-version = "0.11.1+wasi-snapshot-preview1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
 name = "wasip2"
@@ -4832,24 +4766,6 @@ dependencies = [
  "objc2-foundation 0.3.2",
  "url",
  "web-sys",
-]
-
-[[package]]
-name = "webpki-roots"
-version = "0.26.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "521bc38abb08001b01866da9f51eb7c5d647a19260e00054a8c7fd5f9e57f7a9"
-dependencies = [
- "webpki-roots 1.0.11",
-]
-
-[[package]]
-name = "webpki-roots"
-version = "1.0.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5f280bbb2b287bc8e7de7e3852945a0ff50d1bbcb5ed42b6c7a568c546df171"
-dependencies = [
- "rustls-pki-types",
 ]
 
 [[package]]
@@ -5421,7 +5337,7 @@ dependencies = [
 
 [[package]]
 name = "wordcraft"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "arboard",
  "clipboard-win",
@@ -5435,11 +5351,11 @@ dependencies = [
  "muda",
  "objc2 0.6.5",
  "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
  "open",
  "pollster 0.4.0",
  "rfd",
  "serde_json",
- "ureq",
  "windows",
  "winit",
  "winresource",
@@ -5455,7 +5371,7 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-cli"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "serde_json",
  "sys-locale",
@@ -5468,11 +5384,11 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-control-key"
-version = "0.9.2"
+version = "0.15.0"
 
 [[package]]
 name = "wordcraft-doc"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "proptest",
  "serde",
@@ -5484,9 +5400,10 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-docbin"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "cfb",
+ "chrono",
  "image",
  "log",
  "miniz_oxide 0.8.9",
@@ -5500,7 +5417,7 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-docx"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "aes",
  "base64",
@@ -5511,6 +5428,7 @@ dependencies = [
  "log",
  "proptest",
  "quick-xml",
+ "serde_json",
  "sha1",
  "sha2",
  "thiserror 2.0.21",
@@ -5522,7 +5440,7 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-engine"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "cfb",
  "encoding_rs",
@@ -5553,7 +5471,7 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-fonts"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "brotli-decompressor",
  "harfrust 0.13.3",
@@ -5567,7 +5485,7 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-formats"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "cfb",
  "chardetng",
@@ -5579,19 +5497,20 @@ dependencies = [
  "quick-xml",
  "wordcraft-doc",
  "wordcraft-geom",
+ "wordcraft-metafile",
  "zip",
 ]
 
 [[package]]
 name = "wordcraft-geom"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "wordcraft-layout"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "icu_segmenter",
  "image",
@@ -5611,7 +5530,7 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-mcp"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "log",
  "serde_json",
@@ -5623,7 +5542,7 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-metafile"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "kurbo",
  "thiserror 2.0.21",
@@ -5631,7 +5550,7 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-pdf"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "craft-pdf",
  "hayro-cmap",
@@ -5651,7 +5570,7 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-proof"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "log",
  "miniz_oxide 0.8.9",
@@ -5660,7 +5579,7 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-render"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "image",
  "log",
@@ -5674,13 +5593,15 @@ dependencies = [
 
 [[package]]
 name = "wordcraft-ui-egui"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "craft-ui",
  "egui",
  "egui_kittest",
  "image",
  "js-sys",
+ "krub-drive",
+ "krub-icons",
  "log",
  "serde",
  "serde_json",
@@ -5699,27 +5620,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "wordcraft-web"
-version = "0.9.2"
-dependencies = [
- "eframe",
- "egui",
- "js-sys",
- "log",
- "rfd",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "wordcraft-doc",
- "wordcraft-engine",
- "wordcraft-fonts",
- "wordcraft-ui-egui",
-]
-
-[[package]]
 name = "wordcraft-zotero"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "log",
  "proptest",
@@ -5832,7 +5734,7 @@ checksum = "9440ea3e5aeabb0ac63af70daf835274065238cdd0cec83418f417eae38bacee"
 
 [[package]]
 name = "xtask"
-version = "0.9.2"
+version = "0.15.0"
 dependencies = [
  "serde_json",
 ]

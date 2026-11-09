@@ -20,12 +20,29 @@ const PAGES: [(&str, &str); 11] = [
     ("options", "Options"),
 ];
 
+/// The File menu's pages, by id and label. In the browser (`web`) one Save page offers both
+/// places, this device and Google Drive, so there is no separate Save As; and there is no Close,
+/// which has no window to close there.
+fn pages(web: bool) -> Vec<(&'static str, &'static str)> {
+    PAGES
+        .iter()
+        .filter(|(id, _)| !(web && matches!(*id, "save" | "close")))
+        .map(|&(id, label)| if web && id == "saveAs" { (id, "Save") } else { (id, label) })
+        .collect()
+}
+
 pub fn show(app: &mut WordApp, ui: &mut Ui) {
     let t = Tokens::get(ui.ctx());
     // No document open (#1129): only the pages that open or create one, and Options.
     let has_document = app.has_document();
     if !has_document && !works_without_document(&app.ui.backstage_page) {
         app.ui.backstage_page = "home".into();
+    }
+    // The web's start screen (nothing open yet): a page of its own, like an online word
+    // processor's home, instead of File's sidebar. File › Home inside the editor stays as it is.
+    if !has_document && app.ui.backstage_page == "home" && app.services.browser_recovery.is_some() {
+        web_home(app, ui);
+        return;
     }
     let mac = app.integrated_titlebar;
     egui::Panel::left("backstage_nav")
@@ -54,7 +71,7 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                 app.canvas.want_focus = true;
             }
             ui.add_space(if mac { 12.0 } else { 6.0 });
-            for (id, label) in PAGES {
+            for (id, label) in pages(cfg!(target_arch = "wasm32")) {
                 // No document open (#1129): Info, Save, Save As, Print and Export are greyed out.
                 let on = has_document || works_without_document(id);
                 let (r, resp) = ui.add_enabled_ui(on, |ui| ui.allocate_exact_size(vec2(200.0, 38.0), Sense::click())).inner;
@@ -84,7 +101,12 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
                         }
                         "save" => {
                             let r = app.run("file.save", json!({}));
-                            if r.is_ok_and(|v| v.get("saved").and_then(serde_json::Value::as_bool) == Some(true) || v.get("downloaded").is_some()) {
+                            // A Google Drive document's save goes back to Drive and finishes there.
+                            if r.is_ok_and(|v| {
+                                v.get("saved").and_then(serde_json::Value::as_bool) == Some(true)
+                                    || v.get("downloaded").is_some()
+                                    || v.get("googleDrive").is_some()
+                            }) {
                                 app.ui.backstage = false;
                                 app.canvas.want_focus = true;
                             } else {
@@ -230,6 +252,8 @@ fn page_icon(id: &str) -> &'static str {
         "info" => "info",
         "recover" => "recover",
         "save" => "save",
+        // On the web the Save page (id "saveAs") is the only save entry, so it shows Save's icon.
+        "saveAs" if cfg!(target_arch = "wasm32") => "save",
         "saveAs" => "saveAs",
         "print" => "print",
         "export" => "share",
@@ -243,7 +267,9 @@ fn heading(ui: &mut Ui, s: &str) {
     ui.add_space(16.0);
 }
 
-fn template_tile(ui: &mut Ui, app: &mut WordApp, label: &str, template: &str) {
+/// `new_tab`: the web start screen opens the template in a new tab (`./?new=<template>`), so the
+/// start screen stays where it is; elsewhere the template replaces the current document.
+fn template_tile(ui: &mut Ui, app: &mut WordApp, label: &str, template: &str, new_tab: bool) {
     let t = Tokens::get(ui.ctx());
     ui.vertical(|ui| {
         // The label sits right under the thumbnail whatever row gap the gallery uses.
@@ -282,9 +308,13 @@ fn template_tile(ui: &mut Ui, app: &mut WordApp, label: &str, template: &str) {
         // The caption opens the template too, as in Word.
         let caption = ui.add(egui::Label::new(egui::RichText::new(crate::i18n::tc("template", label)).font(regular(12.5))).sense(Sense::click()));
         if resp.clicked() || caption.clicked() {
-            let _ = app.run("file.new", json!({"template": template}));
-            app.ui.backstage = false;
-            app.canvas.want_focus = true;
+            if new_tab {
+                app.canvas.open_url = Some(format!("./?new={template}"));
+            } else {
+                let _ = app.run("file.new", json!({"template": template}));
+                app.ui.backstage = false;
+                app.canvas.want_focus = true;
+            }
         }
     });
 }
@@ -325,7 +355,7 @@ fn home_page(app: &mut WordApp, ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing = vec2(18.0, 0.0);
         for (label, template) in TEMPLATES.into_iter().take(HOME_TEMPLATES) {
-            template_tile(ui, app, label, template);
+            template_tile(ui, app, label, template, false);
         }
     });
     ui.add_space(8.0);
@@ -334,7 +364,261 @@ fn home_page(app: &mut WordApp, ui: &mut Ui) {
         app.ui.backstage_page = "new".into();
     }
     ui.add_space(24.0);
-    open_list(app, ui);
+    // The browser has no files to reopen: Home lists the drafts kept in it instead.
+    if app.services.browser_recovery.is_some() {
+        drafts_list(app, ui, false);
+    } else {
+        open_list(app, ui);
+    }
+}
+
+/// The web start screen: a top bar (KhianKrub, Open, Google Drive, Options, back to the KrubOffice
+/// apps), a greeting, every template, then the drafts kept in this browser.
+fn web_home(app: &mut WordApp, ui: &mut Ui) {
+    let t = Tokens::get(ui.ctx());
+    egui::Panel::top("web_home_bar")
+        .frame(egui::Frame::NONE.fill(t.ribbon).inner_margin(egui::Margin::symmetric(20, 10)).stroke(Stroke::new(1.0, t.border)))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                // KhianKrub's mark: a gold ข on navy, as on its icon.
+                let (r, _) = ui.allocate_exact_size(vec2(32.0, 32.0), Sense::hover());
+                ui.painter().rect_filled(r, 8.0, egui::Color32::from_rgb(0x1e, 0x3a, 0x8a));
+                krub_icons::glass_letter(ui.painter(), r.center() + vec2(0.0, 1.0), "ข", semibold(22.0), egui::Color32::from_rgb(0xf2, 0xb7, 0x05));
+                ui.add_space(4.0);
+                // The name gives way to the buttons on narrow screens (an iPad in portrait).
+                if ui.available_width() > 560.0 {
+                    ui.label(egui::RichText::new(tl!("KhianKrub")).font(semibold(17.0)));
+                }
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.spacing_mut().item_spacing.x = 10.0;
+                    app_switcher(ui);
+                    if ui.button(egui::RichText::new(tl!("Options")).font(medium(13.5))).clicked() {
+                        app.ui.backstage_page = "options".into();
+                    }
+                    if app.services.google_drive.is_some() && crate::widgets::icon_text_button(ui, "cloud", "Google Drive", medium(13.5)).clicked() {
+                        app.ui.backstage_page = "open".into();
+                    }
+                    if crate::widgets::icon_text_button(ui, "open", tl!("Open file"), medium(13.5)).clicked() {
+                        let _ = app.run("ui.openFileDialog", json!({}));
+                    }
+                });
+            });
+        });
+    egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas)).show(ui, |ui| {
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            // A centred column, as wide as the template row, on wide windows.
+            let width = ui.available_width().min(900.0);
+            let side = ((ui.available_width() - width) / 2.0).max(0.0) + 24.0;
+            ui.add_space(28.0);
+            ui.horizontal_top(|ui| {
+                ui.add_space(side);
+                ui.vertical(|ui| {
+                    ui.set_max_width(width - 48.0);
+                    ui.label(egui::RichText::new(tl!("Hello! What would you like to write?")).font(semibold(24.0)));
+                    ui.label(
+                        egui::RichText::new(tl!("Pick a template, or pick up a draft where you left off.")).font(regular(13.5)).color(t.text_dim),
+                    );
+                    ui.add_space(18.0);
+                    ui.horizontal_wrapped(|ui| {
+                        ui.spacing_mut().item_spacing = vec2(18.0, 18.0);
+                        for (label, template) in TEMPLATES {
+                            template_tile(ui, app, label, template, true);
+                        }
+                    });
+                    ui.add_space(28.0);
+                    drafts_list(app, ui, true);
+                    ui.add_space(28.0);
+                });
+            });
+        });
+    });
+}
+
+/// The suite's app switcher in the web start screen's top bar: a 3 x 3 dot button that opens a menu of
+/// the KrubOffice apps (this one marked, the others live links that open in a new tab) and a link to kruboffice.app.
+fn app_switcher(ui: &mut Ui) {
+    let t = Tokens::get(ui.ctx());
+    let (r, resp) = ui.allocate_exact_size(vec2(32.0, 32.0), Sense::click());
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("KrubOffice apps")));
+    let resp = resp.on_hover_text(tl!("KrubOffice apps"));
+    if resp.hovered() {
+        ui.painter().rect_filled(r, 6.0, t.hover);
+    }
+    for (dx, dy) in (0..9).map(|i| ((i % 3) as f32 - 1.0, (i / 3) as f32 - 1.0)) {
+        ui.painter().circle_filled(pos2(r.center().x + dx * 6.0, r.center().y + dy * 6.0), 1.8, t.icon);
+    }
+    egui::Popup::menu(&resp).align(egui::RectAlign::BOTTOM_END).show(|ui| {
+        ui.set_min_width(268.0);
+        ui.label(egui::RichText::new("KrubOffice").font(regular(11.5)).color(t.text_dim));
+        let (navy, teal, coral) =
+            (egui::Color32::from_rgb(0x1e, 0x3a, 0x8a), egui::Color32::from_rgb(0x0f, 0x6e, 0x56), egui::Color32::from_rgb(0x9a, 0x3a, 0x1f));
+        app_switcher_row(ui, "ข", navy, tl!("KhianKrub"), tl!("Documents"), Some(tl!("Here")), false);
+        if app_switcher_row(ui, "ค", teal, tl!("KhitKrub"), tl!("Spreadsheets"), None, true) {
+            ui.ctx().open_url(egui::OpenUrl::new_tab("https://khitkrub.app/"));
+            ui.close();
+        }
+        if app_switcher_row(ui, "พ", coral, tl!("PhutKrub"), tl!("Presentations"), None, true) {
+            ui.ctx().open_url(egui::OpenUrl::new_tab("https://phutkrub.app/"));
+            ui.close();
+        }
+        ui.separator();
+        if ui.button(tl!("See all apps at kruboffice.app")).clicked() {
+            ui.ctx().open_url(egui::OpenUrl::same_tab("https://kruboffice.app/"));
+            ui.close();
+        }
+    });
+}
+
+/// One app in the switcher: its tile (a gold Thai letter on the app's colour), name and kind. `badge`
+/// marks the app you are in; an app that is neither this one nor `live` (not out yet) draws faded.
+/// True when a live app other than this one is clicked.
+fn app_switcher_row(ui: &mut Ui, letter: &str, tile: egui::Color32, name: &str, kind: &str, badge: Option<&str>, live: bool) -> bool {
+    let t = Tokens::get(ui.ctx());
+    let faded = badge.is_none() && !live;
+    let fade = if faded { 0.45 } else { 1.0 };
+    let sense = if live { Sense::click() } else { Sense::hover() };
+    let (r, resp) = ui.allocate_exact_size(vec2(ui.available_width().max(268.0), 44.0), sense);
+    let kind_of_widget = if live { egui::WidgetType::Button } else { egui::WidgetType::Label };
+    resp.widget_info(|| egui::WidgetInfo::labeled(kind_of_widget, true, format!("{name}, {kind}")));
+    if badge.is_some() || resp.hovered() {
+        ui.painter().rect_filled(r, 8.0, t.hover);
+    }
+    let tile_rect = Rect::from_min_size(pos2(r.min.x + 6.0, r.min.y + 7.0), vec2(30.0, 30.0));
+    ui.painter().rect_filled(tile_rect, 8.0, tile.gamma_multiply(fade));
+    let gold = egui::Color32::from_rgb(0xf2, 0xb7, 0x05).gamma_multiply(fade);
+    ui.painter().text(tile_rect.center() + vec2(0.0, 1.0), Align2::CENTER_CENTER, letter, semibold(17.0), gold);
+    let x = tile_rect.max.x + 10.0;
+    let name_color = if faded { t.text_dim } else { t.text };
+    ui.painter().text(pos2(x, r.min.y + 15.0), Align2::LEFT_CENTER, name, medium(13.5), name_color);
+    ui.painter().text(pos2(x, r.min.y + 31.0), Align2::LEFT_CENTER, kind, regular(11.5), t.text_dim);
+    if let Some(badge) = badge {
+        let galley = ui.painter().layout_no_wrap(badge.to_string(), regular(11.0), egui::Color32::WHITE);
+        let pill = Rect::from_center_size(pos2(r.max.x - 10.0 - galley.size().x / 2.0 - 8.0, r.center().y), galley.size() + vec2(16.0, 4.0));
+        ui.painter().rect_filled(pill, pill.height() / 2.0, t.accent);
+        ui.painter().galley(pill.center() - galley.size() / 2.0, galley, egui::Color32::WHITE);
+    }
+    live && resp.clicked()
+}
+
+/// Web Home: the recovery drafts kept in this browser. Click a row to keep writing; its ⋮ (or a
+/// right-click) downloads a copy or discards it, after asking.
+/// `new_tab`: on the web start screen, keeping writing opens the draft in a new tab
+/// (`./?draft=<id>`) and leaves the start screen as it is.
+fn drafts_list(app: &mut WordApp, ui: &mut Ui, new_tab: bool) {
+    let t = Tokens::get(ui.ctx());
+    let Some(recovery) = &app.services.browser_recovery else { return };
+    let drafts = (recovery.drafts)(&app.ui.language);
+    let width = ui.available_width().min(700.0);
+    ui.label(egui::RichText::new(tl!("Drafts on this device")).font(semibold(16.0)));
+    let note = if app.services.google_drive.is_some() {
+        tl!("Kept only in this browser on this device. Save to Google Drive or download a copy to keep it anywhere else.")
+    } else {
+        tl!("Kept only in this browser on this device. Download a copy to keep it anywhere else.")
+    };
+    ui.label(egui::RichText::new(note).font(regular(12.0)).color(t.text_dim));
+    if (recovery.fragile)() {
+        let warning = tl!(
+            "This browser may remove drafts by itself: when it runs short of space, after a long time without a visit, or when a private window closes."
+        );
+        ui.label(egui::RichText::new(warning).font(regular(12.0)).color(t.text_dim));
+    }
+    ui.add_space(6.0);
+    if !app.ui.local_recovery {
+        ui.label(egui::RichText::new(tl!("Recovery is off. Turn it on in File › Options › General.")).color(t.text_dim));
+        return;
+    }
+    let Some(drafts) = drafts else {
+        ui.label(egui::RichText::new(tl!("Loading drafts…")).color(t.text_dim));
+        return;
+    };
+    if drafts.is_empty() {
+        ui.label(
+            egui::RichText::new(tl!("Documents you write here are kept in this browser, so you can pick up where you left off.")).color(t.text_dim),
+        );
+        return;
+    }
+    let confirm_id = egui::Id::new("backstage_discard_draft");
+    let confirm = ui.ctx().data(|d| d.get_temp::<String>(confirm_id));
+    let mut action = None;
+    for draft in &drafts {
+        // Every row is a draft until it is discarded, saved elsewhere or not.
+        let label = format!("{} ({})", draft.name, tl!("draft"));
+        let (r, resp) = ui.allocate_exact_size(vec2(width, 40.0), Sense::click());
+        resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, &label));
+        let more_rect = Rect::from_center_size(pos2(r.max.x - 20.0, r.center().y), vec2(26.0, 26.0));
+        let more = ui.interact(more_rect, resp.id.with("more"), Sense::click());
+        more.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("More options")));
+        if ui.rect_contains_pointer(r) {
+            ui.painter().rect_filled(r, 4.0, t.hover);
+        }
+        if more.hovered() {
+            ui.painter().rect_filled(more_rect, 4.0, t.pressed);
+        }
+        icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + 18.0, r.center().y), vec2(22.0, 22.0)), "printLayout", t.icon, t.accent);
+        let name_width = width - 56.0;
+        let name = ui.painter().layout_no_wrap(label.clone(), medium(13.0), t.text);
+        let clip = Rect::from_min_size(pos2(r.min.x + 40.0, r.min.y), vec2(name_width.max(0.0), r.height()));
+        ui.painter().with_clip_rect(clip).galley(pos2(r.min.x + 40.0, r.min.y + 13.0 - name.size().y / 2.0), name, t.text);
+        ui.painter().text(pos2(r.min.x + 40.0, r.min.y + 29.0), Align2::LEFT_CENTER, &draft.saved, regular(11.0), t.text_dim);
+        // Three dots, drawn: the ⋮ menu.
+        for dy in [-5.0, 0.0, 5.0] {
+            ui.painter().circle_filled(pos2(more_rect.center().x, more_rect.center().y + dy), 1.6, t.icon);
+        }
+        let menu = |ui: &mut Ui, action: &mut Option<(crate::DraftAction, String)>| {
+            if ui.button(tl!("Keep writing")).clicked() {
+                *action = Some((crate::DraftAction::Open, draft.id.clone()));
+                ui.close();
+            }
+            if ui.button(tl!("Download a copy")).clicked() {
+                *action = Some((crate::DraftAction::Download, draft.id.clone()));
+                ui.close();
+            }
+            ui.separator();
+            if ui.button(tl!("Discard draft…")).clicked() {
+                ui.ctx().data_mut(|d| d.insert_temp(confirm_id, draft.id.clone()));
+                ui.close();
+            }
+        };
+        // Opens leftwards from the ⋮ at the row's end, so it stays inside the window.
+        egui::Popup::menu(&more).align(egui::RectAlign::BOTTOM_END).show(|ui| menu(ui, &mut action));
+        resp.context_menu(|ui| menu(ui, &mut action));
+        if resp.clicked() && !more.clicked() {
+            action = Some((crate::DraftAction::Open, draft.id.clone()));
+        }
+        if confirm.as_deref() == Some(draft.id.as_str()) {
+            ui.horizontal_wrapped(|ui| {
+                ui.add_space(40.0);
+                ui.label(tl!("Permanently discard this recovery draft and its previous copy?"));
+                if ui.button(tl!("Discard draft")).clicked() {
+                    action = Some((crate::DraftAction::Discard, draft.id.clone()));
+                    ui.ctx().data_mut(|d| d.remove::<String>(confirm_id));
+                }
+                if ui.button(tl!("Cancel")).clicked() {
+                    ui.ctx().data_mut(|d| d.remove::<String>(confirm_id));
+                }
+            });
+        }
+    }
+    if let Some((what, id)) = action {
+        if new_tab && matches!(what, crate::DraftAction::Open) {
+            app.canvas.open_url = Some(format!("./?draft={}", url_component(&id)));
+        } else if let Some(recovery) = &app.services.browser_recovery {
+            (recovery.act)(what, &id);
+        }
+    }
+}
+
+/// `text` as a URL query value: letters, digits and `-_.~` stay, every other byte becomes `%XX`.
+fn url_component(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for b in text.bytes() {
+        if b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'~') {
+            out.push(b as char);
+        } else {
+            out.push_str(&format!("%{b:02X}"));
+        }
+    }
+    out
 }
 
 /// New: the whole template gallery with a search box; no Recent list (that is on Home and Open).
@@ -356,7 +640,7 @@ fn new_page(app: &mut WordApp, ui: &mut Ui) {
     ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing = vec2(18.0, 18.0);
         for (label, template) in found {
-            template_tile(ui, app, label, template);
+            template_tile(ui, app, label, template, false);
         }
     });
 }
@@ -442,29 +726,196 @@ fn open_list(app: &mut WordApp, ui: &mut Ui) {
 
 fn open_page(app: &mut WordApp, ui: &mut Ui) {
     heading(ui, "Open");
-    if ui.button(egui::RichText::new(tl!("Browse…")).font(medium(14.0))).clicked() {
-        let _ = app.run("ui.openFileDialog", json!({}));
-    }
-    // Linux and the BSDs (#576): the system dialog needs a file chooser portal or zenity; when it
-    // doesn't show up, WordCraft's own browser is always one click away.
-    #[cfg(all(unix, not(target_os = "macos"), not(target_arch = "wasm32")))]
-    if ui
-        .button(egui::RichText::new(tl!("Browse in KhianKrub…")).font(medium(14.0)))
-        .on_hover_text(tl!("Open a file with KhianKrub's own browser when the system file dialog doesn't appear."))
-        .clicked()
-    {
-        let _ = app.run("ui.fileBrowser", json!({}));
-    }
+    places(ui, |ui| {
+        place_card(ui, "device", tl!("This device"), None, |ui| {
+            #[cfg(target_arch = "wasm32")]
+            let (about, browse) = (tl!("Choose a file stored on this computer or iPad."), tl!("Browse files on this device…"));
+            #[cfg(not(target_arch = "wasm32"))]
+            let (about, browse) = (tl!("Choose a file stored on this computer."), tl!("Browse…"));
+            card_text(ui, about);
+            if crate::widgets::icon_text_button(ui, "open", browse, medium(14.0)).clicked() {
+                let _ = app.run("ui.openFileDialog", json!({}));
+            }
+            // Linux and the BSDs (#576): the system dialog needs a file chooser portal or zenity; when it
+            // doesn't show up, WordCraft's own browser is always one click away.
+            #[cfg(all(unix, not(target_os = "macos"), not(target_arch = "wasm32")))]
+            if ui
+                .button(egui::RichText::new(tl!("Browse in KhianKrub…")).font(medium(14.0)))
+                .on_hover_text(tl!("Open a file with KhianKrub's own browser when the system file dialog doesn't appear."))
+                .clicked()
+            {
+                let _ = app.run("ui.fileBrowser", json!({}));
+            }
+        });
+        drive_card(app, ui, false);
+    });
     ui.add_space(18.0);
     open_list(app, ui);
 }
 
-/// Save As: Browse… asks where to save. It has no recent-documents list: clicking one of those
-/// opens it, which is not what Save As is for.
+/// Save As: one card per place. It has no recent-documents list: clicking one of those opens it,
+/// which is not what Save As is for. A document opened from Google Drive shows Drive first.
 fn save_as_page(app: &mut WordApp, ui: &mut Ui) {
-    heading(ui, "Save As");
-    if ui.button(egui::RichText::new(tl!("Browse…")).font(medium(14.0))).clicked() {
-        app.save_as_dialog();
+    heading(ui, if cfg!(target_arch = "wasm32") { "Save" } else { "Save As" });
+    let from_drive = app.services.google_drive.as_ref().is_some_and(|d| (d.linked_name)(app.session.document_id()).is_some());
+    places(ui, |ui| {
+        if from_drive {
+            drive_card(app, ui, true);
+        }
+        place_card(ui, "device", tl!("This device"), None, |ui| {
+            #[cfg(target_arch = "wasm32")]
+            let (about, icon, browse) = (tl!("Download a copy to this computer or iPad."), "download", tl!("Download a copy…"));
+            #[cfg(not(target_arch = "wasm32"))]
+            let (about, icon, browse) = (tl!("Choose where to save on this computer."), "saveAs", tl!("Browse…"));
+            card_text(ui, about);
+            if crate::widgets::icon_text_button(ui, icon, browse, medium(14.0)).clicked() {
+                app.save_as_dialog();
+            }
+        });
+        if !from_drive {
+            drive_card(app, ui, true);
+        }
+    });
+}
+
+/// The places to open from or save to, side by side, wrapping to a column when narrow.
+fn places(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing = vec2(14.0, 14.0);
+        add(ui);
+    });
+}
+
+const PLACE_CARD_WIDTH: f32 = 330.0;
+
+/// A place card: an icon on a tinted tile, a title with an optional status chip, then `body`.
+fn place_card(ui: &mut Ui, icon: &str, title: &str, chip: Option<&str>, body: impl FnOnce(&mut Ui)) {
+    let t = Tokens::get(ui.ctx());
+    egui::Frame::new().stroke(Stroke::new(1.0, t.border_strong)).corner_radius(10.0).inner_margin(egui::Margin::same(16)).show(ui, |ui| {
+        ui.set_width(PLACE_CARD_WIDTH);
+        ui.set_min_height(160.0);
+        ui.vertical(|ui| {
+            ui.spacing_mut().item_spacing.y = 8.0;
+            let (tile, _) = ui.allocate_exact_size(vec2(38.0, 38.0), Sense::hover());
+            ui.painter().rect_filled(tile, 8.0, t.accent.linear_multiply(0.22));
+            icons::paint(ui.painter(), tile.shrink(8.0), icon, t.icon, t.accent);
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new(title).font(semibold(16.0)));
+                if let Some(chip) = chip {
+                    egui::Frame::new()
+                        .fill(t.accent.linear_multiply(0.22))
+                        .corner_radius(6.0)
+                        .inner_margin(egui::Margin::symmetric(6, 1))
+                        .show(ui, |ui| ui.label(egui::RichText::new(chip).font(regular(12.0))));
+                }
+            });
+            body(ui);
+        });
+    });
+}
+
+fn card_text(ui: &mut Ui, text: impl Into<String>) {
+    let t = Tokens::get(ui.ctx());
+    ui.label(egui::RichText::new(text.into()).font(regular(13.0)).color(t.text_dim));
+}
+
+/// The Google Drive card on Open (`save` false) or Save As (`save` true).
+fn drive_card(app: &mut WordApp, ui: &mut Ui, save: bool) {
+    let Some(state) = app.services.google_drive.as_ref().map(|drive| (drive.status)()) else { return };
+    let connected = state == "Connected";
+    let connect = |app: &WordApp| {
+        if let Some(drive) = &app.services.google_drive {
+            (drive.connect)();
+        }
+    };
+    place_card(ui, "cloud", "Google Drive", connected.then(|| tl!("Connected")), |ui| {
+        if !connected {
+            card_text(
+                ui,
+                if save { tl!("Save to your Google Drive.") } else { tl!("Open a Word document from your Google Drive and save it back there.") },
+            );
+            card_text(ui, tl!(state));
+            if matches!(state, "Not connected" | "Click Connect to sign in") && ui.button(tl!("Connect Google Drive")).clicked() {
+                connect(app);
+            }
+            // The sign-in window may not have opened (a blocked pop-up) or was closed unanswered:
+            // start it again rather than leaving the page stuck until a reload.
+            if state == "Signing in…" && ui.button(tl!("Try signing in again")).clicked() {
+                connect(app);
+            }
+            return;
+        }
+        if save {
+            drive_save(app, ui);
+        } else {
+            drive_open(app, ui);
+        }
+        if let Some(drive) = &app.services.google_drive
+            && let Some(disconnect) = &drive.disconnect
+            && ui.button(tl!("Disconnect Google Drive")).clicked()
+        {
+            disconnect();
+        }
+    });
+}
+
+fn drive_open(app: &mut WordApp, ui: &mut Ui) {
+    let Some(drive) = &app.services.google_drive else { return };
+    card_text(ui, tl!("Open a Word document from your Google Drive and save it back there."));
+    if crate::widgets::icon_text_button(ui, "cloud", tl!("Choose from Google Drive…"), medium(14.0)).clicked() {
+        (drive.open)(app.session.document_id(), app.session.rev());
+    }
+    if let Some(files) = (drive.files)() {
+        ui.label(tl!("Files available to KhianKrub (up to 100):"));
+        if files.is_empty() {
+            ui.label(tl!("No available Word documents found."));
+        }
+        for (id, name) in files {
+            if ui.button(name).clicked() {
+                (drive.select_file)(id, app.session.document_id(), app.session.rev());
+            }
+        }
+    }
+}
+
+fn drive_save(app: &mut WordApp, ui: &mut Ui) {
+    let Some(drive) = &app.services.google_drive else { return };
+    let docx = |app: &mut WordApp, name: &str| {
+        if !name.to_ascii_lowercase().ends_with(".docx") {
+            app.status(tl!("Google Drive copies currently support .docx documents only."));
+            return None;
+        }
+        let password = app.session.password.as_ref().map(wordcraft_engine::Password::as_str);
+        let opts = wordcraft_engine::cmd::file::export_options(&app.session, &json!({}));
+        wordcraft_engine::io::save_bytes_with(name, &app.session.doc, password, &opts).map_err(|error| app.status(error)).ok()
+    };
+    let linked = (drive.linked_name)(app.session.document_id());
+    match &linked {
+        Some(name) => {
+            card_text(ui, crate::i18n::fmt(tl!("Opened from Google Drive: {name}"), &[("name", name)]));
+            card_text(ui, tl!("Replaces the file on Google Drive. Drive keeps earlier versions for a while."));
+        }
+        None => card_text(ui, tl!("Each save creates a new file. Changes remain unsaved in the editor.")),
+    }
+    let mut over = false;
+    let mut copy = false;
+    ui.horizontal_wrapped(|ui| {
+        if linked.is_some() {
+            over = crate::widgets::icon_text_button(ui, "save", tl!("Save to this file on Google Drive"), medium(14.0)).clicked();
+        }
+        copy = ui.button(egui::RichText::new(tl!("Save a new copy to Google Drive")).font(medium(14.0))).clicked();
+    });
+    if let (true, Some(linked)) = (over, &linked) {
+        if let Err(error) = app.save_to_drive(linked) {
+            app.status(error);
+        }
+    } else if copy {
+        let name = app.default_save_name();
+        if let Some(bytes) = docx(app, &name)
+            && let Some(drive) = &app.services.google_drive
+        {
+            (drive.save_copy)(name, bytes);
+        }
     }
 }
 
@@ -561,7 +1012,7 @@ mod tests {
     use egui_kittest::kittest::Queryable;
     use serde_json::json;
 
-    use super::matching_templates;
+    use super::{matching_templates, url_component};
     use crate::{Services, WordApp};
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -708,6 +1159,194 @@ mod tests {
         assert_eq!(h.state().ui.backstage_page, "new", "the link opens New");
         assert!(h.query_by_label("Report").is_some(), "New shows every template");
         assert!(h.query_by_label("Recent").is_none(), "New has no Recent list");
+    }
+
+    /// Web Home lists the drafts kept in the browser in place of Recent: clicking one asks the
+    /// host to open it, the ⋮ menu downloads or discards it (after asking), and storage that is
+    /// still loading or empty says so.
+    #[test]
+    fn web_home_lists_browser_drafts_instead_of_recent() {
+        use crate::{BrowserDraft, BrowserRecoveryServices, DraftAction};
+        use std::cell::RefCell;
+        use std::rc::Rc;
+        let drafts = |list: Option<Vec<BrowserDraft>>, fragile: bool| {
+            let asked: Rc<RefCell<Vec<(DraftAction, String)>>> = Rc::default();
+            let log = asked.clone();
+            let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Services::default());
+            a.ui.language = "en".into();
+            a.services.browser_recovery = Some(BrowserRecoveryServices {
+                status: Box::new(|| "Recovery ready on this device"),
+                has_drafts: Box::new(|| false),
+                fragile: Box::new(move || fragile),
+                open_draft: Box::new(|| None),
+                manage: Box::new(|| {}),
+                drafts: Box::new(move |_| list.clone()),
+                act: Box::new(move |what, id| log.borrow_mut().push((what, id.to_string()))),
+            });
+            assert!(a.start_screen());
+            let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+                |ui, app: &mut WordApp| {
+                    let ctx = ui.ctx().clone();
+                    app.logic(&ctx);
+                    app.ui(ui);
+                },
+                a,
+            );
+            h.run_steps(4);
+            (h, asked)
+        };
+        let two = vec![
+            BrowserDraft { id: "a-1".into(), name: "Monthly report".into(), saved: "29/10/2026, 14:32".into() },
+            BrowserDraft { id: "b-2".into(), name: "Letter to Somchai".into(), saved: "28/10/2026, 09:10".into() },
+        ];
+        let (mut h, asked) = drafts(Some(two.clone()), false);
+        assert!(h.query_by_label("Drafts on this device").is_some());
+        assert!(h.query_by_label("Recent").is_none(), "the web has no recent files to reopen");
+        assert!(h.query_by_label("Letter").is_some(), "the templates stay");
+        assert!(h.query_by_label("Hello! What would you like to write?").is_some(), "the web start screen, not File's Home");
+        assert!(h.query_by_label("Report").is_some(), "every template, not a short row");
+        assert!(h.query_by_label("Open file").is_some() && h.query_by_label("KrubOffice apps").is_some(), "the top bar");
+        assert!(h.query_by_label("Print").is_none(), "no File sidebar");
+        // Keeping writing opens the draft in a new tab and leaves this start screen as it is.
+        let mut opened = Vec::new();
+        assert!(h.query_by_label("Monthly report (draft)").is_some(), "each draft says it is one");
+        assert!(h.query_by_label_contains("may remove drafts by itself").is_none(), "this browser keeps them");
+        h.get_by_label("Letter to Somchai (draft)").click();
+        for _ in 0..2 {
+            h.step();
+            opened.extend(opened_urls(&h));
+        }
+        assert_eq!(opened, [("./?draft=b-2".to_string(), true)]);
+        assert!(asked.borrow().is_empty(), "this tab does not restore the draft");
+        assert!(h.query_by_label("Hello! What would you like to write?").is_some());
+        h.get_all_by_label("More options").next().unwrap().click();
+        h.run_steps(2);
+        h.get_by_label("Download a copy").click();
+        h.run_steps(2);
+        assert_eq!(asked.borrow().last(), Some(&(DraftAction::Download, "a-1".to_string())));
+        h.get_all_by_label("More options").next().unwrap().click();
+        h.run_steps(2);
+        h.get_by_label("Discard draft…").click();
+        h.run_steps(2);
+        assert_eq!(asked.borrow().len(), 1, "discarding asks first (only the download was asked)");
+        h.get_by_label("Discard draft").click();
+        h.run_steps(2);
+        assert_eq!(asked.borrow().last(), Some(&(DraftAction::Discard, "a-1".to_string())));
+        assert!(!h.state().has_document(), "nothing opens until the host restores the draft");
+
+        let (h, _) = drafts(Some(two), true);
+        assert!(h.query_by_label_contains("may remove drafts by itself").is_some(), "a browser that may clear them says so");
+        let (h, _) = drafts(None, false);
+        assert!(h.query_by_label("Loading drafts…").is_some());
+        let (h, _) = drafts(Some(Vec::new()), false);
+        assert!(h.query_by_label_contains("pick up where you left off").is_some());
+    }
+
+    /// The OpenUrl commands (url, new tab) the last frame asked the browser for.
+    fn opened_urls<S>(h: &egui_kittest::Harness<'_, S>) -> Vec<(String, bool)> {
+        h.output()
+            .platform_output
+            .commands
+            .iter()
+            .filter_map(|c| match c {
+                egui::OutputCommand::OpenUrl(o) => Some((o.url.clone(), o.new_tab)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The web start screen opens a template in a new tab (`./?new=<template>`) and keeps itself.
+    #[test]
+    fn web_home_templates_open_in_a_new_tab() {
+        let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Services::default());
+        a.ui.language = "en".into();
+        a.services.browser_recovery = Some(crate::BrowserRecoveryServices {
+            status: Box::new(|| "Recovery ready on this device"),
+            has_drafts: Box::new(|| false),
+            fragile: Box::new(|| false),
+            open_draft: Box::new(|| None),
+            manage: Box::new(|| {}),
+            drafts: Box::new(|_| Some(Vec::new())),
+            act: Box::new(|_, _| {}),
+        });
+        assert!(a.start_screen());
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        for (label, id) in [("Letter", "letter"), ("Blank document", "blank")] {
+            let mut opened = Vec::new();
+            h.get_by_label(label).click();
+            for _ in 0..2 {
+                h.step();
+                opened.extend(opened_urls(&h));
+            }
+            assert_eq!(opened, [(format!("./?new={id}"), true)], "{label}");
+            assert!(!h.state().has_document(), "{label}: the start screen stays; the new tab holds the document");
+        }
+    }
+
+    /// The top bar's app switcher lists the suite, marks this app and links to kruboffice.app.
+    #[test]
+    fn web_home_app_switcher_lists_the_suite() {
+        let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Services::default());
+        a.ui.language = "en".into();
+        a.services.browser_recovery = Some(crate::BrowserRecoveryServices {
+            status: Box::new(|| "Recovery ready on this device"),
+            has_drafts: Box::new(|| false),
+            fragile: Box::new(|| false),
+            open_draft: Box::new(|| None),
+            manage: Box::new(|| {}),
+            drafts: Box::new(|_| Some(Vec::new())),
+            act: Box::new(|_, _| {}),
+        });
+        assert!(a.start_screen());
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        h.run_steps(4);
+        assert!(h.query_by_label("All apps").is_none(), "the text button is gone");
+        assert!(h.query_by_label_contains("Coming soon").is_none(), "nothing is coming soon any more");
+        h.get_by_label("KrubOffice apps").click();
+        h.run_steps(3);
+        assert!(h.query_by_label("KhianKrub, Documents").is_some());
+        // The other two apps are out: live links that open in a new tab.
+        let mut apps = Vec::new();
+        for (label, url) in [("KhitKrub, Spreadsheets", "https://khitkrub.app/"), ("PhutKrub, Presentations", "https://phutkrub.app/")] {
+            assert_eq!(h.get_all_by_label(label).count(), 1, "{label}");
+            h.get_by_label(label).click();
+            for _ in 0..2 {
+                h.step();
+                apps.extend(opened_urls(&h));
+            }
+            assert_eq!(apps.pop(), Some((url.to_string(), true)), "{label} opens in a new tab");
+            h.get_by_label("KrubOffice apps").click();
+            h.run_steps(3);
+        }
+        let mut opened = Vec::new();
+        h.get_by_label("See all apps at kruboffice.app").click();
+        for _ in 0..2 {
+            h.step();
+            opened.extend(opened_urls(&h));
+        }
+        assert_eq!(opened, [("https://kruboffice.app/".to_string(), false)], "the hub opens in this tab");
+        assert!(!h.state().has_document());
+    }
+
+    #[test]
+    fn draft_ids_are_escaped_in_the_url() {
+        assert_eq!(url_component("a-1_b.c~"), "a-1_b.c~");
+        assert_eq!(url_component("a b/&?=ก"), "a%20b%2F%26%3F%3D%E0%B8%81");
     }
 
     /// #260: File › Info's Title and Author fields dropped every keystroke (they edited a copy
@@ -949,6 +1588,183 @@ mod tests {
         h.run_steps(1);
         assert!(h.state().dialog.is_none(), "no prompt");
         assert!(h.state().quit_requested);
+    }
+
+    #[test]
+    fn google_drive_open_and_save_copy_are_explicit_actions() {
+        use std::{cell::RefCell, rc::Rc};
+        let opened = Rc::new(RefCell::new(Vec::new()));
+        let saved = Rc::new(RefCell::new(Vec::<(String, Vec<u8>)>::new()));
+        let open_calls = opened.clone();
+        let save_calls = saved.clone();
+        let services = Services {
+            google_drive: Some(crate::DriveServices {
+                status: Box::new(|| "Connected"),
+                disconnect: None,
+                connect: Box::new(|| {}),
+                open: Box::new(move |id, rev| open_calls.borrow_mut().push((id, rev))),
+                files: Box::new(|| None),
+                select_file: Box::new(|_, _, _| {}),
+                save_copy: Box::new(move |name, bytes| save_calls.borrow_mut().push((name, bytes))),
+                linked_name: Box::new(|_| None),
+                save_over: Box::new(|_, _, _| {}),
+            }),
+            ..Services::default()
+        };
+        let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), services);
+        app.run("ui.backstage", json!({"value": true, "page": "open"})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(4);
+        assert!(opened.borrow().is_empty() && saved.borrow().is_empty());
+        h.get_by_label("Choose from Google Drive…").click();
+        h.run_steps(4);
+        assert_eq!(opened.borrow().as_slice(), &[(h.state().session.document_id(), h.state().session.rev())]);
+        h.get_by_label("Save As").click();
+        h.run_steps(4);
+        h.get_by_label("Save a new copy to Google Drive").click();
+        h.run_steps(4);
+        let copies = saved.borrow();
+        assert_eq!(copies.len(), 1);
+        assert!(copies[0].0.ends_with(".docx"));
+        assert!(copies[0].1.starts_with(b"PK"));
+    }
+
+    /// A document opened from Google Drive can be saved back over that file from Save As; the
+    /// click sends the document's id and revision with its DOCX bytes.
+    #[test]
+    fn a_document_opened_from_google_drive_saves_back_over_it() {
+        use std::{cell::RefCell, rc::Rc};
+        let replaced = Rc::new(RefCell::new(Vec::<(u64, u64, Vec<u8>)>::new()));
+        let calls = replaced.clone();
+        let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Services::default());
+        let linked = app.session.document_id();
+        app.services.google_drive = Some(crate::DriveServices {
+            status: Box::new(|| "Connected"),
+            disconnect: None,
+            connect: Box::new(|| {}),
+            open: Box::new(|_, _| {}),
+            files: Box::new(|| None),
+            select_file: Box::new(|_, _, _| {}),
+            save_copy: Box::new(|_, _| {}),
+            linked_name: Box::new(move |document| (document == linked).then(|| "report.docx".to_string())),
+            save_over: Box::new(move |document, revision, bytes| calls.borrow_mut().push((document, revision, bytes))),
+        });
+        app.run("ui.backstage", json!({"value": true, "page": "saveAs"})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(4);
+        assert!(replaced.borrow().is_empty(), "nothing is sent before the click");
+        h.get_by_label("Save to this file on Google Drive").click();
+        h.run_steps(4);
+        let calls = replaced.borrow();
+        assert_eq!(calls.len(), 1);
+        assert_eq!((calls[0].0, calls[0].1), (h.state().session.document_id(), h.state().session.rev()));
+        assert!(calls[0].2.starts_with(b"PK"));
+    }
+
+    /// Save (the File menu, Ctrl+S and the toolbar all run `file.save`) of a document opened from
+    /// Google Drive replaces that Drive file instead of downloading; other documents still download.
+    #[test]
+    fn save_goes_back_to_google_drive_for_a_drive_document() {
+        use std::{cell::RefCell, rc::Rc};
+        let replaced = Rc::new(RefCell::new(Vec::<(u64, u64)>::new()));
+        let downloads = Rc::new(RefCell::new(Vec::<String>::new()));
+        let (calls, got) = (replaced.clone(), downloads.clone());
+        let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Services::default());
+        let linked = app.session.document_id();
+        app.services.download = Some(Box::new(move |name: &str, _: &[u8]| {
+            got.borrow_mut().push(name.to_string());
+            Ok(())
+        }));
+        app.services.google_drive = Some(crate::DriveServices {
+            status: Box::new(|| "Connected"),
+            disconnect: None,
+            connect: Box::new(|| {}),
+            open: Box::new(|_, _| {}),
+            files: Box::new(|| None),
+            select_file: Box::new(|_, _, _| {}),
+            save_copy: Box::new(|_, _| {}),
+            linked_name: Box::new(move |document| (document == linked).then(|| "report.docx".to_string())),
+            save_over: Box::new(move |document, revision, bytes| {
+                assert!(bytes.starts_with(b"PK"));
+                calls.borrow_mut().push((document, revision));
+            }),
+        });
+        app.session.path = Some("report.docx".into());
+        let v = app.run("file.save", json!({})).unwrap();
+        assert_eq!(v["googleDrive"], "report.docx");
+        assert_eq!(replaced.borrow().as_slice(), &[(app.session.document_id(), app.session.rev())]);
+        assert!(downloads.borrow().is_empty(), "nothing is downloaded");
+        // A document that didn't come from Drive downloads as before.
+        app.run("file.new", json!({})).unwrap();
+        app.run("file.save", json!({})).unwrap();
+        assert_eq!(replaced.borrow().len(), 1);
+        assert_eq!(downloads.borrow().len(), 1);
+    }
+
+    /// A Google sign-in that never answers (a blocked pop-up, a window closed unanswered) can be
+    /// started again from the Open page instead of staying on "Signing in…" until a reload.
+    #[test]
+    fn a_stuck_google_sign_in_can_be_tried_again() {
+        use std::{cell::Cell, rc::Rc};
+        let connects = Rc::new(Cell::new(0));
+        let count = connects.clone();
+        let services = Services {
+            google_drive: Some(crate::DriveServices {
+                status: Box::new(|| "Signing in…"),
+                disconnect: None,
+                connect: Box::new(move || count.set(count.get() + 1)),
+                open: Box::new(|_, _| {}),
+                files: Box::new(|| None),
+                select_file: Box::new(|_, _, _| {}),
+                save_copy: Box::new(|_, _| {}),
+                linked_name: Box::new(|_| None),
+                save_over: Box::new(|_, _, _| {}),
+            }),
+            ..Services::default()
+        };
+        let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), services);
+        app.run("ui.backstage", json!({"value": true, "page": "open"})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 900.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            app,
+        );
+        h.run_steps(4);
+        h.get_by_label("Try signing in again").click();
+        h.run_steps(2);
+        assert_eq!(connects.get(), 1, "the button starts a new sign-in");
+    }
+
+    /// The web's File menu has one Save page (both places) and no Save As or Close; the desktop
+    /// keeps all three.
+    #[test]
+    fn the_web_file_menu_has_one_save_and_no_close() {
+        let web: Vec<_> = super::pages(true);
+        let ids: Vec<&str> = web.iter().map(|(id, _)| *id).collect();
+        assert_eq!(ids, ["home", "new", "open", "info", "recover", "saveAs", "print", "export", "options"]);
+        assert_eq!(web.iter().find(|(id, _)| *id == "saveAs").map(|(_, l)| *l), Some("Save"), "the save page reads Save");
+        assert!(!web.iter().any(|(_, l)| *l == "Close" || *l == "Save As"));
+        let desktop: Vec<&str> = super::pages(false).iter().map(|(_, l)| *l).collect();
+        for label in ["Save", "Save As", "Close"] {
+            assert!(desktop.contains(&label), "the desktop keeps {label}");
+        }
     }
 
     #[test]

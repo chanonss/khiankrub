@@ -18,6 +18,25 @@ fn rt(doc: &Document) -> Document {
     wordcraft_docx::read(&bytes).expect("read")
 }
 
+#[test]
+fn paragraph_style_drop_cap_and_highlight_round_trip() {
+    let mut doc = Document::from_text("สวัสดีครับ ทดสอบการจัดรูปแบบ");
+    let style = doc.styles.get_mut("Normal").unwrap();
+    style.para.drop_cap = Some(3);
+    style.para.outline_level = Some(2);
+    style.para.kinsoku = Some(false);
+    style.chr.highlight = Some(Highlight::Yellow);
+    style.chr.font_ea = Some("Noto Sans CJK".into());
+    let saved = rt(&doc);
+    let style = saved.styles.get("Normal").unwrap();
+    assert_eq!(style.para.drop_cap, Some(3));
+    assert_eq!(style.para.outline_level, Some(2));
+    assert_eq!(style.para.kinsoku, Some(false));
+    assert_eq!(style.chr.highlight, Some(Highlight::Yellow));
+    assert_eq!(style.chr.font_ea.as_deref(), Some("Noto Sans CJK"));
+    assert_eq!(paras(&saved)[0].plain_text(), "สวัสดีครับ ทดสอบการจัดรูปแบบ");
+}
+
 fn paras(doc: &Document) -> Vec<&Paragraph> {
     doc.body.iter().filter_map(|b| b.as_para()).collect()
 }
@@ -156,6 +175,7 @@ fn every_para_prop_round_trips() {
         line_spacing: Some(LineSpacing::Multiple(1.5)),
         contextual_spacing: Some(true),
         mirror_indents: Some(true),
+        adjust_right_indent: Some(false),
         keep_next: Some(true),
         keep_lines: Some(false),
         page_break_before: Some(true),
@@ -186,6 +206,7 @@ fn every_para_prop_round_trips() {
             h_anchor: "margin".into(),
             v_anchor: "text".into(),
             wrap: "around".into(),
+            anchor_lock: Some(true),
             h_space: 9.0,
             v_space: 0.0,
         }),
@@ -198,6 +219,7 @@ fn every_para_prop_round_trips() {
         num_change: None,
         fmt_change: None,
         snap_to_grid: Some(false),
+        text_alignment: Some(wordcraft_doc::props::TextAlignment::Center),
     };
     let variants = [
         ParaProps { line_spacing: Some(LineSpacing::AtLeast(14.0)), indent_first: Some(24.0), align: Some(Align::Center), ..Default::default() },

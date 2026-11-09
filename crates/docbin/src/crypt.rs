@@ -90,8 +90,11 @@ pub(crate) fn md5(data: &[u8]) -> [u8; 16] {
     out
 }
 
+/// SHA-1, as [MS-OFFCRYPTO] §2.3.5 specifies for the RC4 CryptoAPI key derivation.
+/// The digest is part of the file format, not a choice made here: a stronger hash would
+/// make password-protected `.doc` files written by Word unreadable.
 fn sha1(parts: &[&[u8]]) -> Vec<u8> {
-    let mut h = Sha1::new();
+    let mut h = Sha1::new(); // NOSONAR: required by the MS-OFFCRYPTO RC4 CryptoAPI format
     for p in parts {
         h.update(p);
     }

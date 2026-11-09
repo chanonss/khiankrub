@@ -157,87 +157,93 @@ pub fn picker_ui(app: &mut WordApp, ui: &mut Ui, f: &mut SmartArtForm) -> bool {
     let t = Tokens::get(ui.ctx());
     let theme = app.session.doc.settings.theme_colors.clone();
     let mut chosen = None;
-    ui.horizontal_top(|ui| {
-        ui.vertical(|ui| {
-            ui.set_width(120.0);
-            for cat in CATEGORIES {
-                if ui.steady_label(f.category == cat, tl!(cat)).clicked() {
-                    f.category = cat.to_string();
-                    if !f.shown().contains(&f.layout)
-                        && let Some(first) = f.shown().first()
-                    {
-                        f.layout = *first;
-                    }
-                }
-            }
-        });
-        ui.separator();
-        ui.vertical(|ui| {
-            ui.set_width(3.0 * 96.0 + 16.0);
-            ui.set_min_height(2.0 * 96.0 + 8.0);
-            egui::Grid::new("smart_art_layouts").spacing(vec2(8.0, 8.0)).show(ui, |ui| {
-                for (k, layout) in f.shown().into_iter().enumerate() {
-                    let (rect, resp) = ui.allocate_exact_size(vec2(96.0, 96.0), Sense::click());
-                    let on = f.layout == layout;
-                    let fill = if on {
-                        t.checked
-                    } else if resp.hovered() {
-                        t.hover
-                    } else {
-                        t.input
-                    };
-                    ui.painter().rect(rect, 4.0, fill, Stroke::new(1.0, if on { t.accent } else { t.border }), egui::StrokeKind::Inside);
-                    preview(
-                        ui.painter(),
-                        Rect::from_min_size(rect.min + vec2(14.0, 4.0), vec2(68.0, 62.0)),
-                        layout,
-                        SmartArtColors::default(),
-                        &theme,
-                        t.text_dim,
-                    );
-                    // A label wider than the tile (a long translation) breaks at its middle space.
-                    let label = tl!(layout.label());
-                    let width = |text: &str| ui.ctx().fonts_mut(|f| f.layout_no_wrap(text.to_string(), regular(10.5), t.text).size().x);
-                    let lines = if width(label) <= rect.width() - 6.0 {
-                        vec![label.to_string()]
-                    } else {
-                        let split = label
-                            .match_indices(' ')
-                            .map(|(i, _)| (label[..i].to_string(), label[i + 1..].to_string()))
-                            .min_by(|a, b| width(&a.0).max(width(&a.1)).total_cmp(&width(&b.0).max(width(&b.1))));
-                        split.map_or_else(|| vec![label.to_string()], |(a, b)| vec![a, b])
-                    };
-                    for (n, line) in lines.iter().rev().enumerate() {
-                        ui.painter().text(
-                            pos2(rect.center().x, rect.bottom() - 11.0 - 12.5 * n as f32),
-                            egui::Align2::CENTER_CENTER,
-                            line,
-                            regular(10.5),
-                            t.text,
-                        );
-                    }
-                    let resp = resp.on_hover_text(label);
-                    if resp.clicked() {
-                        f.layout = layout;
-                    }
-                    if resp.double_clicked() {
-                        chosen = Some(layout);
-                    }
-                    if k % 3 == 2 {
-                        ui.end_row();
+    // Keep the action buttons outside the scroll area, even in a short window.
+    let max_height = (ui.ctx().content_rect().height() - 130.0).max(100.0);
+    egui::ScrollArea::vertical().id_salt("smart_art_picker").max_height(max_height).auto_shrink([true, true]).show(ui, |ui| {
+        ui.horizontal_top(|ui| {
+            ui.vertical(|ui| {
+                ui.set_width(120.0);
+                for cat in CATEGORIES {
+                    if ui.steady_label(f.category == cat, tl!(cat)).clicked() {
+                        f.category = cat.to_string();
+                        if !f.shown().contains(&f.layout)
+                            && let Some(first) = f.shown().first()
+                        {
+                            f.layout = *first;
+                        }
                     }
                 }
             });
-        });
-        ui.separator();
-        ui.vertical(|ui| {
-            ui.set_width(200.0);
-            let (rect, _) = ui.allocate_exact_size(vec2(200.0, 150.0), Sense::hover());
-            ui.painter().rect(rect, 4.0, t.input, Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
-            preview(ui.painter(), rect.shrink(10.0), f.layout, SmartArtColors::default(), &theme, t.text_dim);
-            ui.add_space(6.0);
-            ui.label(egui::RichText::new(tl!(f.layout.label())).font(semibold(13.0)));
-            ui.add(egui::Label::new(tl!(f.layout.description())).wrap());
+            let (separator, _) = ui.allocate_exact_size(vec2(8.0, 304.0), Sense::hover());
+            ui.painter().line_segment([separator.center_top(), separator.center_bottom()], Stroke::new(1.0, t.border));
+            ui.vertical(|ui| {
+                ui.set_width(3.0 * 96.0 + 16.0);
+                ui.set_min_height(2.0 * 96.0 + 8.0);
+                egui::Grid::new("smart_art_layouts").spacing(vec2(8.0, 8.0)).show(ui, |ui| {
+                    for (k, layout) in f.shown().into_iter().enumerate() {
+                        let (rect, resp) = ui.allocate_exact_size(vec2(96.0, 96.0), Sense::click());
+                        let on = f.layout == layout;
+                        let fill = if on {
+                            t.checked
+                        } else if resp.hovered() {
+                            t.hover
+                        } else {
+                            t.input
+                        };
+                        ui.painter().rect(rect, 4.0, fill, Stroke::new(1.0, if on { t.accent } else { t.border }), egui::StrokeKind::Inside);
+                        preview(
+                            ui.painter(),
+                            Rect::from_min_size(rect.min + vec2(14.0, 4.0), vec2(68.0, 62.0)),
+                            layout,
+                            SmartArtColors::default(),
+                            &theme,
+                            t.text_dim,
+                        );
+                        // A label wider than the tile (a long translation) breaks at its middle space.
+                        let label = tl!(layout.label());
+                        let width = |text: &str| ui.ctx().fonts_mut(|f| f.layout_no_wrap(text.to_string(), regular(10.5), t.text).size().x);
+                        let lines = if width(label) <= rect.width() - 6.0 {
+                            vec![label.to_string()]
+                        } else {
+                            let split = label
+                                .match_indices(' ')
+                                .map(|(i, _)| (label[..i].to_string(), label[i + 1..].to_string()))
+                                .min_by(|a, b| width(&a.0).max(width(&a.1)).total_cmp(&width(&b.0).max(width(&b.1))));
+                            split.map_or_else(|| vec![label.to_string()], |(a, b)| vec![a, b])
+                        };
+                        for (n, line) in lines.iter().rev().enumerate() {
+                            ui.painter().text(
+                                pos2(rect.center().x, rect.bottom() - 11.0 - 12.5 * n as f32),
+                                egui::Align2::CENTER_CENTER,
+                                line,
+                                regular(10.5),
+                                t.text,
+                            );
+                        }
+                        let resp = resp.on_hover_text(label);
+                        if resp.clicked() {
+                            f.layout = layout;
+                        }
+                        if resp.double_clicked() {
+                            chosen = Some(layout);
+                        }
+                        if k % 3 == 2 {
+                            ui.end_row();
+                        }
+                    }
+                });
+            });
+            let (separator, _) = ui.allocate_exact_size(vec2(8.0, 304.0), Sense::hover());
+            ui.painter().line_segment([separator.center_top(), separator.center_bottom()], Stroke::new(1.0, t.border));
+            ui.vertical(|ui| {
+                ui.set_width(200.0);
+                let (rect, _) = ui.allocate_exact_size(vec2(200.0, 150.0), Sense::hover());
+                ui.painter().rect(rect, 4.0, t.input, Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
+                preview(ui.painter(), rect.shrink(10.0), f.layout, SmartArtColors::default(), &theme, t.text_dim);
+                ui.add_space(6.0);
+                ui.label(egui::RichText::new(tl!(f.layout.label())).font(semibold(13.0)));
+                ui.add(egui::Label::new(tl!(f.layout.description())).wrap());
+            });
         });
     });
     let (ok, cancel) = crate::dialogs_insert::buttons(ui, "OK", "Cancel", true);
@@ -343,6 +349,30 @@ pub fn text_pane(app: &mut WordApp, ui: &mut Ui) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn picker_keeps_action_buttons_inside_short_windows_and_inserts() {
+        use egui_kittest::kittest::Queryable;
+        for height in [420.0, 600.0, 900.0] {
+            let mut app = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), crate::Services::default());
+            app.run("insert.smartArt", json!({})).unwrap();
+            let mut h = egui_kittest::Harness::builder().with_size(vec2(900.0, height)).build_ui_state(
+                |ui, app: &mut WordApp| {
+                    let ctx = ui.ctx().clone();
+                    app.logic(&ctx);
+                    app.ui(ui);
+                },
+                app,
+            );
+            h.run_steps(5);
+            let ok = h.get_by_label("OK").rect();
+            let cancel = h.get_by_label("Cancel").rect();
+            assert!(ok.top() >= 0.0 && ok.bottom() <= height && cancel.bottom() <= height, "buttons outside viewport {height}: {ok:?} {cancel:?}");
+            h.get_by_label("OK").click();
+            h.run_steps(3);
+            assert!(wordcraft_engine::cmd::smart_art::selected_smart_art(&h.state().session).is_some());
+        }
+    }
 
     #[test]
     fn removing_an_item_lifts_the_items_under_it() {

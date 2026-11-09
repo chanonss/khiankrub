@@ -204,7 +204,7 @@ pub fn specs() -> Vec<CommandSpec> {
         })
         .params(r#"{"value"?: bool} (true: the first column stands at the right; without a value it toggles)"#)),
         t(CommandSpec::new("table.properties", "Properties", "Table Layout › Table", properties).params(
-            r#"{"align"?: "left|center|right", "rtl"?: bool, "width"?: pt|null, "widthPct"?: percent, "indent"?: pt, "rowHeight"?: pt|null, "rowHeightRule"?: "atLeast|exact", "allowBreak"?: bool, "headerRow"?: bool, "columnWidth"?: pt, "cellWidth"?: pt|null, "valign"?: "top|center|bottom", "cellMargins"?: {"top", "left", "bottom", "right" (pt)}} (row, column and cell settings apply to the selected rows, columns and cells, or the caret's; without settings it returns the caret's current ones)"#,
+            r#"{"align"?: "left|center|right", "rtl"?: bool, "width"?: pt|null, "widthPct"?: percent, "indent"?: pt, "rowHeight"?: pt|null, "rowHeightRule"?: "atLeast|exact", "allowBreak"?: bool, "headerRow"?: bool, "columnWidth"?: pt, "columnWidths"?: [pt] (every grid column, in order), "keepWithNext"?: bool (every paragraph in the table keeps with the next one), "cellWidth"?: pt|null, "valign"?: "top|center|bottom", "cellMargins"?: {"top", "left", "bottom", "right" (pt)}, "background"?: {"cell"?: RGB|null, "row"?: RGB|null, "table"?: RGB|null}, "borders"?: Borders} (row, column and cell settings apply to the selected rows, columns and cells, or the caret's; without settings it returns the caret's current ones)"#,
         )),
         CommandSpec::new("table.fromText", "Convert Text to Table", "Insert › Tables", from_text).params(r#"{"separator"?: "tab|comma"}"#),
         CommandSpec::new("table.quick", "Quick Tables", "Insert › Tables", quick_table).params(r#"{"kind"?: "calendar|tabular|matrix"}"#),
@@ -296,13 +296,21 @@ fn properties(s: &mut Session, v: &Value) -> CmdResult {
         "allowBreak",
         "headerRow",
         "columnWidth",
+        "columnWidths",
+        "keepWithNext",
         "cellWidth",
         "valign",
         "cellMargins",
+        "background",
+        "borders",
     ];
     if !keys.iter().any(|k| v.get(*k).is_some()) {
         let t = s.doc.table(s.sel.focus.story, &tp).cloned().unwrap_or_default();
         let mut out = serde_json::to_value(&t.props).unwrap_or(Value::Null);
+        if let Some(o) = out.as_object_mut() {
+            o.insert("columnWidths".into(), json!(t.grid));
+            o.insert("keepWithNext".into(), json!(keeps_with_next(&t)));
+        }
         let row = t.rows.get(r);
         let cl = row.and_then(|x| x.cells.get(c));
         if let Some(o) = out.as_object_mut() {
@@ -347,7 +355,50 @@ fn properties(s: &mut Session, v: &Value) -> CmdResult {
     let header = p::bool(v, "headerRow");
     let column_width = p::f32(v, "columnWidth").map(|x| x.clamp(6.0, 1584.0));
     let cell_width = size("cellWidth", 6.0, 1584.0);
+    let keep_with_next = p::bool(v, "keepWithNext");
+    let column_widths: Option<Vec<f32>> = match v.get("columnWidths") {
+        None => None,
+        Some(Value::Array(a)) => Some(
+            a.iter()
+                .map(|x| x.as_f64().map(|f| f as f32).filter(|f| f.is_finite()).map(|f| f.clamp(6.0, 1584.0)))
+                .collect::<Option<Vec<f32>>>()
+                .ok_or_else(|| CmdError::Params("columnWidths must be numbers".into()))?,
+        ),
+        Some(_) => return Err(CmdError::Params("columnWidths must be an array".into())),
+    };
+    if let Some(w) = &column_widths {
+        let n = s.doc.table(s.sel.focus.story, &tp).map_or(0, |t| t.grid.len());
+        if w.len() != n {
+            return Err(CmdError::Params(format!("columnWidths needs {n} widths, not {}", w.len())));
+        }
+    }
     let rtl = p::bool(v, "rtl");
+    let background = v.get("background");
+    if background.is_some_and(|value| !value.is_object()) {
+        return Err(CmdError::Params("background must be an object".into()));
+    }
+    let color = |key: &str| -> Result<Option<Option<wordcraft_doc::Rgb>>, CmdError> {
+        let Some(value) = background.and_then(|b| b.get(key)) else { return Ok(None) };
+        if value.is_null() {
+            return Ok(Some(None));
+        }
+        let rgb =
+            value.as_str().and_then(wordcraft_doc::Rgb::parse).ok_or_else(|| CmdError::Params(format!("invalid background color for {key}")))?;
+        Ok(Some(Some(rgb)))
+    };
+    let (table_background, row_background, cell_background) = (color("table")?, color("row")?, color("cell")?);
+    let borders: Option<wordcraft_doc::props::Borders> = v
+        .get("borders")
+        .map(|v| serde_json::from_value(v.clone()))
+        .transpose()
+        .map_err(|e| CmdError::Params(format!("invalid table borders: {e}")))?;
+    let borders = borders.map(|mut b| {
+        for side in [&mut b.top, &mut b.bottom, &mut b.left, &mut b.right, &mut b.between, &mut b.inside_v].into_iter().flatten() {
+            side.width = if side.width.is_finite() { side.width.clamp(0.0, 96.0) } else { 0.0 };
+            side.space = if side.space.is_finite() { side.space.clamp(0.0, 31.0) } else { 0.0 };
+        }
+        b
+    });
     // The table's default cell margins: `{"top", "left", "bottom", "right"}` in points.
     let margins = v.get("cellMargins").filter(|m| m.is_object()).map(|m| {
         [p::f32(m, "top").unwrap_or(0.0), p::f32(m, "left").unwrap_or(5.4), p::f32(m, "bottom").unwrap_or(0.0), p::f32(m, "right").unwrap_or(5.4)]
@@ -359,6 +410,12 @@ fn properties(s: &mut Session, v: &Value) -> CmdResult {
     rows.sort_unstable();
     rows.dedup();
     with_table(s, |t| {
+        if let Some(borders) = borders {
+            t.props.borders = Some(borders);
+        }
+        if let Some(color) = table_background {
+            t.props.shading = color;
+        }
         if let Some(m) = margins {
             t.props.cell_margins = Some(m);
         }
@@ -374,6 +431,15 @@ fn properties(s: &mut Session, v: &Value) -> CmdResult {
         if let Some(cw) = column_width {
             set_column_widths(t, &cells, cw);
         }
+        if let Some(widths) = &column_widths {
+            t.grid = widths.clone();
+            t.props.width = None;
+            t.props.width_pct = None;
+            sync_cell_widths(t);
+        }
+        if let Some(on) = keep_with_next {
+            set_keep_with_next(t, on);
+        }
         if let Some(w) = width {
             t.props.width = w;
             t.props.width_pct = None;
@@ -383,6 +449,11 @@ fn properties(s: &mut Session, v: &Value) -> CmdResult {
         }
         for &r in &rows {
             let Some(row) = t.rows.get_mut(r) else { continue };
+            if let Some(color) = row_background {
+                for cell in &mut row.cells {
+                    cell.props.shading = color;
+                }
+            }
             if let Some(h) = row_height {
                 row.props.height = h;
                 row.props.height_rule = if h.is_some() { rule.unwrap_or(HeightRule::AtLeast) } else { HeightRule::Auto };
@@ -400,6 +471,9 @@ fn properties(s: &mut Session, v: &Value) -> CmdResult {
         }
         for &(r, c) in &cells {
             let Some(cl) = t.rows.get_mut(r).and_then(|row| row.cells.get_mut(c)) else { continue };
+            if let Some(color) = cell_background {
+                cl.props.shading = color;
+            }
             if let Some(w) = cell_width {
                 cl.props.width = w;
             }
@@ -408,6 +482,28 @@ fn properties(s: &mut Session, v: &Value) -> CmdResult {
             }
         }
     })
+}
+
+/// Whether every paragraph in the table's cells keeps with the next one (the table then moves
+/// to the next page with what follows it, as Word's "Keep with next paragraph").
+fn keeps_with_next(t: &Table) -> bool {
+    let mut any = false;
+    let all = t.rows.iter().flat_map(|r| &r.cells).flat_map(|c| &c.blocks).filter_map(|b| b.as_para()).all(|p| {
+        any = true;
+        p.props.keep_next == Some(true)
+    });
+    any && all
+}
+
+/// Give every paragraph in the table's cells (not those of nested tables) Keep with Next.
+fn set_keep_with_next(t: &mut Table, on: bool) {
+    for cell in t.rows.iter_mut().flat_map(|r| &mut r.cells) {
+        for block in &mut cell.blocks {
+            if let wordcraft_doc::Block::Para(p) = std::sync::Arc::make_mut(block) {
+                p.props.keep_next = if on { Some(true) } else { None };
+            }
+        }
+    }
 }
 
 fn cell(s: &Session) -> Result<(Path, usize, usize), CmdError> {
@@ -599,6 +695,25 @@ fn del_col(s: &mut Session, _: &Value) -> CmdResult {
 
 fn del_table(s: &mut Session, _: &Value) -> CmdResult {
     let (tp, _, _) = cell(s)?;
+    delete_table_at(s, &tp)
+}
+
+/// The table the selection covers whole (Select Table, a drag over all of it), if it does (#1744).
+pub(in crate::cmd) fn selected_table(s: &Session) -> Option<Path> {
+    if let Some(r) = s.cell_range()
+        && let Some(t) = s.doc.table(r.story, &r.table)
+        && r.rows == (0, t.rows.len().saturating_sub(1))
+        && r.cols == (0, t.cols().saturating_sub(1))
+    {
+        return Some(r.table.clone());
+    }
+    let (a, b) = s.sel.ordered();
+    s.doc.whole_table(&a, &b)
+}
+
+/// Delete Table for the table at `tp` (in the selection's story): tracked when Track Changes is on.
+pub(in crate::cmd) fn delete_table_at(s: &mut Session, tp: &Path) -> CmdResult {
+    let tp = tp.clone();
     let story = s.sel.focus.story;
     let spans = text_spans(s, story, std::slice::from_ref(&tp.0));
     if let Some(done) = guard_delete(s, &spans)? {
@@ -607,6 +722,30 @@ fn del_table(s: &mut Session, _: &Value) -> CmdResult {
     s.doc.remove_block(story, &tp)?;
     s.sel = Selection::caret(s.doc.clamp(&Pos { story, path: tp, off: 0 }));
     sel_result(s)
+}
+
+/// Clear the text of the cells `range` selects, leaving the cells (Cut of rows or cells, #1744);
+/// tracked when Track Changes is on. The caret goes to the first cell.
+pub(in crate::cmd) fn clear_range_cells(s: &mut Session, range: &crate::CellRange) -> Result<(), CmdError> {
+    let Some(t) = s.doc.table(range.story, &range.table) else { return Ok(()) };
+    // The cells Copy takes: columns widened over merged cells, as `Table::slice` does.
+    let (lo, hi, any) = t.slice_bounds(range.rows, range.cols);
+    let cells = if any { crate::CellRange { cols: (lo, hi.saturating_sub(1)), ..range.clone() }.cells(t) } else { Vec::new() };
+    let prefixes: Vec<Vec<u32>> = cells.into_iter().map(|(r, c)| cell_prefix(&range.table, r, c)).collect();
+    let spans = text_spans(s, range.story, &prefixes);
+    let first = spans.first().map(|(a, _)| a.clone());
+    if guard_delete(s, &spans)?.is_none() {
+        for (a, b) in spans.iter().rev() {
+            if a != b {
+                s.doc.delete_range(a, b)?;
+            }
+        }
+    }
+    s.column = None;
+    if let Some(a) = first {
+        s.sel = Selection::caret(s.doc.clamp(&a));
+    }
+    Ok(())
 }
 
 /// The path prefix of cell (`r`, `c`) of the table at `tp`.

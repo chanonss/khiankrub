@@ -1376,6 +1376,39 @@ fn ole_object_round_trips() {
 }
 
 #[test]
+fn an_unqualified_relationship_attribute_round_trips() {
+    // A producer that left the relationship prefix out: the VML picture names its image with an
+    // unqualified `id`. The reader resolves it (the alias `El::attr` accepts), the writer keeps
+    // the attribute and gives it the id the new package holds the image under.
+    let body = r##"<w:p><w:r><w:object w:dxaOrig="1440" w:dyaOrig="720"><v:shape id="_x0000_i1025" type="#_x0000_t75" style="width:72pt;height:36pt" o:ole=""><v:imagedata id="rId8" o:title=""/></v:shape><o:OLEObject Type="Embed" ProgID="Package" ShapeID="_x0000_i1025" DrawAspect="Content" ObjectID="_1000000001" r:id="rId9"/></w:object></w:r></w:p>"##;
+    let picture = "\u{89}PNG stand-in";
+    let ole = "\u{d0}\u{cf} opaque OLE storage";
+    let types = r#"<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="png" ContentType="image/png"/><Default Extension="bin" ContentType="application/vnd.openxmlformats-officedocument.oleObject"/></Types>"#;
+    let bytes = docx(
+        body,
+        &[("rId8", "image", "media/image1.png"), ("rId9", "oleObject", "embeddings/oleObject1.bin")],
+        &[("[Content_Types].xml", types), ("word/media/image1.png", picture), ("word/embeddings/oleObject1.bin", ole)],
+    );
+    let d = wordcraft_docx::read(&bytes).unwrap();
+    let Some(InlineObject::Image { ole: Some(_), .. }) = paras(&d)[0].objects.first() else { panic!("{:?}", paras(&d)[0].objects) };
+
+    let out = wordcraft_docx::write(&d).unwrap();
+    let files = unzip(&out);
+    let body = text(&files, "word/document.xml");
+    let rels = text(&files, "word/_rels/document.xml.rels");
+    // The attribute is still unqualified, and names the image the new package holds.
+    let [pic_id] = attr_values(&body, "v:imagedata", "id").try_into().unwrap();
+    let (kind, target) = rel(&rels, &pic_id);
+    assert!(kind.ends_with("/image"), "{kind}");
+    assert_eq!(files.get(&part_at("word", &target)).map(Vec::as_slice), Some(picture.as_bytes()));
+    // The object itself is kept whole, as before.
+    let [ole_id] = attr_values(&body, "o:OLEObject", "r:id").try_into().unwrap();
+    let (kind, target) = rel(&rels, &ole_id);
+    assert!(kind.ends_with("/oleObject"), "{kind}");
+    assert_eq!(files.get(&part_at("word", &target)).map(Vec::as_slice), Some(ole.as_bytes()));
+}
+
+#[test]
 fn hostile_embedded_relationships_stay_bounded() {
     // The chart relates to itself, the main document, a relationships part and a missing part;
     // another drawing uses an id with no relationship. Reading and saving neither loop nor carry
@@ -1591,6 +1624,68 @@ fn theme_colour_wins_over_the_fixed_colour() {
     assert_eq!(at(6).color, Some(TextColor::Rgb(Rgb(0x05, 0x63, 0xC1))));
     let fill = at(7).shading.unwrap();
     assert!(near(Some(TextColor::Rgb(fill)), Rgb(0xFB, 0xE4, 0xD5)), "{fill:?}");
+}
+
+/// `w:shd w:val="nil"` paints nothing despite its fill: a CV template's red cell showed over the name.
+#[test]
+fn nil_shading_paints_no_fill() {
+    let body = r#"
+<w:tbl><w:tblGrid><w:gridCol w:w="200"/><w:gridCol w:w="2000"/></w:tblGrid><w:tr>
+ <w:tc><w:tcPr><w:shd w:val="nil" w:color="auto" w:fill="C00000"/></w:tcPr><w:p/></w:tc>
+ <w:tc><w:tcPr><w:shd w:val="clear" w:color="auto" w:fill="C00000"/></w:tcPr><w:p/></w:tc></w:tr></w:tbl>
+<w:p><w:pPr><w:shd w:val="nil" w:fill="C00000" w:themeFill="accent2"/></w:pPr><w:r><w:rPr><w:shd w:val="nil" w:color="C00000" w:fill="C00000"/></w:rPr><w:t>x</w:t></w:r></w:p>"#;
+    let d = read_body(body);
+    let Block::Table(t) = &*d.body[0] else { panic!("table first") };
+    assert_eq!(t.rows[0].cells[0].props.shading, None);
+    assert_eq!(t.rows[0].cells[1].props.shading, Some(Rgb(0xC0, 0, 0)));
+    let p = paras(&d);
+    assert_eq!(p[0].props.shading, None);
+    assert_eq!(p[0].props_of_char(0).shading, None);
+}
+
+/// A border's theme colour wins over its stale `w:color`: a template's white rule showed as black.
+#[test]
+fn border_theme_colour_wins_over_the_fixed_colour() {
+    let body = r#"
+<w:p><w:pPr><w:pBdr><w:top w:val="single" w:sz="4" w:color="000000" w:themeColor="background1"/><w:left w:val="single" w:sz="4" w:color="FF0000"/></w:pBdr></w:pPr><w:r><w:rPr><w:bdr w:val="single" w:sz="4" w:color="auto" w:themeColor="accent2"/></w:rPr><w:t>x</w:t></w:r></w:p>
+<w:tbl><w:tblPr><w:tblBorders><w:top w:val="single" w:sz="4" w:color="000000" w:themeColor="accent1"/></w:tblBorders></w:tblPr><w:tblGrid><w:gridCol w:w="2000"/></w:tblGrid><w:tr><w:tc><w:tcPr><w:tcBorders><w:left w:val="single" w:sz="4" w:color="000000" w:themeColor="accent6" w:themeShade="BF"/></w:tcBorders></w:tcPr><w:p/></w:tc></w:tr></w:tbl>
+<w:p/>
+<w:sectPr><w:pgBorders><w:top w:val="single" w:sz="4" w:color="000000" w:themeColor="text2"/></w:pgBorders></w:sectPr>"#;
+    let styles = r#"<w:style w:type="table" w:styleId="T"><w:name w:val="T"/><w:tblPr><w:tblBorders><w:bottom w:val="single" w:sz="4" w:color="000000" w:themeColor="accent3"/></w:tblBorders></w:tblPr></w:style>"#;
+    let d = themed_docx(body, styles, None);
+    let p = paras(&d);
+    let pb = p[0].props.borders.unwrap();
+    assert_eq!(pb.top.and_then(|b| b.color), Some(Rgb(0xFF, 0xFF, 0xFF)));
+    assert_eq!(pb.left.and_then(|b| b.color), Some(Rgb(0xFF, 0, 0)), "no theme colour keeps the fixed one");
+    assert_eq!(p[0].props_of_char(0).border.and_then(|b| b.color), Some(Rgb(0xED, 0x7D, 0x31)));
+    let Block::Table(t) = &*d.body[1] else { panic!("table second") };
+    assert_eq!(t.props.borders.and_then(|b| b.top).and_then(|b| b.color), Some(Rgb(0x44, 0x72, 0xC4)));
+    let cell = t.rows[0].cells[0].props.borders.and_then(|b| b.left).and_then(|b| b.color);
+    assert!(near(cell.map(TextColor::Rgb), Rgb(0x53, 0x81, 0x35)), "{cell:?}");
+    assert_eq!(d.last_section.page_borders.and_then(|b| b.top).and_then(|b| b.color), Some(Rgb(0x44, 0x54, 0x6A)));
+    let st = d.styles.get("T").and_then(|s| s.table.as_ref()).and_then(|t| t.borders);
+    assert_eq!(st.and_then(|b| b.bottom).and_then(|b| b.color), Some(Rgb(0xA5, 0xA5, 0xA5)));
+}
+
+/// Given both `themeTint` and `themeShade`, Word applies the tint alone, for text colours,
+/// shading and borders (MS-OI29500 17.3.2.6 b, 17.4.32 a; MS-OE376 2.3.2.3 a).
+#[test]
+fn theme_tint_wins_over_theme_shade() {
+    let both = r#"w:themeColor="accent1" w:themeTint="99" w:themeShade="7F""#;
+    let body = format!(
+        r#"<w:p><w:pPr><w:pBdr><w:top w:val="single" w:sz="4" w:color="000000" {both}/></w:pBdr></w:pPr><w:r><w:rPr><w:color w:val="000000" {both}/><w:bdr w:val="single" w:sz="4" w:color="000000" {both}/><w:shd w:val="clear" w:color="auto" w:fill="000000" w:themeFill="accent1" w:themeFillTint="99" w:themeFillShade="7F"/></w:rPr><w:t>a</w:t></w:r></w:p>"#
+    );
+    let d = themed_docx(&body, "", None);
+    let p = paras(&d);
+    let ch = p[0].props_of_char(0);
+    // accent1 4472C4 lightened by tint 99 alone, as Word writes it into w:val.
+    let tinted = Rgb(0x8E, 0xAA, 0xDB);
+    assert!(near(ch.color, tinted), "text colour {:?}", ch.color);
+    let run_border = ch.border.and_then(|b| b.color).map(TextColor::Rgb);
+    assert!(near(run_border, tinted), "text border {run_border:?}");
+    let para_border = p[0].props.borders.and_then(|b| b.top).and_then(|b| b.color).map(TextColor::Rgb);
+    assert!(near(para_border, tinted), "paragraph border {para_border:?}");
+    assert!(near(ch.shading.map(TextColor::Rgb), tinted), "shading {:?}", ch.shading);
 }
 
 #[test]
@@ -2897,4 +2992,43 @@ fn do_not_expand_shift_return_is_read_and_kept() {
     assert_eq!(settings("<w:doNotExpandShiftReturn/>"), (true, true));
     assert_eq!(settings(r#"<w:doNotExpandShiftReturn w:val="0"/>"#), (false, false));
     assert_eq!(settings(""), (false, false));
+}
+#[test]
+fn locked_frame_anchor_survives_two_saves() {
+    for (lock, expected) in [("", None), (" w:anchorLock=\"1\"", Some(true)), (" w:anchorLock=\"0\"", Some(false))] {
+        let mut document = read_body(&format!(r#"<w:p><w:pPr><w:framePr w:w="1440" w:h="720"{lock}/></w:pPr><w:r><w:t>Locked</w:t></w:r></w:p>"#));
+        let paragraph = paras(&document)[0];
+        assert_eq!(paragraph.props.frame.as_ref().and_then(|f| f.anchor_lock), expected);
+        if expected == Some(true) {
+            let Some(wordcraft_doc::Block::Para(paragraph)) = document.body.get_mut(0).map(std::sync::Arc::make_mut) else {
+                panic!("first block is the framed paragraph");
+            };
+            let frame = paragraph.props.frame.as_mut().unwrap();
+            frame.x = 36.0;
+            frame.y = 72.0;
+            frame.w = Some(108.0);
+        }
+        let json = serde_json::to_vec(&document).unwrap();
+        document = serde_json::from_slice(&json).unwrap();
+        if expected == Some(true) {
+            let frame = paras(&document)[0].props.frame.as_ref().unwrap();
+            assert_eq!((frame.x, frame.y, frame.w), (36.0, 72.0, Some(108.0)));
+        }
+        for pass in 0..2 {
+            let bytes = wordcraft_docx::write(&document).unwrap();
+            let xml = text(&unzip(&bytes), "word/document.xml");
+            let expected_xml = match expected {
+                Some(true) => "w:anchorLock=\"1\"",
+                Some(false) => "w:anchorLock=\"0\"",
+                None => "w:anchorLock=",
+            };
+            assert_eq!(xml.contains(expected_xml), expected.is_some(), "lock changed on save {}: {xml}", pass + 1);
+            document = wordcraft_docx::read(&bytes).unwrap();
+            assert_eq!(paras(&document)[0].props.frame.as_ref().and_then(|f| f.anchor_lock), expected);
+            if expected == Some(true) {
+                let frame = paras(&document)[0].props.frame.as_ref().unwrap();
+                assert_eq!((frame.x, frame.y, frame.w), (36.0, 72.0, Some(108.0)));
+            }
+        }
+    }
 }

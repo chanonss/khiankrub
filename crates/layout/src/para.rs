@@ -317,6 +317,9 @@ pub struct LabelRun {
 #[derive(Clone, Debug)]
 pub struct ParaLayout {
     pub rp: ResolvedPara,
+    /// Fonts the shown text (and list label) asks for that aren't installed, each with a face
+    /// it was drawn in instead: a substitute or a fallback face covering its characters (#4770).
+    pub substituted: Vec<(String, FaceRef)>,
     pub styles: Vec<StyleRun>,
     pub glyphs: Vec<Glyph>,
     pub clusters: Vec<Cluster>,
@@ -511,6 +514,21 @@ struct Builder<'a> {
     levels: Vec<u8>,
     /// Text drawn by clusters that stand for an object, by cluster index (see `ParaLayout::shown`).
     shown: Vec<(usize, String, Vec<std::ops::Range<usize>>)>,
+    /// Fonts asked for that aren't installed, and the faces drawn instead (see
+    /// `ParaLayout::substituted`).
+    substituted: Vec<(String, FaceRef)>,
+}
+
+/// The fonts a run asks for that aren't installed (see [`Builder::note_missing_fonts`]).
+struct MissingFonts<'a> {
+    /// The Latin font.
+    latin: Option<&'a str>,
+    /// The complex-script font.
+    complex: Option<&'a str>,
+    /// The East Asian font the run names for its CJK text.
+    east_asian: Option<&'a str>,
+    /// The run names an East Asian font for its CJK text, installed or not.
+    names_east_asian: bool,
 }
 
 /// What a piece of text is shaped as: one face, case, script formatting and direction.
@@ -715,6 +733,57 @@ fn thai_or_latin(c: char) -> bool {
     matches!(u32::from(c), 0x0021..=0x024F | 0x0E00..=0x0E7F) && !c.is_whitespace() && !c.is_control() && c != SOFT_HYPHEN
 }
 
+/// The face text set in `font` is drawn in when `font` isn't installed, as layout picks it (a
+/// missing font the document classes as roman is drawn in [`MISSING_ROMAN_FONT`]); `None` when it
+/// is installed. Characters the face lacks are drawn in fallback faces.
+pub fn substitute_face(doc: &Document, font: &str) -> Option<FaceRef> {
+    if font.trim().is_empty() {
+        return None;
+    }
+    let family = lookup_family(doc, font);
+    let r = wordcraft_fonts::word::resolve(family, false, false);
+    (r.substituted || family != font).then_some(r.face)
+}
+
+/// The face Chinese, Japanese and Korean text is drawn in when its East Asian font (`w:eastAsia`)
+/// `font_ea` isn't installed and the run's font is `font`; `None` when `font_ea` is installed. As
+/// layout draws it: an East Asian font is looked up by name alone (the roman-font rule of
+/// [`substitute_face`] is for the run's font), and the text goes to the run's font when it has the
+/// characters, else to the first fallback face that does.
+pub fn east_asian_substitute_face(doc: &Document, font_ea: &str, font: &str) -> Option<FaceRef> {
+    if font_ea.trim().is_empty() || !wordcraft_fonts::word::resolve(font_ea, false, false).substituted {
+        return None;
+    }
+    // 日: one ideograph stands for the text, which isn't known yet.
+    const IDEOGRAPH: char = '\u{65E5}';
+    let primary = wordcraft_fonts::word::resolve(lookup_family(doc, font), false, false).face;
+    if primary.covers(IDEOGRAPH) {
+        return Some(primary);
+    }
+    let fallback = wordcraft_fonts::FontDb::global().fallback_for_run(&[IDEOGRAPH], primary.id(), false, false);
+    Some(fallback.map_or(primary, |f| FaceRef::of(&f)))
+}
+
+/// `font` as [`ParaLayout::substituted`] records it: a hostile file's font name can be megabytes
+/// long, so the first 256 characters. Look names up through this to match it.
+pub fn reported_font_name(font: &str) -> &str {
+    font.char_indices().nth(256).and_then(|(i, _)| font.get(..i)).unwrap_or(font)
+}
+
+/// Whether `c` draws anything: not whitespace, a control, an object's placeholder or a Unicode
+/// Default_Ignorable_Code_Point (soft hyphen, zero-width spaces and joiners, bidi controls,
+/// variation selectors, Hangul fillers, the BOM, tags…).
+pub fn draws_something(c: char) -> bool {
+    !c.is_whitespace()
+        && !c.is_control()
+        && c != OBJ
+        && !matches!(c,
+            '\u{00AD}' | '\u{034F}' | '\u{061C}' | '\u{115F}'..='\u{1160}' | '\u{17B4}'..='\u{17B5}' | '\u{180B}'..='\u{180F}'
+            | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2060}'..='\u{206F}' | '\u{3164}' | '\u{FE00}'..='\u{FE0F}'
+            | '\u{FEFF}' | '\u{FFA0}' | '\u{FFF0}'..='\u{FFF8}' | '\u{1BCA0}'..='\u{1BCA3}' | '\u{1D173}'..='\u{1D17A}'
+            | '\u{E0000}'..='\u{E0FFF}')
+}
+
 impl<'a> Builder<'a> {
     /// Displayed form of `c` at run-relative byte `at` (Word › Numeral): one char in, one
     /// char out. `rtl` is the shaping direction; in Context mode `context` (from
@@ -784,6 +853,60 @@ impl<'a> Builder<'a> {
         self.shape_with(text, base, rc, kind_override, true);
     }
 
+    /// Record that text asking for `font` (not installed) was drawn in `drawn`, once per pair;
+    /// at most 64 pairs a paragraph, so a hostile file can't grow the list without bound. Symbol
+    /// fonts (Symbol, Wingdings…) are drawn as their Unicode equivalents on purpose: not worth
+    /// reporting (most Word bullets would be). A blank name (a file's `w:ascii=" "`) names no font
+    /// to report.
+    fn note_substituted(&mut self, font: &str, drawn: FaceRef) {
+        if font.trim().is_empty() || wordcraft_doc::symbol_fonts::is_symbol_font(font) {
+            return;
+        }
+        let font = reported_font_name(font);
+        if !self.substituted.iter().any(|(f, d)| d.id() == drawn.id() && f == font) && self.substituted.len() < 64 {
+            self.substituted.push((font.to_string(), drawn));
+        }
+    }
+
+    /// Record the `missing` fonts the segments of `text` ask for, with the faces they are drawn
+    /// in (`primary`, the complex-script and the East Asian font's faces, or a segment's own).
+    /// Segments that draw nothing ([`draws_something`]) ask for no font.
+    fn note_missing_fonts(
+        &mut self,
+        text: &str,
+        segs: &[(usize, usize, SegKey)],
+        (primary, primary_cs, primary_ea): (FaceRef, Option<FaceRef>, Option<FaceRef>),
+        missing: &MissingFonts,
+    ) {
+        if missing.latin.is_none() && missing.complex.is_none() && missing.east_asian.is_none() {
+            return;
+        }
+        for &(a, b, key) in segs {
+            let Some(sub) = text.get(a..b).filter(|t| t.chars().any(draws_something)) else { continue };
+            let drawn = key.face.unwrap_or(if key.complex { primary_cs.unwrap_or(primary) } else { primary });
+            if key.complex {
+                if let Some(cs) = missing.complex {
+                    self.note_substituted(cs, drawn);
+                }
+                continue;
+            }
+            // The segment's CJK characters drawn in the installed East Asian font ask for nothing
+            // missing; other characters a fallback put in that same face still ask for the Latin
+            // font.
+            let in_ea_font = key.face.zip(primary_ea).is_some_and(|(f, ea)| f.id() == ea.id());
+            let latin_chars = sub.chars().any(|c| draws_something(c) && !east_asian(c));
+            // CJK text asks for the East Asian font when the run names one; the Latin font only
+            // for the other characters, or for CJK text when no East Asian font is named.
+            let asks_latin = latin_chars || (!missing.names_east_asian && !in_ea_font);
+            if let Some(f) = missing.latin.filter(|_| asks_latin) {
+                self.note_substituted(f, drawn);
+            }
+            if let Some(f) = missing.east_asian.filter(|_| !in_ea_font && sub.chars().any(east_asian)) {
+                self.note_substituted(f, drawn);
+            }
+        }
+    }
+
     /// `para_text`: `text` is paragraph text at `base`, so the paragraph's bidi levels apply
     /// (false for field results and list labels, which are shaped on their own).
     fn shape_with(&mut self, text: &str, base: usize, rc: &Arc<ResolvedChar>, kind_override: Option<ClKind>, para_text: bool) {
@@ -793,21 +916,27 @@ impl<'a> Builder<'a> {
         // Complex-script characters (Persian, Arabic…) use the run's complex-script font, size,
         // bold and italic.
         let rc_cs: Option<Arc<ResolvedChar>> = text.chars().any(|c| rc.uses_complex(c)).then(|| Arc::new(rc.complex()));
-        let resolved = wordcraft_fonts::word::resolve(lookup_family(self.env.doc, &rc.font), rc.bold, rc.italic);
+        let family = lookup_family(self.env.doc, &rc.font);
+        let resolved = wordcraft_fonts::word::resolve(family, rc.bold, rc.italic);
         let primary = resolved.face;
         // Symbol-font characters are laid out as their Unicode equivalents.
         let sym = SymbolRun::of(&rc.font, &resolved);
         let show = |c: char| sym.map_or(c, |m| m.show(c));
-        let primary_cs = rc_cs.as_ref().map(|r| wordcraft_fonts::word::resolve(lookup_family(self.env.doc, &r.font), r.bold, r.italic).face);
+        // A font isn't installed when it was substituted, or looked up as a missing roman font.
+        let resolved_cs = rc_cs.as_ref().map(|r| {
+            let family = lookup_family(self.env.doc, &r.font);
+            let resolved = wordcraft_fonts::word::resolve(family, r.bold, r.italic);
+            (resolved.face, resolved.substituted || family != r.font)
+        });
+        let primary_cs = resolved_cs.map(|(face, _)| face);
         // Chinese, Japanese and Korean characters use the run's East Asian font (`w:eastAsia`) when
         // it is installed and has them.
-        let primary_ea = rc
+        let wanted_ea = rc
             .font_ea
-            .as_ref()
+            .as_deref()
             .filter(|f| !f.eq_ignore_ascii_case(&rc.font) && text.chars().any(east_asian))
-            .map(|f| wordcraft_fonts::word::resolve(f, rc.bold, rc.italic))
-            .filter(|r| !r.substituted)
-            .map(|r| r.face);
+            .map(|f| (f, wordcraft_fonts::word::resolve(f, rc.bold, rc.italic)));
+        let primary_ea = wanted_ea.filter(|(_, r)| !r.substituted).map(|(_, r)| r.face);
         let use_levels = para_text && !self.levels.is_empty();
         let context = if self.env.numeral == NumeralMode::Context && use_levels { context_digit_dirs(text, &self.levels, base) } else { Vec::new() };
         // A missing Thai font: one face for the run's Thai and Latin text (#1549). A run with its
@@ -881,6 +1010,13 @@ impl<'a> Builder<'a> {
         if let Some(p) = cur {
             segs.push((seg_start, text.len(), p));
         }
+        let missing = MissingFonts {
+            latin: (resolved.substituted || family != rc.font).then_some(rc.font.as_str()),
+            complex: rc_cs.as_ref().filter(|_| resolved_cs.is_some_and(|(_, missing)| missing)).map(|r| r.font.as_str()),
+            east_asian: wanted_ea.filter(|(_, r)| r.substituted).map(|(f, _)| f),
+            names_east_asian: wanted_ea.is_some(),
+        };
+        self.note_missing_fonts(text, &segs, (primary, primary_cs, primary_ea), &missing);
         let no_kern = [wordcraft_fonts::feature_value(b"kern", 0)];
         for (a, b, key) in segs {
             let Some(sub) = text.get(a..b) else { continue };
@@ -1284,8 +1420,16 @@ pub fn layout_para(p: &Paragraph, env: &ParaEnv) -> ParaLayout {
     }
     let resolve = |c: &CharProps| -> Arc<ResolvedChar> { Arc::new(doc.styles.resolve_char_in(para_style, table_chr, c)) };
     let levels = bidi_levels(&p.text, rp.bidi);
-    let mut b =
-        Builder { env, styles: Vec::new(), style_index: Default::default(), glyphs: Vec::new(), clusters: Vec::new(), levels, shown: Vec::new() };
+    let mut b = Builder {
+        env,
+        styles: Vec::new(),
+        style_index: Default::default(),
+        glyphs: Vec::new(),
+        clusters: Vec::new(),
+        levels,
+        shown: Vec::new(),
+        substituted: Vec::new(),
+    };
     let mark_rc = resolve(&p.mark);
     let mark_style = b.style(&mark_rc, None, false);
     let mut has_page_fields = false;
@@ -1625,6 +1769,7 @@ pub fn layout_para(p: &Paragraph, env: &ParaEnv) -> ParaLayout {
     };
     let mut pl = ParaLayout {
         rp,
+        substituted: b.substituted,
         styles: b.styles,
         glyphs: b.glyphs,
         clusters: b.clusters,
@@ -1817,6 +1962,9 @@ fn break_lines(pl: &mut ParaLayout, env: &ParaEnv, mark_style: u32, level: Optio
         let mut j = i;
         let mut pending_tab: Option<(usize, TabStop, f32)> = None; // tab cluster, stop, x where tab started
         let mut space_w = 0.0f32; // width of the spaces so far on this line
+        // A character has been placed on this line: spaces before it keep their width (they
+        // indent the text, as in Word), so they don't count as room to shrink (#4307).
+        let mut text_started = false;
         let mut has_tab = false;
         while j < n {
             let Some(c) = pl.clusters.get(j).cloned() else { break };
@@ -1929,7 +2077,11 @@ fn break_lines(pl: &mut ParaLayout, env: &ParaEnv, mark_style: u32, level: Optio
             xs.push(x);
             x += c.adv;
             if c.kind == ClKind::Space {
-                space_w += c.adv;
+                if text_started {
+                    space_w += c.adv;
+                }
+            } else if !blank_cluster(&c) {
+                text_started = true;
             }
             // Decimal/center/right tab: shift pending text as it grows.
             if let Some((tj, stop, tx)) = pending_tab {
@@ -2136,7 +2288,11 @@ fn break_lines(pl: &mut ParaLayout, env: &ParaEnv, mark_style: u32, level: Optio
             _ => 0.0,
         };
         if shift > 0.0 && slack > 0.0 {
-            for v in xs.iter_mut().skip(align_from - c0) {
+            // Ordinary tabs move with paragraph alignment (from WordCraft #3915; upstream's
+            // positional tabs, which keep their anchors, we don't have).
+            let whole_line = display.is_none() && pl.label.is_none() && !rtl_para;
+            let shift_from = if whole_line { c0 } else { align_from };
+            for v in xs.iter_mut().skip(shift_from - c0) {
                 *v += shift;
             }
             // The list label belongs to the start of the line: it moves with the text (Word keeps
@@ -2157,8 +2313,14 @@ fn break_lines(pl: &mut ParaLayout, env: &ParaEnv, mark_style: u32, level: Optio
         if shrink {
             shrink_line_spaces(pl, &mut xs, c0, c1, content_end, slack);
         } else if justify && slack > 0.0 {
-            // Spaces inside the content (after the last tab).
-            let spaces: Vec<usize> = (align_from..c1)
+            // Spaces before the line's first character (after the last tab) keep their width, as
+            // in Word: text indented with spaces stays where the spaces put it. Zero-width markers
+            // (a bookmark, hidden text), floating objects' anchors and the break a line ends with
+            // don't count as a character (from WordCraft #4307).
+            let blank = |k: usize| pl.clusters.get(k).is_some_and(blank_cluster);
+            let text_from = (align_from..c1).find(|k| !blank(*k)).unwrap_or(c1);
+            // Spaces inside the content.
+            let spaces: Vec<usize> = (text_from..c1)
                 .filter(|k| {
                     pl.clusters.get(*k).is_some_and(|c| c.kind == ClKind::Space) && xs.get(k - c0).copied().unwrap_or(f32::MAX) < content_end - 0.01
                 })
@@ -2166,7 +2328,7 @@ fn break_lines(pl: &mut ParaLayout, env: &ParaEnv, mark_style: u32, level: Optio
             // Thai Distribution also stretches the gaps between the characters of Thai words, since
             // Thai has few spaces: each gap, spaces included, gets an equal share.
             let spaces: Vec<usize> = if rp.align == Align::ThaiDistribute {
-                (align_from..c1)
+                (text_from..c1)
                     .filter(|k| {
                         spaces.binary_search(k).is_ok() || (*k + 1 < c1 && pl.thai.get(*k) == Some(&true) && pl.thai.get(*k + 1) == Some(&true))
                     })
@@ -2175,11 +2337,14 @@ fn break_lines(pl: &mut ParaLayout, env: &ParaEnv, mark_style: u32, level: Optio
                 spaces
             };
             if rp.align == Align::Distribute || spaces.is_empty() {
-                let cnt = (c1 - align_from).saturating_sub(1).max(1) as f32;
+                // Distributed across the gaps between the first and last characters: spaces
+                // hanging at the line's end take none, so the last character reaches the margin.
+                let text_to = (text_from..c1).rev().find(|k| !blank(*k)).map_or(text_from, |k| k + 1);
+                let cnt = (text_to - text_from).saturating_sub(1).max(1) as f32;
                 if rp.align == Align::Distribute {
                     let per = slack / cnt;
-                    for (q, v) in xs.iter_mut().enumerate().skip(align_from - c0) {
-                        let k = (q + c0 - align_from) as f32;
+                    for (q, v) in xs.iter_mut().enumerate().skip(text_from - c0) {
+                        let k = (q + c0 - text_from) as f32;
                         *v += per * k.min(cnt);
                     }
                 }
@@ -2187,7 +2352,7 @@ fn break_lines(pl: &mut ParaLayout, env: &ParaEnv, mark_style: u32, level: Optio
                 let per = slack / spaces.len() as f32;
                 let mut add = 0.0;
                 let mut si = 0;
-                for k in align_from..c1 {
+                for k in text_from..c1 {
                     if let Some(v) = xs.get_mut(k - c0) {
                         *v += add;
                     }
@@ -2250,6 +2415,14 @@ fn break_lines(pl: &mut ParaLayout, env: &ParaEnv, mark_style: u32, level: Optio
                     (LineSpacing::AtLeast(v), None) => natural.max(v),
                     (LineSpacing::Exactly(v), _) => v,
                 };
+                // The empty line's caret follows the alignment, as an empty paragraph's does
+                // (from WordCraft #4293).
+                let empty_slack = (base_right - rp.indent_left).max(0.0);
+                let empty_shift = match rp.align {
+                    Align::Center => empty_slack / 2.0,
+                    Align::Right => empty_slack,
+                    _ => 0.0,
+                };
                 let x0 = rp.indent_left;
                 let (x0, left, right) = if rtl_para { (width - x0, width - base_right, width - x0) } else { (x0, x0, base_right) };
                 lines.push(Line {
@@ -2258,7 +2431,7 @@ fn break_lines(pl: &mut ParaLayout, env: &ParaEnv, mark_style: u32, level: Optio
                     baseline: top + if grid.is_some() { h - desc } else { baseline_offset(rp.line_spacing, asc, h, desc) },
                     c0: n,
                     c1: n,
-                    xs: vec![x0],
+                    xs: vec![if rtl_para { x0 - empty_shift } else { x0 + empty_shift }],
                     leaders: Vec::new(),
                     end: LineEnd::Para,
                     start: pl.text_len,
@@ -2454,7 +2627,9 @@ const MAX_SPACE_SHRINK: f32 = 0.2;
 /// Take `-slack` (an overflow) out of the line's inner spaces, in proportion to their widths and
 /// never more than [`MAX_SPACE_SHRINK`] of them. Trailing spaces hang and are left alone.
 fn shrink_line_spaces(pl: &ParaLayout, xs: &mut [f32], c0: usize, c1: usize, content_end: f32, slack: f32) {
-    let spaces: Vec<(usize, f32)> = (c0..c1)
+    // Spaces before the line's first character keep their width (#4307).
+    let text_from = (c0..c1).find(|k| pl.clusters.get(*k).is_some_and(|c| !blank_cluster(c))).unwrap_or(c1);
+    let spaces: Vec<(usize, f32)> = (text_from..c1)
         .filter_map(|k| {
             let c = pl.clusters.get(k).filter(|c| c.kind == ClKind::Space)?;
             (xs.get(k - c0).copied().unwrap_or(f32::MAX) < content_end - 0.01).then_some((k, c.adv))
@@ -2478,6 +2653,13 @@ fn shrink_line_spaces(pl: &ParaLayout, xs: &mut [f32], c0: usize, c1: usize, con
     if let Some(v) = xs.last_mut() {
         *v -= take;
     }
+}
+
+/// A cluster that draws no character: a space, a zero-width marker (a bookmark, hidden text), a
+/// break, or a floating object's anchor (from WordCraft #4307).
+fn blank_cluster(c: &Cluster) -> bool {
+    matches!(c.kind, ClKind::Space | ClKind::Marker | ClKind::LineBreak | ClKind::PageBreak | ClKind::ColumnBreak)
+        || (matches!(c.kind, ClKind::Object(_)) && c.adv == 0.0 && c.obj_h == 0.0)
 }
 
 /// The hyphen glyph and advance in a style (cached per paragraph).

@@ -246,7 +246,7 @@ fn dib_becomes_png_and_compressed_metafiles_inflate() {
     dib.extend_from_slice(&[0, 0, 255, 0, 255, 0, 0, 0]);
     let r = rec(0, 0x7A8, 0xF01F, &[[0u8; 16].as_slice(), &[0xFF], &dib].concat());
     let (dib_rec, _) = officeart::record(&r).unwrap();
-    let blip = officeart::blip(&dib_rec, 1 << 20).expect("DIB decodes");
+    let blip = officeart::blip(&dib_rec, 1 << 20, &mut officeart::Decode::new(usize::MAX)).expect("DIB decodes");
     assert_eq!(blip.ext, "png");
     let img = image::load_from_memory(&blip.bytes).unwrap().to_rgb8();
     assert_eq!((img.width(), img.height(), img.get_pixel(0, 0).0), (2, 1, [255, 0, 0]));
@@ -261,7 +261,7 @@ fn dib_becomes_png_and_compressed_metafiles_inflate() {
     hdr.extend_from_slice(&[0x00, 0xFE]); // compression = deflate, filter
     let r = rec(0, 0x216, 0xF01B, &[[0u8; 16].as_slice(), &hdr, &packed].concat());
     let (wmf_rec, _) = officeart::record(&r).unwrap();
-    let blip = officeart::blip(&wmf_rec, 1 << 20).expect("WMF inflates");
+    let blip = officeart::blip(&wmf_rec, 1 << 20, &mut officeart::Decode::new(usize::MAX)).expect("WMF inflates");
     assert_eq!((blip.ext, blip.bytes), ("wmf", wmf));
 }
 
@@ -280,10 +280,10 @@ fn deeply_nested_groups_and_lying_lengths_are_bounded() {
     hdr.extend_from_slice(&[0, 0]);
     let r = rec(0, 0x3D4, 0xF01A, &[[0u8; 16].as_slice(), &hdr, &[0x78, 0x9C, 1, 2, 3]].concat());
     let (emf, _) = officeart::record(&r).unwrap();
-    assert!(officeart::blip(&emf, 1 << 20).is_none());
+    assert!(officeart::blip(&emf, 1 << 20, &mut officeart::Decode::new(usize::MAX)).is_none());
     let mut fbse = vec![0u8; 36];
     fbse[28..32].copy_from_slice(&u32::MAX.to_le_bytes());
-    assert!(officeart::fbse_blip(&fbse, &[0u8; 64], 1 << 20).is_none());
+    assert!(officeart::fbse_blip(&fbse, &[0u8; 64], 1 << 20, &mut officeart::Decode::new(usize::MAX)).is_none());
 }
 
 proptest! {
@@ -321,12 +321,12 @@ fn dib_conversion_caps_header_and_encoded_bytes() {
     let record = rec(0, 0x7A8, officeart::rt::BLIP_DIB, &[[0u8; 16].as_slice(), &[0xFF], &dib].concat());
     let (record, _) = officeart::record(&record).unwrap();
     let bmp_size = 14 + dib.len();
-    assert!(officeart::blip(&record, bmp_size - 1).is_none(), "the BMP header also needs room");
-    let fallback = officeart::blip(&record, bmp_size).expect("the BMP fallback fits exactly");
+    assert!(officeart::blip(&record, bmp_size - 1, &mut officeart::Decode::new(usize::MAX)).is_none(), "the BMP header also needs room");
+    let fallback = officeart::blip(&record, bmp_size, &mut officeart::Decode::new(usize::MAX)).expect("the BMP fallback fits exactly");
     assert_eq!((fallback.ext, fallback.placeholder, fallback.bytes.len()), ("bmp", true, bmp_size));
     let img = image::load_from_memory(&fallback.bytes).unwrap().to_rgb8();
     assert_eq!((img.width(), img.height(), img.get_pixel(0, 0).0), (1, 1, [90, 60, 30]));
-    let normal = officeart::blip(&record, 512).expect("normal conversion fits");
+    let normal = officeart::blip(&record, 512, &mut officeart::Decode::new(usize::MAX)).expect("normal conversion fits");
     assert_eq!((normal.ext, normal.placeholder), ("png", false));
     assert!(normal.bytes.len() > bmp_size && normal.bytes.len() <= 512);
     assert_eq!(image::load_from_memory(&normal.bytes).unwrap().width(), 1);
