@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/chanonss/khiankrub/releases/latest"><b>⬇️ Download for Mac</b></a> ·
-  <a href="https://github.com/chanonss/khiankrub/releases/latest"><b>⬇️ Download for Windows (64-bit)</b></a> ·
+  <a href="https://kruboffice.app/desktop.html"><b>⬇️ Get KrubOffice (Mac and Windows)</b></a> ·
+  <a href="https://github.com/chanonss/khiankrub/releases/latest">Last KhianKrub release (0.16.0)</a> ·
   <a href="FORK-CHANGES.md">What's new</a> ·
   <a href="#license-and-credits">Licence and credits</a>
 </p>
@@ -19,6 +19,17 @@
 <p align="center">
   <img src="docs/images/khiankrub-hero.png" alt="KhianKrub with Thai menus: a navy title bar and tab strip with Thai tab names, the white Home ribbon with gold highlights, the Navigation pane listing numbered Thai headings 1. บทนำ, 2. วัตถุประสงค์, 3. ผลการทดลองใช้, and a page in TH Sarabun New with a table captioned ตารางที่ 1" width="100%">
 </p>
+
+> [!IMPORTANT]
+> **This repository is no longer updated. 0.16.0 is its last release.** KhianKrub continues in
+> **[KrubOffice](https://kruboffice.app/desktop.html)**, one free app for Mac and Windows with KhianKrub, KhitKrub
+> (spreadsheets) and PhutKrub (presentations), updated regularly. The source of new versions is published with
+> KrubOffice at [chanonss/kruboffice-desktop](https://github.com/chanonss/kruboffice-desktop). The code and releases
+> here stay available under their licences.
+>
+> **ที่เก็บนี้ไม่มีการอัปเดตแล้ว รุ่น 0.16.0 เป็นรุ่นสุดท้าย** เขียนครับพัฒนาต่อใน
+> **[KrubOffice](https://kruboffice.app/desktop.html)** ซึ่งรวมเขียนครับ คิดครับ และพูดครับไว้ในแอปเดียว ใช้ได้ฟรีบน Mac และ Windows ซอร์สโค้ดรุ่นใหม่เผยแพร่พร้อม KrubOffice ที่
+> [chanonss/kruboffice-desktop](https://github.com/chanonss/kruboffice-desktop)
 
 KhianKrub is a fork of [WordCraft](https://github.com/storytold/wordcraft) by the ArtCraft team, adapted for Thai
 users by Chanon Sarasuk. It opens, edits and saves Word documents (`.docx`), with a ribbon laid out like Microsoft
