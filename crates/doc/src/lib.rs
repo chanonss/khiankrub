@@ -453,6 +453,12 @@ pub struct Settings {
     pub default_tab: f32,
     pub even_odd_headers: bool,
     pub mirror_margins: bool,
+    /// Book fold (Page Setup › Multiple pages): each sheet is printed in landscape with two pages
+    /// side by side and folded into a booklet. The model stores the *page* (half of the sheet),
+    /// so layout needs no special case; the sheet is `2 × page_w` by `page_h` (`w:bookFoldPrinting`).
+    pub book_fold: bool,
+    /// Sheets per booklet (`w:bookFoldPrintingSheets`); 0 is all of them in one booklet.
+    pub book_fold_sheets: u32,
     pub auto_hyphenation: bool,
     /// Hyphenation zone (`w:hyphenationZone`), points: a line is hyphenated only when breaking
     /// it at a word boundary would leave more than this empty at its end.
@@ -615,6 +621,9 @@ pub const THEME_COLORS: [Rgb; 12] = [
     Rgb(0x96, 0x60, 0x7D),
 ];
 
+/// The most sheets Word lets one booklet hold.
+pub const MAX_BOOK_FOLD_SHEETS: u32 = 15;
+
 impl Default for Settings {
     fn default() -> Self {
         Settings {
@@ -622,6 +631,8 @@ impl Default for Settings {
             default_tab: 36.0,
             even_odd_headers: false,
             mirror_margins: false,
+            book_fold: false,
+            book_fold_sheets: 0,
             auto_hyphenation: false,
             hyphenation_zone: DEFAULT_HYPHENATION_ZONE,
             hyphenate_caps: true,
@@ -1007,6 +1018,49 @@ impl Document {
             return s;
         }
         &mut self.last_section
+    }
+
+    /// Turn Book fold on or off for the whole document (Page Setup › Multiple pages). On, every
+    /// section's paper becomes a landscape sheet folded in half: its page is half the sheet's
+    /// width and as tall as the sheet's short side, and margins mirror (inside and outside).
+    /// Off, the pages go back to the portrait paper they were cut from. `sheets` is the sheets
+    /// per booklet, 0 for all.
+    pub fn set_book_fold(&mut self, on: bool, sheets: u32) {
+        if on != self.settings.book_fold {
+            let ends: Vec<usize> = self.sections().iter().map(|(e, _)| *e).collect();
+            for e in ends {
+                let s = self.section_mut(e);
+                let (w, h) = (s.page_w, s.page_h);
+                if on {
+                    (s.page_w, s.page_h) = (w.max(h) / 2.0, w.min(h));
+                } else {
+                    let sheet_w = w * 2.0;
+                    (s.page_w, s.page_h) = (sheet_w.min(h), sheet_w.max(h));
+                }
+                s.landscape = false;
+            }
+        }
+        self.settings.book_fold = on;
+        self.settings.book_fold_sheets = if on { sheets.min(MAX_BOOK_FOLD_SHEETS) } else { 0 };
+        if on {
+            self.settings.mirror_margins = true;
+        }
+    }
+
+    /// After reading a file that asks for Book fold: its sections hold the landscape sheet, but
+    /// the model keeps the page, half of it ([`Document::set_book_fold`]).
+    pub fn halve_book_fold_sheets(&mut self) {
+        if !self.settings.book_fold {
+            return;
+        }
+        let ends: Vec<usize> = self.sections().iter().map(|(e, _)| *e).collect();
+        for e in ends {
+            let s = self.section_mut(e);
+            if s.page_w >= s.page_h {
+                s.page_w /= 2.0;
+            }
+            s.landscape = false;
+        }
     }
 
     /// Allocate a new part id and insert the part. Part ids run out only past `u32::MAX` parts, more

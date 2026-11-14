@@ -6,6 +6,7 @@
 use egui::{Color32, Painter, Pos2, Rect, Shape, Stroke, StrokeKind, vec2};
 
 pub mod deck;
+pub mod line;
 pub mod menu;
 pub mod sheet;
 mod thai;
@@ -43,6 +44,7 @@ pub fn canonical_name(name: &str) -> String {
         "indent" => "increase-indent",
         "outdent" => "decrease-indent",
         "thaiDistribute" => "thai-distribution",
+        "thaiDigits" => "thai-digits",
         "find" | "search" => "search",
         "shading" | "fill" => "shape-fill",
         "borderPainter" => "format-painter",

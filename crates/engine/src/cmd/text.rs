@@ -48,6 +48,15 @@ fn autoformat(s: &mut Session, text: &str) -> Option<String> {
         return None;
     }
     let c = text.chars().next()?;
+    // Type Thai digits: 0–9 go in as ๐–๙ while the font at the caret has them.
+    if s.prefs.autocorrect.thai_digits
+        && c.is_ascii_digit()
+        && let Some(f) = Some(&s.sel.focus)
+        && let Some(para) = s.doc.para_at(f)
+        && super::format::font_has_thai_digits(&s.doc, para, f.off.saturating_sub(1))
+    {
+        return char::from_u32(0x0E50 + u32::from(c) - u32::from('0')).map(String::from);
+    }
     if !s.prefs.autocorrect.enabled || !s.prefs.autocorrect.smart_quotes {
         return None;
     }

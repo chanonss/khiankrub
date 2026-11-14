@@ -46,7 +46,7 @@ People trust WordCraft with their writing; a crash loses their work. **This outr
 - **Rust only** (no handwritten JS/TS). **Never break wasm** (`cargo xtask wasm`).
 
 ## Quality gates
-Before every commit: `cargo xtask ci` (fmt, clippy -D warnings, tests, assets, layers, wasm). Commit after every arc of work that builds, with a task id in the message (`M2.1: line spacing dialog`).
+**Checks before a commit (owner, 2026-11-13): save time on small fixes.** Run only what the change needs: `cargo fmt`, clippy with `-D warnings` and the tests of the crates you touched, plus `cargo check --target wasm32-unknown-unknown` on them when web code changed (and `cargo xtask assets` when an asset file changed). Run the full `cargo xtask ci` only when it is really needed: before a push, release or publish; after a large change to shared code (document model, layout, file formats, engine) whose effects reach far; or when the owner asks. Say in `HANDOFF.md` which checks ran. The full run covers fmt, clippy -D warnings, tests, assets, layers and wasm. Commit after every arc of work that builds, with a task id in the message (`M2.1: line spacing dialog`).
 
 ## Typing behaves like Word
 Typing, Enter, Backspace, Tab, lists, AutoCorrect and AutoFormat follow Word's observed behaviour in [`docs/typing-parity.md`](docs/typing-parity.md), pinned by `crates/engine/src/tests_typing.rs` (keys go through the same commands as the keyboard). Change behaviour, doc and tests together; a typing fix lands with a test there. Compare headlessly (`ui_shot`); don't drive GUIs with keystrokes on the shared machine.

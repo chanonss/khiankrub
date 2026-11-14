@@ -304,6 +304,9 @@ pub struct UiState {
     pub show_ribbon_tab_numbers: bool,
     /// File › Options › General: show the labels beneath ribbon groups.
     pub show_ribbon_group_names: bool,
+    /// File › Options › General: the ribbon tabs sit in the middle of the strip (the default) or
+    /// start at the left after File, as in Word.
+    pub ribbon_tabs_centered: bool,
     pub recent: Vec<String>,
     /// Symbols inserted from the Symbol dialog, most recent first (#321).
     pub recent_symbols: Vec<dialogs_insert::RecentSymbol>,
@@ -437,6 +440,7 @@ impl Default for UiState {
             ribbon_collapsed: false,
             show_ribbon_tab_numbers: true,
             show_ribbon_group_names: false,
+            ribbon_tabs_centered: true,
             recent: Vec::new(),
             recent_symbols: Vec::new(),
             recent_colors: Vec::new(),
@@ -3963,11 +3967,12 @@ mod tests {
             let now = under(&a);
             // Across, the place can only be kept while the pages stay one per row: in rows they
             // fit the window side by side and there is nothing to scroll sideways.
-            // Within a couple of screen pixels.
+            // Within a couple of screen pixels (2.5: the frame the pages reflow into rows can land
+            // exactly 2 px off, as pages snap to whole pixels; seen with the 60 px ribbon).
             let off = (now - at) * a.canvas.scale;
             let across = a.canvas.cols > cols || off.x.abs() < 2.0;
             assert!(
-                across && off.y.abs() < 2.0,
+                across && off.y.abs() < 2.5,
                 "frame {n} at {:.0}%: {now:?} on page {page}, was {at:?}",
                 a.canvas.scale / canvas::PX_PER_PT * 100.0
             );

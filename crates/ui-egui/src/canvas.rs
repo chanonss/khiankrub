@@ -100,6 +100,9 @@ pub struct CanvasState {
     pub context_menu_from_keys: bool,
     /// Where the context menu stands: the right-click point, or below the caret.
     pub context_menu_at: Option<Pos2>,
+    /// The page whose header or footer area was right-clicked, and whether it shows its page
+    /// number: the menu then offers to hide (or show) the number on that page only.
+    pub context_page_number: Option<(usize, wordcraft_engine::cmd::page_number::PageNumber)>,
     /// Screen rect of the selection's first line, for the floating mini toolbar.
     pub mini_anchor: Option<Rect>,
     /// The selection the mini toolbar was put away for by a click outside the document (the
@@ -233,6 +236,7 @@ impl Default for CanvasState {
             context_menu_open: false,
             context_menu_from_keys: false,
             context_menu_at: None,
+            context_page_number: None,
             mini_anchor: None,
             mini_dismissed: None,
             pasted: false,
@@ -1593,8 +1597,20 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             context_suggestions(app);
         }
     }
+    // Right-click in a page's header or footer area: the menu can hide that page's number.
+    if secondary_clicked {
+        app.canvas.context_page_number = resp
+            .interact_pointer_pos()
+            .and_then(|p| page_at(&rects, &layout, geo.scale, p))
+            .filter(|(page, _, y)| layout.pages.get(*page).is_some_and(|pg| *y < pg.body.y || *y > pg.body.y + pg.body.h))
+            .map(|(page, _, _)| (page, wordcraft_engine::cmd::page_number::state(&mut app.session, page)))
+            .filter(|(_, st)| *st != wordcraft_engine::cmd::page_number::PageNumber::None);
+    }
     // Shift+F10 opens the same menu below the caret, for the selection or the word there (#821).
     let from_keys = std::mem::take(&mut app.canvas.context_menu_from_keys);
+    if from_keys {
+        app.canvas.context_page_number = None;
+    }
     if from_keys {
         context_suggestions(app);
         app.canvas.context_menu_at = caret_screen(app).map(|(p, h)| p + egui::vec2(0.0, h));
@@ -2962,6 +2978,7 @@ fn context_menu_icon(id: &str, params: &serde_json::Value) -> &'static str {
         "table.autofit" => "autofit",
         "table.textDirection" => "textDirection",
         "references.caption" => "caption",
+        "hf.hidePageNumber" => "pageNumber",
         _ => "properties",
     }
 }
@@ -2987,6 +3004,30 @@ fn context_menu(app: &mut WordApp, ui: &mut Ui) {
             ui.close();
         }
     };
+    if let Some((page, st)) = app.canvas.context_page_number {
+        use wordcraft_engine::cmd::page_number::PageNumber;
+        let label = if st == PageNumber::Hidden { "Show Page Number on This Page" } else { "Hide Page Number on This Page" };
+        let atom = ui.id().with("context icon page number");
+        let response = egui::Button::new((egui::Atom::custom(atom, egui::vec2(18.0, 18.0)), tl!(label))).atom_ui(ui);
+        if let Some(rect) = response.rect(atom) {
+            paint_context_icon(ui, rect, "pageNumber", true);
+        }
+        if response.response.clicked() {
+            if let Err(e) = app.run("hf.hidePageNumber", json!({"page": page, "hide": st != PageNumber::Hidden})) {
+                let why = if e.contains("table") {
+                    tl!("The page starts right after a table, so its page number can't be hidden on its own.")
+                } else if e.contains("paragraph") {
+                    tl!("The page starts in the middle of a paragraph, so its page number can't be hidden on its own.")
+                } else {
+                    e.as_str()
+                };
+                let why = why.to_string();
+                app.status(why);
+            }
+            ui.close();
+        }
+        ui.separator();
+    }
     if let Some(issue) = app.canvas.context_issue.clone() {
         let sugg: Vec<String> = issue
             .get("suggestions")
@@ -4030,6 +4071,66 @@ mod tests {
         }
         let text = h.state().session.doc.plain_text(StoryRef::Body);
         assert_eq!(text.matches("Fresh heading").count(), 2, "the new heading is listed in the table: {text}");
+    }
+
+    /// Right-clicking a page's footer offers to hide that page's number; picking it hides the
+    /// number on that page only, and the same menu shows it again.
+    #[test]
+    fn right_click_on_the_footer_hides_that_page_number() {
+        use egui_kittest::kittest::Queryable;
+        use wordcraft_engine::cmd::page_number::{PageNumber, state};
+        let mut a = WordApp::new(wordcraft_engine::Session::new(wordcraft_doc::Document::new()), Default::default());
+        a.run("text.insert", json!({"text": "บทที่ 1"})).unwrap();
+        a.run("insert.pageBreak", json!({})).unwrap();
+        a.run("text.insert", json!({"text": "บทที่ 2"})).unwrap();
+        a.run("insert.editFooter", json!({"page": 0})).unwrap();
+        a.run("insert.footer", json!({"preset": "pageNumber"})).unwrap();
+        a.run("insert.closeHeader", json!({})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(1440.0, 1600.0)).build_ui_state(
+            |ui, app: &mut WordApp| {
+                let ctx = ui.ctx().clone();
+                app.logic(&ctx);
+                app.ui(ui);
+            },
+            a,
+        );
+        for _ in 0..6 {
+            h.step();
+        }
+        let footer_point = |h: &mut egui_kittest::Harness<'_, WordApp>| {
+            let layout = h.state_mut().session.layout();
+            let pg = layout.pages.first().expect("a page");
+            let (x, y) = (pg.w / 2.0, pg.body.y + pg.body.h + (pg.h - pg.body.y - pg.body.h) / 2.0);
+            page_to_screen(h.state_mut(), 0, x, y).expect("on screen")
+        };
+        let right_click = |h: &mut egui_kittest::Harness<'_, WordApp>, at: egui::Pos2| {
+            h.event(egui::Event::PointerMoved(at));
+            for pressed in [true, false] {
+                h.event(egui::Event::PointerButton { pos: at, button: egui::PointerButton::Secondary, pressed, modifiers: Default::default() });
+                h.step();
+            }
+            h.step();
+        };
+        let at = footer_point(&mut h);
+        right_click(&mut h, at);
+        h.get_by_label_contains("Hide Page Number on This Page").click();
+        for _ in 0..3 {
+            h.step();
+        }
+        assert_eq!(state(&mut h.state_mut().session, 0), PageNumber::Hidden);
+        assert_eq!(state(&mut h.state_mut().session, 1), PageNumber::Shown);
+        // The view may follow the caret after the change: measure once it has settled.
+        h.state_mut().session.sel = wordcraft_engine::Selection::caret(Pos::body(0, 0));
+        for _ in 0..6 {
+            h.step();
+        }
+        let at = footer_point(&mut h);
+        right_click(&mut h, at);
+        h.get_by_label_contains("Show Page Number on This Page").click();
+        for _ in 0..3 {
+            h.step();
+        }
+        assert_eq!(state(&mut h.state_mut().session, 0), PageNumber::Shown);
     }
 
     /// #996: on macOS a Control-click is the right-click (the trackpad's and the one-button

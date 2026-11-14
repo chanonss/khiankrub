@@ -154,7 +154,8 @@ impl MathAtlas {
 
 impl Previews {
     /// The font list: installed families, each by its name in the interface language when it has
-    /// one (宋体 for SimSun in Chinese, #505), plus the common Thai document font TH Sarabun IT9.
+    /// one (宋体 for SimSun in Chinese, #505). The desktop app also offers the common Thai document font TH Sarabun IT9
+    /// by that name; the web app does not (it is not bundled, and it clashes with TH SarabunPSK).
     pub fn families(&mut self) -> Vec<String> {
         let lang = crate::i18n::current().code();
         let generation = wordcraft_fonts::FontDb::global().generation();
@@ -167,6 +168,7 @@ impl Previews {
                     f.push(w.to_string());
                 }
             }
+            #[cfg(not(target_arch = "wasm32"))]
             if !f.iter().any(|x| x.eq_ignore_ascii_case("TH Sarabun IT9")) {
                 f.push("TH Sarabun IT9".to_string());
             }
@@ -746,6 +748,7 @@ pub fn table_style_tile(ui: &mut Ui, app: &mut WordApp, style: &str, name: &str,
 mod tests {
     use super::*;
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn font_list_offers_th_sarabun_it9_by_its_common_name() {
         assert!(Previews::default().families().iter().any(|f| f == "TH Sarabun IT9"));

@@ -6,27 +6,29 @@ use serde_json::Value;
 use crate::theme::{Tokens, regular};
 use crate::{WordApp, icons};
 
-/// Height of the ribbon content area (without group labels).
-pub const CONTENT_H: f32 = 72.0;
+/// Height of the ribbon content area (without group labels): two rows of small buttons, or one
+/// large button as tall as both (owner's two-size ribbon, 2026-11-13).
+pub const CONTENT_H: f32 = 60.0;
 /// Height of the group title row under the content.
 pub const LABEL_H: f32 = 18.0;
-/// Large buttons: centre of the 32 px icon, top of the first label line, and the pitch and
+/// Large buttons: centre of the [`BIG_ICON`] icon, top of the first label line, and the pitch and
 /// height of a label line (`regular(11.5)`; a test checks the font's real line height).
-pub const BIG_ICON_Y: f32 = 21.0;
-pub const BIG_LABEL_Y: f32 = 40.0;
+pub const BIG_ICON: f32 = 24.0;
+pub const BIG_ICON_Y: f32 = 17.0;
+pub const BIG_LABEL_Y: f32 = 31.0;
 pub const LABEL_PITCH: f32 = 13.0;
 pub const LABEL_LINE_H: f32 = 14.0;
 // #653: a two-line label ends inside the content, above the group title row.
 const _: () = assert!(BIG_LABEL_Y + LABEL_PITCH + LABEL_LINE_H <= CONTENT_H);
-const _: () = assert!(BIG_ICON_Y + 16.0 <= BIG_LABEL_Y);
-/// Small buttons (as in Word): a 20 px icon in a 26 × 24 button, so three rows fill the content
-/// height and two rows sit centred with [`ROW_GAP`] between them.
-pub const SMALL_W: f32 = 26.0;
-pub const SMALL_H: f32 = 24.0;
+const _: () = assert!(BIG_ICON_Y + BIG_ICON / 2.0 <= BIG_LABEL_Y);
+/// Small buttons: a 20 px icon, no text, in a 28 × 28 button; two rows fill the content height
+/// with [`ROW_GAP`] between them. Their name is in the tooltip.
+pub const SMALL_W: f32 = 28.0;
+pub const SMALL_H: f32 = 28.0;
 pub const SMALL_ICON: f32 = 20.0;
-/// Space between the two rows of a two-row stack (Font, Paragraph).
-pub const ROW_GAP: f32 = 8.0;
-const _: () = assert!(3.0 * SMALL_H <= CONTENT_H);
+/// Space between the two rows of a group.
+pub const ROW_GAP: f32 = 4.0;
+const _: () = assert!(2.0 * SMALL_H + ROW_GAP <= CONTENT_H);
 
 /// Shortcut text for a command (`⌘B` on macOS, `Ctrl+B` elsewhere): its first key in effect,
 /// custom keys included (Customize Keyboard).
@@ -174,7 +176,7 @@ pub(crate) fn run_from_ribbon(app: &mut WordApp, id: &str, params: Value) {
     }
 }
 
-/// A large ribbon button: 32 px icon over a (possibly two-line) label.
+/// A large ribbon button: [`BIG_ICON`] icon over a (possibly two-line) label, as tall as two rows.
 pub fn big(ui: &mut Ui, app: &mut WordApp, icon: &str, label: &str, id: &str, params: Value, menu: bool) -> Response {
     big_button(ui, app, icon, label, id, params, menu, false)
 }
@@ -216,7 +218,7 @@ fn big_button(ui: &mut Ui, app: &mut WordApp, icon: &str, label: &str, id: &str,
     keytip_badge(ui, r, id, &plain);
     let on = enabled(app, id);
     ribbon_control_bg(ui, r, &resp, checked, &t);
-    let ic = Rect::from_center_size(pos2(r.center().x, r.min.y + BIG_ICON_Y), vec2(32.0, 32.0));
+    let ic = Rect::from_center_size(pos2(r.center().x, r.min.y + BIG_ICON_Y), vec2(BIG_ICON, BIG_ICON));
     let (c, a) = if on { (t.icon, t.accent) } else { (t.text_disabled, t.text_disabled) };
     icons::paint(ui.painter(), ic, icon, c, a);
     let mut y = r.min.y + BIG_LABEL_Y;
@@ -241,7 +243,8 @@ fn big_button(ui: &mut Ui, app: &mut WordApp, icon: &str, label: &str, id: &str,
     resp
 }
 
-/// A small button: 16 px icon with an optional label; `checked` draws the toggled state.
+/// A small button: icon only; `checked` draws the toggled state. `label` is not drawn (small
+/// buttons carry no text in the two-size ribbon); the name is `tip`, shown as the tooltip.
 pub fn small(ui: &mut Ui, app: &mut WordApp, icon: &str, label: Option<&str>, tip: &str, id: &str, params: Value, checked: bool) -> Response {
     small_with_width(ui, app, icon, label, tip, id, params, checked, 0.0)
 }
@@ -258,19 +261,16 @@ pub fn small_with_width(
     checked: bool,
     min_width: f32,
 ) -> Response {
-    let (label, tip) = (label.map(|l| tl!(l)), tl!(tip));
+    let _ = label;
+    let tip = tl!(tip);
     let t = Tokens::get(ui.ctx());
-    let text_w = label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(11.5), t.text).size().x) + 6.0).unwrap_or(0.0);
-    let (r, resp) = ui.allocate_exact_size(vec2((SMALL_W + text_w).max(min_width), SMALL_H), Sense::click());
+    let (r, resp) = ui.allocate_exact_size(vec2(SMALL_W.max(min_width), SMALL_H), Sense::click());
     keytip_badge(ui, r, id, tip);
     let on = enabled(app, id);
     ribbon_control_bg(ui, r, &resp, checked, &t);
-    let ic = Rect::from_center_size(pos2(r.min.x + SMALL_W / 2.0, r.center().y), vec2(SMALL_ICON, SMALL_ICON));
+    let ic = Rect::from_center_size(r.center(), vec2(SMALL_ICON, SMALL_ICON));
     let (c, a) = if on { (t.icon, t.accent) } else { (t.text_disabled, t.text_disabled) };
     icons::paint(ui.painter(), ic, icon, c, a);
-    if let Some(l) = label {
-        ui.painter().text(pos2(r.min.x + SMALL_W, r.center().y), Align2::LEFT_CENTER, l, regular(11.5), if on { t.text } else { t.text_disabled });
-    }
     let resp = tooltip(app, resp, tip, id);
     command_menu(&resp, app, id);
     if resp.clicked() && on {
@@ -316,9 +316,10 @@ pub fn split_labeled(
     menu: impl FnOnce(&mut Ui, &mut WordApp),
 ) {
     let tip = tl!(tip);
-    let label = label.map(|l| tl!(l));
+    // Small buttons carry no text in the two-size ribbon: the label is the tooltip's business.
+    let _ = label;
     let t = Tokens::get(ui.ctx());
-    let text_w = label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(11.5), t.text).size().x) + 4.0).unwrap_or(0.0);
+    let text_w = 0.0;
     let gap = ui.spacing().item_spacing.x;
     // A row exactly the button's size (`ui.horizontal` would make it a little taller).
     ui.allocate_ui_with_layout(vec2(SMALL_W + text_w + gap + 11.0, SMALL_H), egui::Layout::left_to_right(egui::Align::Center), |ui| {
@@ -335,9 +336,6 @@ pub fn split_labeled(
             let bar = Rect::from_min_max(pos2(ic.min.x + 2.0, ic.min.y + 16.5), pos2(ic.max.x - 2.0, ic.min.y + 19.0));
             ui.painter().rect_filled(bar, 0.0, sw);
             ui.painter().rect_stroke(bar, 0.0, Stroke::new(0.6, t.border_strong), egui::StrokeKind::Inside);
-        }
-        if let Some(l) = label {
-            ui.painter().text(pos2(ir.max.x, r.center().y), Align2::LEFT_CENTER, l, regular(11.5), t.text);
         }
         icons::paint(ui.painter(), Rect::from_center_size(ar.center(), vec2(DROPDOWN, DROPDOWN)), "dropdown", t.icon, t.accent);
         let resp = tooltip(app, resp, tip, id);
@@ -384,7 +382,7 @@ pub fn menu_button(
         let (r, resp) = ui.allocate_exact_size(vec2(w, CONTENT_H), Sense::click());
         keytip_badge(ui, r, "menu", tip);
         ribbon_control_bg(ui, r, &resp, false, &t);
-        icons::paint(ui.painter(), Rect::from_center_size(pos2(r.center().x, r.min.y + BIG_ICON_Y), vec2(32.0, 32.0)), icon, c, a);
+        icons::paint(ui.painter(), Rect::from_center_size(pos2(r.center().x, r.min.y + BIG_ICON_Y), vec2(BIG_ICON, BIG_ICON)), icon, c, a);
         let lines: Vec<&str> = label.unwrap_or("").split('\n').collect();
         let mut y = r.min.y + BIG_LABEL_Y;
         for (i, l) in lines.iter().enumerate() {
@@ -393,14 +391,11 @@ pub fn menu_button(
         }
         resp
     } else {
-        let text_w = label.map(|l| ui.ctx().fonts_mut(|f| f.layout_no_wrap(l.to_string(), regular(11.5), t.text).size().x) + 6.0).unwrap_or(0.0);
-        let (r, resp) = ui.allocate_exact_size(vec2(SMALL_W + text_w + 10.0, SMALL_H), Sense::click());
+        // Small: icon and drop-down marker only; the name is the tooltip.
+        let (r, resp) = ui.allocate_exact_size(vec2(SMALL_W + 10.0, SMALL_H), Sense::click());
         keytip_badge(ui, r, "menu", tip);
         ribbon_control_bg(ui, r, &resp, false, &t);
         icons::paint(ui.painter(), Rect::from_center_size(pos2(r.min.x + SMALL_W / 2.0, r.center().y), vec2(SMALL_ICON, SMALL_ICON)), icon, c, a);
-        if let Some(l) = label {
-            ui.painter().text(pos2(r.min.x + SMALL_W, r.center().y), Align2::LEFT_CENTER, l, regular(11.5), text);
-        }
         icons::paint(ui.painter(), Rect::from_center_size(pos2(r.max.x - 6.0, r.center().y), vec2(DROPDOWN, DROPDOWN)), "dropdown", c, c);
         resp
     };
@@ -423,19 +418,28 @@ thread_local! {
 }
 
 /// A ribbon group: content, a centred label below and a divider on the right.
-pub fn group(ui: &mut Ui, title: &str, launcher: Option<&str>, app: &mut WordApp, add: impl FnOnce(&mut Ui, &mut WordApp)) {
-    // The English title keys the launcher's id; the drawn title is translated.
-    group_titled(ui, title, tl!(title), launcher, app, add);
+pub fn group(ui: &mut Ui, title: &str, app: &mut WordApp, add: impl FnOnce(&mut Ui, &mut WordApp)) {
+    // The English title keys the group (tests, custom groups); the drawn title is translated.
+    group_titled(ui, title, tl!(title), app, add);
+}
+
+/// Height of the strip under the buttons: only there while group names are shown (File ›
+/// Options). Groups have no launchers (owner, 2026-11-13, as in OnlyOffice and the simplified
+/// Office ribbon): their dialogs open from the end of a related menu, the right-click menu, a
+/// shortcut and command search.
+pub fn label_strip_h(app: &WordApp) -> f32 {
+    if app.ui.show_ribbon_group_names { LABEL_H } else { 0.0 }
 }
 
 /// A ribbon group whose title is shown as is (a custom group's name, Customize Ribbon).
-pub fn group_titled(ui: &mut Ui, id_title: &str, title: &str, launcher: Option<&str>, app: &mut WordApp, add: impl FnOnce(&mut Ui, &mut WordApp)) {
+pub fn group_titled(ui: &mut Ui, id_title: &str, title: &str, app: &mut WordApp, add: impl FnOnce(&mut Ui, &mut WordApp)) {
     let t = Tokens::get(ui.ctx());
     let show_name = app.ui.show_ribbon_group_names;
+    let strip = label_strip_h(app);
     let label_w = if show_name { ui.ctx().fonts_mut(|f| f.layout_no_wrap(title.to_string(), regular(11.0), t.group_label).size().x) } else { 0.0 };
     let start = ui.cursor().min;
     let inner = ui.vertical(|ui| {
-        ui.set_min_width(label_w + if launcher.is_some() { 22.0 } else { 10.0 });
+        ui.set_min_width(label_w + 10.0);
         let content = ui.allocate_ui_with_layout(vec2(ui.available_width(), CONTENT_H), egui::Layout::left_to_right(egui::Align::Min), |ui| {
             ui.spacing_mut().item_spacing = vec2(1.0, 1.0);
             add(ui, app);
@@ -445,34 +449,19 @@ pub fn group_titled(ui: &mut Ui, id_title: &str, title: &str, launcher: Option<&
             TALL_GROUPS.with(|g| g.borrow_mut().push(format!("{id_title}: {:.1}", content.response.rect.height())));
         }
         #[cfg(not(test))]
-        let _ = content;
+        let _ = (content, id_title);
     });
     let r = inner.response.rect;
-    let r = Rect::from_min_max(start, pos2(r.max.x, start.y + CONTENT_H + LABEL_H));
-    let title_y = r.max.y - LABEL_H / 2.0;
+    let r = Rect::from_min_max(start, pos2(r.max.x, start.y + CONTENT_H + strip));
     if show_name {
-        ui.painter().text(pos2(r.center().x, title_y), Align2::CENTER_CENTER, title, regular(11.0), t.group_label);
-    }
-    if let Some(cmd) = launcher {
-        let lr = Rect::from_center_size(pos2(r.max.x - 6.0, title_y), vec2(11.0, 11.0));
-        let resp = ui.interact(lr, ui.id().with(("launch", id_title)), Sense::click());
-        if resp.hovered() {
-            ui.painter().rect_filled(lr.expand(2.0), 2.0, t.hover);
-        }
-        icons::paint(ui.painter(), lr, "launcher", t.text_dim, t.accent);
-        if resp.on_hover_text(crate::i18n::fmt(tl!("{group} settings"), &[("group", title)])).clicked() {
-            let _ = app.run(cmd, serde_json::json!({}));
-        }
+        ui.painter().text(pos2(r.center().x, r.max.y - strip / 2.0), Align2::CENTER_CENTER, title, regular(11.0), t.group_label);
     }
     ui.add_space(5.0);
     let x = ui.cursor().min.x;
-    ui.painter().line_segment([pos2(x, start.y + 4.0), pos2(x, start.y + CONTENT_H + LABEL_H - 4.0)], Stroke::new(1.0, t.border));
+    ui.painter().line_segment([pos2(x, start.y + 4.0), pos2(x, start.y + CONTENT_H + strip - 4.0)], Stroke::new(1.0, t.border));
     ui.add_space(6.0);
 }
 
-/// The icon a command's button shows outside its own ribbon group (custom groups, the Quick
-/// Access Toolbar): the one its ribbon button uses, which is usually named after the id's last
-/// part. Names the icon set doesn't have draw a lettered tile ([`icons::paint`]).
 pub fn command_icon(id: &str) -> &str {
     const ICONS: &[(&str, &str)] = &[
         ("arrange.wrap", "wrapText"),

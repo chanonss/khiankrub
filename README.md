@@ -30,6 +30,29 @@ This is a one-person project and still young. If something doesn't work, please
 โปรแกรมพิมพ์เอกสารภาษาไทยที่ใช้ได้ฟรี ยังอยู่ระหว่างพัฒนา
 หากพบปัญหา แจ้งได้ที่หน้า [Issues](https://github.com/chanonss/khiankrub/issues) ขอบคุณทุกความคิดเห็นครับ
 
+## What's new in 0.16.0
+
+<p align="center">
+  <img src="docs/images/khiankrub-ribbon-0.16.0.png" alt="KhianKrub 0.16.0 Home ribbon in Thai: large labelled buttons for the main commands and small icon-only formatting buttons, in at most two rows" width="100%">
+</p>
+
+- **New icons, shared across KrubOffice.** KhianKrub's redrawn line icons are now the same set KhitKrub and PhutKrub use,
+  so a button that does the same thing looks the same in every app.
+- **A two-size ribbon in at most two rows.** Main commands are large labelled buttons; formatting buttons are icons
+  (hover for the name and shortcut). The ribbon is shorter, leaving more room for the page. The small dialog-launcher
+  corners are gone; those dialogs still open from their menus, right-click and their shortcuts.
+- **Book fold.** Page Setup › Multiple pages › Book fold lays out pages to print on both sides and fold into a booklet,
+  and exports a folding-order PDF.
+- **Thai digits button** next to Thai Distributed turns the numbers in the selection into Thai digits (๑๒๓).
+- **Hide the page number on one page.** Right-click the header or footer and choose *Hide page number on this page*;
+  the next pages keep counting, and Word shows it the same way.
+- **Size pictures, shapes and charts from the ribbon**, in centimetres (inches in English).
+- **Object tabs fully in Thai** (picture, table, shape, chart and equation), and ribbon tabs can be centred or
+  left-aligned in Customize Ribbon.
+
+ไอคอนชุดใหม่ใช้ร่วมกันทั้ง KrubOffice ริบบิ้นปุ่มสองขนาดไม่เกินสองแถว พับเป็นเล่ม ปุ่มเลขไทย ซ่อนเลขหน้าเฉพาะหน้า
+กำหนดขนาดรูปภาพ รูปร่าง และแผนภูมิจากแถบเครื่องมือ และแท็บของวัตถุเป็นภาษาไทยครบ
+
 ## What's new in 0.9.2
 
 - **Documents with links print.** A document with a hyperlink or a table of contents failed to print
@@ -192,7 +215,7 @@ Everything that differs from the original, newest first, is in [FORK-CHANGES.md]
 ### Mac
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
-   **KhianKrub-0.15.0-macos-universal.zip** under *Assets*.
+   **KhianKrub-0.16.0-macos-universal.zip** under *Assets*.
 2. Unzip it and drag **KhianKrub** onto **Applications**.
 3. **First time only: right-click › Open.** The app is not signed by Apple, so macOS says it cannot verify the
    developer. Right-click (or Control-click) KhianKrub, choose **Open**, then click **Open** again. If the dialog
@@ -208,7 +231,7 @@ Intel Macs; 0.7.3 and earlier run on Apple silicon only.
 ### Windows
 
 1. Go to the [latest release](https://github.com/chanonss/khiankrub/releases/latest) and download
-   **khiankrub-0.15.0-windows-x64.msi** (under *Assets*), then double-click it.
+   **khiankrub-0.16.0-windows-x64.msi** (under *Assets*), then double-click it.
 2. **First time only: More info › Run anyway.** The installer is not signed (see [Code signing policy](#code-signing-policy)), so
    Windows says "Windows protected your PC". Click **More info**, then **Run anyway**, and click **Yes** when Windows asks for permission. KhianKrub is
    then in the Start menu.

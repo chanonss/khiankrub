@@ -94,11 +94,26 @@ pub struct PdfOptions {
     /// they print nothing, and a printer driver can't fit a page with annotations to the paper
     /// (#4734).
     pub links: bool,
+    /// A Book fold document (Page Setup › Multiple pages) is written as the sheets to print and
+    /// fold: landscape, two pages side by side, in booklet order. Off writes its pages one by one.
+    /// Imposed sheets carry no structure tree, links or bookmarks (they would point at pages that
+    /// no longer stand alone).
+    pub booklet: bool,
 }
 
 impl Default for PdfOptions {
     fn default() -> Self {
-        PdfOptions { pages: None, title: None, author: None, tagged: true, include_markup: false, comments: false, compress: true, links: true }
+        PdfOptions {
+            pages: None,
+            title: None,
+            author: None,
+            tagged: true,
+            include_markup: false,
+            comments: false,
+            compress: true,
+            links: true,
+            booklet: true,
+        }
     }
 }
 
@@ -155,7 +170,33 @@ enum Attempt {
     BadFont(u32, String),
 }
 
+/// The sheets of a folded booklet: each is two pages side by side (left, right), front and back
+/// of each sheet in turn, as they are printed double-sided and folded. `pages` are cut into
+/// booklets of `sheets` sheets (0: one booklet), each padded with blank pages to a multiple of 4.
+/// A booklet of `n` pages has, for sheet `i`, the front `(n-1-2i, 2i)` and the back `(2i+1, n-2-2i)`.
+pub fn booklet_sheets(pages: &[usize], sheets: u32) -> Vec<[Option<usize>; 2]> {
+    let per = if sheets == 0 { pages.len().div_ceil(4).max(1) * 4 } else { (sheets as usize).saturating_mul(4) };
+    let mut out = Vec::new();
+    for chunk in pages.chunks(per.max(4)) {
+        let n = chunk.len().div_ceil(4) * 4;
+        let at = |k: usize| chunk.get(k).copied();
+        for i in 0..n / 4 {
+            out.push([at(n - 1 - 2 * i), at(2 * i)]);
+            out.push([at(2 * i + 1), at(n - 2 - 2 * i)]);
+        }
+    }
+    out
+}
+
 fn write_attempt(doc: &Document, lay: &DocLayout, opts: &PdfOptions, pages: &[usize], outlined: &HashSet<u32>) -> Result<Attempt, PdfError> {
+    let impose = doc.settings.book_fold && opts.booklet;
+    let imposed_opts;
+    let opts = if impose {
+        imposed_opts = PdfOptions { tagged: false, links: false, comments: false, ..opts.clone() };
+        &imposed_opts
+    } else {
+        opts
+    };
     let settings = krilla::SerializeSettings { compress_content_streams: opts.compress, enable_tagging: opts.tagged, ..Default::default() };
     let language = doc.styles.default_chr.lang.clone().filter(|l| !l.is_empty() && l.is_ascii());
     let mut writer = Writer::new_with_language(settings, metadata(doc, opts), language);
@@ -177,6 +218,31 @@ fn write_attempt(doc: &Document, lay: &DocLayout, opts: &PdfOptions, pages: &[us
         links: Vec::new(),
         bookmarks: std::cell::OnceCell::new(),
     };
+    if impose {
+        // The sheet is as wide as two pages of the first one, and as tall.
+        let sheets = booklet_sheets(pages, doc.settings.book_fold_sheets);
+        let first = pages.first().and_then(|p| lay.pages.get(*p)).ok_or(PdfError::NoPages)?;
+        let fit = Fit::of(first);
+        let (w, h) = (clamp_side(fit.paper_w), clamp_side(first.h));
+        let size = Size::from_wh(w * 2.0, h).ok_or(PdfError::NoPages)?;
+        for sheet in sheets {
+            let mut kp = pdf.start_page_with(PageSettings::new(size));
+            let mut s = kp.surface();
+            for (side, index) in sheet.iter().enumerate() {
+                let Some(page) = index.and_then(|i| lay.pages.get(i)) else { continue };
+                s.push_transform(&Transform::from_translate(side as f32 * w, 0.0));
+                ex.links.clear();
+                ex.page(&mut s, page, w, h);
+                s.pop();
+            }
+            s.finish();
+            kp.finish();
+        }
+        if let Some(error) = ex.font_error {
+            return Err(error);
+        }
+        return finish_pdf(writer, &ex);
+    }
     if let Some(o) = ex.outline(pages) {
         pdf.set_outline(o);
     }
@@ -212,6 +278,11 @@ fn write_attempt(doc: &Document, lay: &DocLayout, opts: &PdfOptions, pages: &[us
     if let Some(error) = ex.font_error {
         return Err(error);
     }
+    finish_pdf(writer, &ex)
+}
+
+/// Close the document and turn a font krilla could not embed into [`Attempt::BadFont`].
+fn finish_pdf(writer: Writer, ex: &Exporter) -> Result<Attempt, PdfError> {
     match writer.finish() {
         Ok(bytes) => Ok(Attempt::Done(bytes)),
         Err(WriteError::Serialization(error)) => match *error {

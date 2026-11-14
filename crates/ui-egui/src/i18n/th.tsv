@@ -1432,3 +1432,81 @@ template	Studio handbook (sample)	คู่มือสตูดิโอ (ต�
 	Background	พื้นหลัง
 	Mixed	หลายค่า
 	Table borders	เส้นขอบตาราง
+	Gutter:	ที่เผื่อเข้าเล่ม:
+	Multiple pages:	หลายหน้า:
+	Book fold	พับเป็นเล่ม
+	Sheets in booklet:	จำนวนแผ่นต่อเล่ม:
+	In a booklet the paper size below is one page; the sheet is twice as wide.	ในเล่มพับ ขนาดกระดาษด้านล่างคือหนึ่งหน้า แผ่นจริงกว้างเป็นสองเท่า
+	Inside:	ด้านใน:
+	Outside:	ด้านนอก:
+	Thai Digits	ตัวเลขไทย
+	Type Thai digits (๑ ๒ ๓) when the font has them	พิมพ์เลข 0–9 เป็นเลขไทย (๑ ๒ ๓) เมื่อฟอนต์มีเลขไทย
+	Couldn't export {path}: {error}	ส่งออก {path} ไม่สำเร็จ: {error}
+	Center the ribbon tabs (off: start at the left, as in Word)	จัดแท็บริบบิ้นไว้กึ่งกลาง (ปิด: ชิดซ้าย เหมือนใน Word)
+	Hide Page Number on This Page	ซ่อนเลขหน้าในหน้านี้
+	Show Page Number on This Page	แสดงเลขหน้าในหน้านี้
+	The page starts right after a table, so its page number can't be hidden on its own.	หน้านี้เริ่มต่อจากตาราง จึงซ่อนเลขหน้าเฉพาะหน้านี้ไม่ได้
+	The page starts in the middle of a paragraph, so its page number can't be hidden on its own.	หน้านี้เริ่มกลางย่อหน้า จึงซ่อนเลขหน้าเฉพาะหน้านี้ไม่ได้
+	Left indent:	เยื้องซ้าย:
+	Right indent:	เยื้องขวา:
+	Space before:	ระยะก่อน:
+	Space after:	ระยะหลัง:
+	Line\nNumbers	หมายเลข\nบรรทัด
+	Cell Alignment	การจัดแนวเซลล์
+	Insert\nBelow	แทรก\nด้านล่าง
+	Merge\nCells	ผสาน\nเซลล์
+	Accent	เครื่องหมายเน้น
+	Add\nShape	เพิ่ม\nรูปร่าง
+	Adjust	ปรับ
+	All symbol sets	ชุดสัญลักษณ์ทั้งหมด
+	Border	เส้นขอบ
+	Bracket	วงเล็บ
+	Brightness, contrast and sharpness	ความสว่าง ความต่างสี และความคมชัด
+	Change\nColors	เปลี่ยน\nสี
+	Change Colors	เปลี่ยนสี
+	Change Picture	เปลี่ยนรูปภาพ
+	Close Equation	ปิดสมการ
+	Conversions	การแปลง
+	Convert between built-up and linear form	แปลงระหว่างรูปแบบสองมิติกับรูปแบบบรรทัดเดียว
+	Corrections	การแก้ไข
+	Create Graphic	สร้างกราฟิก
+	Demote	ลดระดับ
+	Equation Options	ตัวเลือกสมการ
+	Fraction	เศษส่วน
+	Frames and effects	กรอบและเอฟเฟกต์
+	Function	ฟังก์ชัน
+	Icon Color	สีไอคอน
+	Integral	ปริพันธ์
+	Justification	การจัดแนว
+	Justification of a display equation	การจัดแนวของสมการที่อยู่บนบรรทัดของตัวเอง
+	Large\nOperator	ตัวดำเนินการ\nขนาดใหญ่
+	Layouts	เค้าโครง
+	Leave the equation (Esc)	ออกจากสมการ (Esc)
+	Limit and\nLog	ลิมิต\nและลอการิทึม
+	Number the equation; the number sits at the right margin (or type # then the number)	ใส่หมายเลขสมการ หมายเลขอยู่ที่ขอบขวา (หรือพิมพ์ # แล้วตามด้วยหมายเลข)
+	Operator	ตัวดำเนินการ
+	Picture Format	รูปแบบรูปภาพ
+	Picture Styles	ลักษณะรูปภาพ
+	Picture border	เส้นขอบรูปภาพ
+	Picture transparency	ความโปร่งใสของรูปภาพ
+	Promote	เพิ่มระดับ
+	Radical	ราก
+	Recolor a one-color picture, such as an icon	เปลี่ยนสีรูปภาพที่มีสีเดียว เช่น ไอคอน
+	Reset\nGraphic	รีเซ็ต\nกราฟิก
+	Reset Crop	รีเซ็ตการครอบตัด
+	Saturation and recolor	ความอิ่มตัวของสีและการเปลี่ยนสี
+	Script	ตัวยกและตัวห้อย
+	Show the equation in the line of text	แสดงสมการในบรรทัดข้อความ
+	Show the equation on a line of its own	แสดงสมการบนบรรทัดของตัวเอง
+	SmartArt Design	ออกแบบ SmartArt
+	SmartArt Styles	ลักษณะ SmartArt
+	Structures	โครงสร้าง
+	Text Pane	บานหน้าต่างข้อความ
+	Transparency	ความโปร่งใส
+	Type equations in LaTeX	พิมพ์สมการด้วย LaTeX
+	Type equations in the linear format (UnicodeMath)	พิมพ์สมการแบบบรรทัดเดียว (UnicodeMath)
+	Type normal (non-math) text in the equation	พิมพ์ข้อความธรรมดา (ไม่ใช่คณิตศาสตร์) ในสมการ
+crop side	L	ซ
+crop side	T	บ
+crop side	R	ข
+crop side	B	ล

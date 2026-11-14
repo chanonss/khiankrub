@@ -47,6 +47,24 @@ fn seen_on_tabs_and_file() -> BTreeSet<(String, String)> {
     h.run_steps(3);
     let _ = h.state_mut().run("insert.closeHeader", json!({}));
     h.run_steps(2);
+    // The tabs that come with an object: each object inserted (and selected), its tab opened.
+    let picture = concat!(env!("CARGO_MANIFEST_DIR"), "/../../assets/app-icon/khiankrub-192.png");
+    for (cmd, params, tabs) in [
+        ("insert.picture", json!({"path": picture}), &["Picture Format"][..]),
+        ("insert.shape", json!({"kind": "rectangle"}), &["Shape Format"][..]),
+        ("insert.chart", json!({"type": "column"}), &["Chart Design"][..]),
+        ("insert.smartArt", json!({"layout": "process"}), &["SmartArt Design"][..]),
+        ("insert.equation", json!({}), &["Equation"][..]),
+    ] {
+        let _ = h.state_mut().run("caret.docEnd", json!({}));
+        let _ = h.state_mut().run(cmd, params);
+        for tab in tabs {
+            h.state_mut().ui.tab = (*tab).into();
+            h.run_steps(3);
+        }
+        let _ = h.state_mut().run("equation.exit", json!({}));
+        h.run_steps(1);
+    }
     for page in ["home", "new", "open", "info", "recover", "save", "saveAs", "print", "export", "close"] {
         h.state_mut().ui.backstage = true;
         h.state_mut().ui.backstage_page = page.into();

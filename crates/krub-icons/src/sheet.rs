@@ -200,6 +200,10 @@ pub enum Icon {
     RunTo,
     /// Stop: a square.
     StopSquare,
+    /// Insert › Icons: a few small symbols (line set only).
+    InsertIcons,
+    /// Insert › Charts › Hierarchy & more: several kinds of chart (line set only).
+    MoreCharts,
 }
 
 struct G<'a> {
@@ -325,6 +329,10 @@ pub fn paint_on_sheet(p: &Painter, rect: Rect, icon: Icon, c: Color32) {
 
 /// Draws `icon` into `rect` (square-ish), in colour `c`, with palette `pal`.
 fn paint_with(p: &Painter, rect: Rect, icon: Icon, c: Color32, pal: &Palette, flat: bool) {
+    // KhianKrub's line drawing for the same command, where there is one.
+    if crate::line::sheet::paint(p, rect, icon, c, flat) {
+        return;
+    }
     if let Some(shared) = canonical(icon)
         && crate::paint_named(p, rect, shared, c, flat, false)
     {
@@ -930,6 +938,8 @@ fn paint_with(p: &Painter, rect: Rect, icon: Icon, c: Color32, pal: &Palette, fl
             g.line(&[(13.0, 3.0), (13.0, 9.0)], c, 1.1);
         }
         Icon::StopSquare => g.rect(3.0, 3.0, 10.0, 10.0, Some(pal.recording), None),
+        // Drawn only by the line set (`line::sheet::paint`).
+        Icon::InsertIcons | Icon::MoreCharts => {}
     }
 }
 
@@ -1155,6 +1165,8 @@ impl Icon {
         Self::Continue,
         Self::RunTo,
         Self::StopSquare,
+        Self::InsertIcons,
+        Self::MoreCharts,
     ];
     pub fn name(self) -> &'static str {
         match self {
@@ -1301,6 +1313,8 @@ impl Icon {
             Self::Continue => "continue",
             Self::RunTo => "run-to",
             Self::StopSquare => "stop-square",
+            Self::InsertIcons => "insert-icons",
+            Self::MoreCharts => "more-charts",
         }
     }
 }

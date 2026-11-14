@@ -1298,13 +1298,13 @@ impl Writer<'_> {
                 }
             }
         }
-        sectpr_body(w, s);
+        sectpr_body(w, s, self.doc.settings.book_fold);
         // The properties before a tracked change come last (§17.13.5.32).
         if let Some(ch) = &s.fmt_change {
             let a = self.change_attrs(ch.rev);
             open_change(w, "w:sectPrChange", &a);
             w.open("w:sectPr", &[]);
-            sectpr_body(w, &ch.old);
+            sectpr_body(w, &ch.old, self.doc.settings.book_fold);
             w.close("w:sectPr");
             w.close("w:sectPrChange");
         }
@@ -1313,7 +1313,7 @@ impl Writer<'_> {
 }
 
 /// `w:sectPr` content after the header and footer references.
-fn sectpr_body(w: &mut W, s: &SectionProps) {
+fn sectpr_body(w: &mut W, s: &SectionProps, fold: bool) {
     {
         // The section's own note options come before `w:type` (ECMA-376 §17.6.17).
         for (tag, pr) in [("w:footnotePr", &s.footnote_pr), ("w:endnotePr", &s.endnote_pr)] {
@@ -1331,8 +1331,11 @@ fn sectpr_body(w: &mut W, s: &SectionProps) {
             SectionStart::NextColumn => "nextColumn",
         };
         w.val("w:type", start);
-        let (pw, ph) = (s.page_w.clamp(36.0, crate::units::MAX_LEN_PT), s.page_h.clamp(36.0, crate::units::MAX_LEN_PT));
-        if s.landscape {
+        // Book fold: the model holds the page, the file the sheet it is folded from (two pages
+        // side by side, landscape).
+        let page_w = if fold { s.page_w * 2.0 } else { s.page_w };
+        let (pw, ph) = (page_w.clamp(36.0, crate::units::MAX_LEN_PT), s.page_h.clamp(36.0, crate::units::MAX_LEN_PT));
+        if s.landscape || fold {
             w.empty("w:pgSz", &[("w:w", &twips(pw)), ("w:h", &twips(ph)), ("w:orient", "landscape")]);
         } else {
             w.empty("w:pgSz", &[("w:w", &twips(pw)), ("w:h", &twips(ph))]);

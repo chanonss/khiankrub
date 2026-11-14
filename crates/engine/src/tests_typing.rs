@@ -1354,3 +1354,21 @@ fn continue_numbering_rejoins_a_restarted_list() {
     run(&mut s, "para.continueNumbering", json!({}));
     assert_eq!(s.doc.para_at(&s.sel.focus).unwrap().props.numbering.unwrap().num, original);
 }
+
+/// Type Thai digits (an AutoCorrect option, off by default): a typed 0–9 goes in as ๐–๙ when the
+/// font at the caret has them; it works with AutoCorrect off and is one undo step per key like any typing.
+#[test]
+fn type_thai_digits_when_the_font_has_them() {
+    let mut s = s();
+    run(&mut s, "format.font", json!({"name": "Sarabun"}));
+    run(&mut s, "text.insert", json!({"text": "No 1"}));
+    assert_eq!(s.doc.plain_text(StoryRef::Body), "No 1", "off by default");
+    run(&mut s, "tools.autocorrect", json!({"thaiDigits": true, "enabled": false}));
+    for key in [" ", "2", "0"] {
+        run(&mut s, "text.insert", json!({"text": key}));
+    }
+    assert_eq!(s.doc.plain_text(StoryRef::Body), "No 1 ๒๐");
+    // Typed letters and spaces are untouched; raw typing (a paste of one char) keeps its digit.
+    run(&mut s, "text.insert", json!({"text": "5", "raw": true}));
+    assert_eq!(s.doc.plain_text(StoryRef::Body), "No 1 ๒๐5");
+}

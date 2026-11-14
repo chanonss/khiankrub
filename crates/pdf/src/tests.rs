@@ -1542,3 +1542,48 @@ fn kept_heading_cache_preserves_mixed_thai_english_pdf_bytes() {
     let opts = PdfOptions::default();
     assert_eq!(export_layout(&d, &cached, &opts).unwrap(), export_layout(&d, &uncached, &opts).unwrap());
 }
+
+/// Booklet imposition: pages of an `n`-page booklet go on its sheets as `(n-1-2i, 2i)` on the
+/// front and `(2i+1, n-2-2i)` on the back; a short last booklet is padded with blank pages.
+#[test]
+fn booklet_sheets_are_in_folding_order() {
+    let p: Vec<usize> = (0..8).collect();
+    assert_eq!(booklet_sheets(&p, 0), vec![[Some(7), Some(0)], [Some(1), Some(6)], [Some(5), Some(2)], [Some(3), Some(4)]]);
+    // Five pages need eight: the padded ones are blank (None).
+    let five: Vec<usize> = (0..5).collect();
+    assert_eq!(booklet_sheets(&five, 0), vec![[None, Some(0)], [Some(1), None], [None, Some(2)], [Some(3), Some(4)]]);
+    // One sheet per booklet: two sheets (4 pages each) for 8 pages.
+    assert_eq!(booklet_sheets(&p, 1), vec![[Some(3), Some(0)], [Some(1), Some(2)], [Some(7), Some(4)], [Some(5), Some(6)]]);
+    // Nothing to fold.
+    assert!(booklet_sheets(&[], 0).is_empty());
+}
+
+/// A Book fold document exports as landscape sheets, two pages side by side, front and back.
+#[test]
+fn book_fold_exports_imposed_sheets() {
+    let mut d = Document::new();
+    d.body.clear();
+    for i in 1..=6 {
+        let mut p = Paragraph::with_text(&format!("Folio{i}"), CharProps::default());
+        p.props.page_break_before = Some(i > 1);
+        d.body.push(para_block(p));
+    }
+    d.set_book_fold(true, 0);
+    let lay = layout(&d, &mut LayoutCache::new(), &LayoutOptions::default());
+    assert_eq!(lay.pages.len(), 6);
+    let pdf = hayro_syntax::Pdf::new(export(&d, &PdfOptions::default()).unwrap()).expect("parse");
+    // Six pages need two sheets, four sides, each as wide as two pages (396 pt each for Letter).
+    let sizes: Vec<(f32, f32)> = pdf.pages().iter().map(|p| p.media_box()).map(|r| (r.width().round() as f32, r.height().round() as f32)).collect();
+    assert_eq!(sizes, vec![(792.0, 612.0); 4]);
+    let text = extract_text(&export(&d, &PdfOptions::default()).unwrap());
+    let side = |i: usize| squash(&text[i]);
+    // Sheet 1 front: a blank (the padded 8th page) beside Folio1; its back: Folio2 and a blank.
+    assert!(side(0).contains("Folio1") && !side(0).contains("Folio6"), "{:?}", text[0]);
+    assert!(side(1).contains("Folio2") && !side(1).contains("Folio3"), "{:?}", text[1]);
+    // Sheet 2 front: Folio6 beside Folio3; its back: Folio4 beside Folio5.
+    assert!(side(2).contains("Folio6") && side(2).contains("Folio3"), "{:?}", text[2]);
+    assert!(side(3).contains("Folio4") && side(3).contains("Folio5"), "{:?}", text[3]);
+    // Without `booklet` the pages come one by one.
+    let plain = hayro_syntax::Pdf::new(export(&d, &PdfOptions { booklet: false, ..Default::default() }).unwrap()).expect("parse");
+    assert_eq!(plain.pages().len(), 6);
+}

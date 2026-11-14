@@ -222,8 +222,13 @@ impl WordApp {
                 } else {
                     self.run("file.saveAs", json!({"path": path}))
                 };
-                if r.is_ok() {
-                    self.status(crate::i18n::fmt(tl!("Exported {path}"), &[("path", &path)]));
+                // A failed export says so: the buttons ignore the result, so without this nothing happens.
+                match &r {
+                    Ok(_) => self.status(crate::i18n::fmt(tl!("Exported {path}"), &[("path", &path)])),
+                    Err(e) => {
+                        log::error!("export of {path} failed: {e}");
+                        self.status(crate::i18n::fmt(tl!("Couldn't export {path}: {error}"), &[("path", &path), ("error", e)]));
+                    }
                 }
                 r
             }

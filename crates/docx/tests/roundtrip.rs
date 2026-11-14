@@ -2638,3 +2638,41 @@ fn page_background_picture_round_trips() {
     // Saved again, it is still there.
     assert!(rt(&r).settings.page_picture.is_some());
 }
+
+/// Book fold: the model keeps the page (half a landscape sheet); the file holds the sheet, with
+/// `w:bookFoldPrinting`, and reading it back gives the same pages.
+#[test]
+fn book_fold_pages_are_saved_as_the_landscape_sheet_and_read_back_as_pages() {
+    let mut doc = doc_with(vec![Paragraph::with_text("Booklet", Default::default())]);
+    doc.last_section.page_w = 612.0;
+    doc.last_section.page_h = 792.0;
+    doc.last_section.gutter = 18.0;
+    doc.set_book_fold(true, 2);
+    // Letter paper folded in half: pages are 396 × 612, not 612 × 792.
+    assert_eq!((doc.last_section.page_w, doc.last_section.page_h), (396.0, 612.0));
+    assert!(doc.settings.mirror_margins);
+
+    let bytes = wordcraft_docx::write(&doc).expect("write");
+    let xml = |name: &str| -> String {
+        let mut z = zip::ZipArchive::new(std::io::Cursor::new(&bytes)).expect("zip");
+        let mut s = String::new();
+        std::io::Read::read_to_string(&mut z.by_name(name).expect("part"), &mut s).expect("read");
+        s
+    };
+    assert!(xml("word/settings.xml").contains("w:bookFoldPrinting"));
+    assert!(xml("word/settings.xml").contains(r#"w:bookFoldPrintingSheets w:val="2""#));
+    // The sheet: 792 wide (two pages), landscape.
+    assert!(xml("word/document.xml").contains(r#"w:pgSz w:w="15840" w:h="12240" w:orient="landscape""#));
+
+    let back = rt(&doc);
+    assert!(back.settings.book_fold);
+    assert_eq!(back.settings.book_fold_sheets, 2);
+    assert_eq!((back.last_section.page_w, back.last_section.page_h, back.last_section.landscape), (396.0, 612.0, false));
+    assert_eq!(back.last_section.gutter, 18.0);
+
+    // Turning it off returns to the portrait paper.
+    let mut plain = back;
+    plain.set_book_fold(false, 0);
+    assert_eq!((plain.last_section.page_w, plain.last_section.page_h), (612.0, 792.0));
+    assert!(!plain.settings.book_fold);
+}

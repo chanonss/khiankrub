@@ -300,6 +300,7 @@ pub(crate) fn read_opened(pkg: &Package) -> Result<Document, DocxError> {
         keep_glued_ids(&mut r.doc, &r.glued);
     }
     let mut doc = r.doc;
+    doc.halve_book_fold_sheets();
     doc.ensure_nonempty();
     Ok(doc)
 }
@@ -1125,6 +1126,12 @@ impl Reader<'_> {
                     }
                 }
                 "w:evenAndOddHeaders" => s.even_odd_headers = on_off(k),
+                "w:bookFoldPrinting" => s.book_fold = on_off(k),
+                "w:bookFoldPrintingSheets" => {
+                    if let Some(v) = k.attr("w:val").and_then(u32_of) {
+                        s.book_fold_sheets = v.min(wordcraft_doc::MAX_BOOK_FOLD_SHEETS);
+                    }
+                }
                 "w:drawingGridHorizontalSpacing" | "w:drawingGridVerticalSpacing" => {
                     if let Some(v) = tw(k, "w:val").filter(|v| *v > 0.0) {
                         let v = v.clamp(0.5, 1584.0);

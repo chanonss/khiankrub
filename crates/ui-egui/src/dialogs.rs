@@ -253,6 +253,13 @@ pub enum Dialog {
         landscape: bool,
         /// Mirrored margins (the whole document's): left and right become inside and outside.
         mirror: bool,
+        /// The gutter, in the measurement unit as shown (extra room on the binding side).
+        gutter: f32,
+        /// Multiple pages › Book fold: landscape sheets folded in half (`layout.bookFold`), and the
+        /// sheets per booklet (0 = all); `book_was` as opened (the command runs only if changed).
+        book_fold: bool,
+        sheets: u32,
+        book_was: (bool, u32),
         /// Document grid: kind (0 none, 1 lines, 2 lines and characters, 3 snap to characters),
         /// lines per page and characters per line; `grid_was` as opened (applied only if changed).
         grid: (u8, u32, u32),
@@ -1082,6 +1089,10 @@ impl Dialog {
                     right: sp.margin_right / crate::options::unit().pt_per_unit(),
                     landscape: sp.landscape,
                     mirror: app.session.doc.settings.mirror_margins,
+                    gutter: sp.gutter / crate::options::unit().pt_per_unit(),
+                    book_fold: app.session.doc.settings.book_fold,
+                    sheets: app.session.doc.settings.book_fold_sheets,
+                    book_was: (app.session.doc.settings.book_fold, app.session.doc.settings.book_fold_sheets),
                     grid,
                     grid_was: grid,
                     rtl: sp.rtl,
@@ -1364,10 +1375,25 @@ pub fn show(app: &mut WordApp, ctx: &egui::Context) {
         Dialog::Layout(d) => d.title(),
     };
     let id = egui::Id::new(("dialog", title));
-    let shown = place_dialog(ctx, id, egui::Window::new(tl!(title)).id(id).collapsible(false).resizable(false)).open(&mut open).show(ctx, |ui| {
+    // A dialog taller than the window scrolls instead of running off the bottom with its OK button:
+    // the first frame it is seen too tall turns scrolling on for as long as it is open.
+    let max_h = (ctx.content_rect().height() - 70.0).max(240.0);
+    let tall_key = id.with("too tall");
+    // The SmartArt picker keeps its own buttons in view in short windows.
+    let own_height = matches!(&d, Dialog::Insert(i) if matches!(**i, crate::dialogs_insert::InsertDialog::SmartArt(_)));
+    let tall = !own_height && ctx.data(|d| d.get_temp::<bool>(tall_key)).unwrap_or(false);
+    let mut window = egui::Window::new(tl!(title)).id(id).collapsible(false).resizable(false);
+    if tall {
+        window = window.max_height(max_h).vscroll(true);
+    }
+    let shown = place_dialog(ctx, id, window).open(&mut open).show(ctx, |ui| {
         ui.set_min_width(340.0);
         close = body(app, ui, &mut d);
     });
+    if !tall && !own_height && shown.as_ref().is_some_and(|r| r.response.rect.height() > max_h) {
+        ctx.data_mut(|d| d.insert_temp(tall_key, true));
+        ctx.request_repaint();
+    }
     if shown.is_some() {
         count_dialog_frame(ctx, id);
     }
@@ -1406,6 +1432,27 @@ pub(crate) fn paper_entry(paper: (f32, f32)) -> Option<&'static str> {
 /// `layout.size` keeps the section's orientation; `layout.orientation` then turns the page and
 /// its margins to what the dialog shows. A size equal to the opened one (either way round,
 /// within 0.01 pt) doesn't run `layout.size`.
+/// Page Setup's little picture of a Book fold: a landscape sheet with the fold down the middle,
+/// a page on each side.
+fn book_fold_preview(ui: &mut egui::Ui) {
+    let (rect, _) = ui.allocate_exact_size(vec2(150.0, 84.0), egui::Sense::hover());
+    let t = crate::theme::Tokens::get(ui.ctx());
+    let p = ui.painter();
+    p.rect_filled(rect, 2.0, t.input);
+    p.rect_stroke(rect, 2.0, egui::Stroke::new(1.0, t.border), egui::StrokeKind::Inside);
+    let mid = rect.center().x;
+    p.line_segment([egui::pos2(mid, rect.top()), egui::pos2(mid, rect.bottom())], egui::Stroke::new(1.0, t.border));
+    for side in [-1.0_f32, 1.0] {
+        // Text lines on each page, kept clear of the fold (the inside margin).
+        let (x0, x1) = if side < 0.0 { (rect.left() + 10.0, mid - 14.0) } else { (mid + 14.0, rect.right() - 10.0) };
+        let mut y = rect.top() + 10.0;
+        while y < rect.bottom() - 10.0 {
+            p.line_segment([egui::pos2(x0, y), egui::pos2(x1, y)], egui::Stroke::new(1.0, t.text.gamma_multiply(0.35)));
+            y += 6.0;
+        }
+    }
+}
+
 fn page_layout_commands(
     app: &WordApp,
     (paper, was): ((f32, f32), (f32, f32)),
@@ -2046,7 +2093,26 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
             }
             ok || cancel
         }
-        Dialog::PageSetup { top, bottom, left, right, landscape, mirror, rtl, grid, grid_was, paper, paper_was, paper_custom, message, valign } => {
+        Dialog::PageSetup {
+            top,
+            bottom,
+            left,
+            right,
+            landscape,
+            mirror,
+            gutter,
+            book_fold,
+            sheets,
+            book_was,
+            rtl,
+            grid,
+            grid_was,
+            paper,
+            paper_was,
+            paper_custom,
+            message,
+            valign,
+        } => {
             ui.label(egui::RichText::new(tl!("Margins")).font(semibold(12.5)));
             egui::Grid::new("ps").num_columns(4).show(ui, |ui| {
                 ui.label(tl!("Top:"));
@@ -2079,14 +2145,65 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                         .max_decimals(2),
                 );
                 ui.end_row();
+                ui.label(tl!("Gutter:"));
+                ui.add(
+                    crate::numfield::NumField::new(gutter)
+                        .speed(3.6 / crate::options::unit().pt_per_unit())
+                        .measure(crate::options::unit())
+                        .max_decimals(2),
+                );
+                ui.end_row();
             });
             ui.label(egui::RichText::new(tl!("Orientation")).font(semibold(12.5)));
-            ui.horizontal(|ui| {
-                ui.radio_value(landscape, false, tl!("Portrait"));
-                ui.radio_value(landscape, true, tl!("Landscape"));
+            // A booklet's sheet is always landscape, folded in half: the page itself stays as it is.
+            ui.add_enabled_ui(!*book_fold, |ui| {
+                ui.horizontal(|ui| {
+                    ui.radio_value(landscape, false, tl!("Portrait"));
+                    ui.radio_value(landscape, true, tl!("Landscape"));
+                });
             });
             ui.label(egui::RichText::new(tl!("Pages")).font(semibold(12.5)));
-            ui.checkbox(mirror, tl!("Mirror margins"));
+            ui.horizontal(|ui| {
+                ui.label(tl!("Multiple pages:"));
+                let name = |mirror: bool, book: bool| {
+                    if book {
+                        tl!("Book fold")
+                    } else if mirror {
+                        tl!("Mirror margins")
+                    } else {
+                        tl!("Normal")
+                    }
+                };
+                egui::ComboBox::from_id_salt("ps_multiple").selected_text(name(*mirror, *book_fold)).show_ui(ui, |ui| {
+                    if ui.selectable_label(!*mirror && !*book_fold, tl!("Normal")).clicked() {
+                        (*mirror, *book_fold) = (false, false);
+                    }
+                    if ui.selectable_label(*mirror && !*book_fold, tl!("Mirror margins")).clicked() {
+                        (*mirror, *book_fold) = (true, false);
+                    }
+                    if ui.selectable_label(*book_fold, tl!("Book fold")).clicked() {
+                        (*mirror, *book_fold) = (true, true);
+                    }
+                });
+            });
+            if *book_fold {
+                ui.horizontal(|ui| {
+                    ui.label(tl!("Sheets in booklet:"));
+                    let shown = if *sheets == 0 { tl!("All").to_string() } else { sheets.to_string() };
+                    egui::ComboBox::from_id_salt("ps_sheets").selected_text(shown).show_ui(ui, |ui| {
+                        if ui.selectable_label(*sheets == 0, tl!("All")).clicked() {
+                            *sheets = 0;
+                        }
+                        for n in 1..=wordcraft_doc::MAX_BOOK_FOLD_SHEETS {
+                            if ui.selectable_label(*sheets == n, n.to_string()).clicked() {
+                                *sheets = n;
+                            }
+                        }
+                    });
+                });
+                book_fold_preview(ui);
+                ui.label(egui::RichText::new(tl!("In a booklet the paper size below is one page; the sheet is twice as wide.")).small().weak());
+            }
             page_paper_group(ui, paper, landscape, paper_custom);
             ui.label(egui::RichText::new(tl!("Document Grid")).font(semibold(12.5)));
             ui.horizontal_wrapped(|ui| {
@@ -2120,6 +2237,11 @@ fn body(app: &mut WordApp, ui: &mut Ui, d: &mut Dialog) -> bool {
                         // Mirror margins go with the margins (#1181).
                         if let Some((_, v)) = commands.iter_mut().rev().find(|(id, _)| *id == "layout.margins") {
                             v["mirror"] = json!(*mirror);
+                            v["gutter"] = json!(*gutter * crate::options::unit().pt_per_unit());
+                        }
+                        // Book fold last: it halves the sheet into pages, which the margins above must fit.
+                        if (*book_fold, if *book_fold { *sheets } else { 0 }) != *book_was {
+                            commands.push(("layout.bookFold", json!({"on": *book_fold, "sheets": *sheets})));
                         }
                         if grid != grid_was {
                             let kind = ["none", "lines", "linesAndChars", "snapToChars"].get(grid.0 as usize).copied().unwrap_or("none");
@@ -4831,6 +4953,32 @@ mod tests {
         assert!(h.state().dialog.is_none());
         let s = wordcraft_engine::cmd::page::sect(&h.state().session);
         assert_eq!((s.page_w.round(), s.page_h.round(), s.margin_left.round(), s.margin_top.round()), (100.0, 500.0, 18.0, 18.0));
+    }
+
+    /// Page Setup › Multiple pages › Book fold: OK halves the sheet into pages, mirrors the
+    /// margins, keeps the gutter and the booklet's sheet count, all in one undo step.
+    #[test]
+    fn page_setup_applies_book_fold_with_a_gutter() {
+        use egui_kittest::kittest::Queryable;
+        let ppu = crate::options::unit().pt_per_unit();
+        let mut h = app_harness(app_with("Page"));
+        let undo = h.state().session.undo_depth();
+        h.state_mut().run("ui.dialog", json!({"name": "pageSetup"})).unwrap();
+        h.run_steps(2);
+        if let Some(Dialog::PageSetup { gutter, book_fold, mirror, sheets, .. }) = h.state_mut().dialog.as_mut() {
+            *gutter = 18.0 / ppu;
+            (*mirror, *book_fold, *sheets) = (true, true, 2);
+        }
+        h.run_steps(2);
+        h.get_by_label("OK").click();
+        h.run_steps(3);
+        assert!(h.state().dialog.is_none());
+        let st = &h.state().session;
+        assert!(st.doc.settings.book_fold && st.doc.settings.mirror_margins);
+        assert_eq!(st.doc.settings.book_fold_sheets, 2);
+        let s = wordcraft_engine::cmd::page::sect(st);
+        assert_eq!((s.page_w.round(), s.page_h.round(), s.gutter.round()), (396.0, 612.0, 18.0), "a Letter sheet folded in half");
+        assert_eq!(st.undo_depth(), undo + 1, "one undo step");
     }
 
     /// Open Page Setup in `h`, set its paper and margins (points) and press OK.

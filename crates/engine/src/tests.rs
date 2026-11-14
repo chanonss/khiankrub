@@ -8431,3 +8431,54 @@ fn copied_thai_text_keeps_its_letters_in_the_rtf() {
     let first = d.body.iter().find_map(|b| if let wordcraft_doc::Block::Para(p) = &**b { Some(p.text.clone()) } else { None });
     assert_eq!(first.as_deref(), Some("สวัสดีครับ ภาษาไทย"), "{rtf}");
 }
+
+/// Thai Digits: Arabic 0–9 become real Thai digits where the font has them (a font without
+/// them keeps its digits, and they are counted), it works on a selection or the whole text,
+/// it switches back, and it is one undo step.
+#[test]
+fn thai_digits_replace_where_the_font_has_them_and_switch_back() {
+    let mut s = Session::new(wordcraft_doc::Document::from_text("Order 123 and 45 of 6"));
+    s.run("select.all", &json!({})).unwrap();
+    s.run("format.font", &json!({"name": "Sarabun"})).unwrap();
+    // Nothing selected: the whole document.
+    s.run("caret.docStart", &json!({})).unwrap();
+    let r = s.run("format.thaiDigits", &json!({})).unwrap();
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body), "Order ๑๒๓ and ๔๕ of ๖");
+    assert_eq!((r["mode"].as_str(), r["changed"].as_u64(), r["skipped"].as_u64()), (Some("thai"), Some(6), Some(0)));
+    // The toggle goes back.
+    s.run("format.thaiDigits", &json!({})).unwrap();
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body), "Order 123 and 45 of 6");
+    // One step undoes it.
+    s.run("format.thaiDigits", &json!({"mode": "thai"})).unwrap();
+    assert!(s.undo());
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body), "Order 123 and 45 of 6");
+    // A selection: only its digits.
+    s.run("select.text", &json!({"text": "123"})).unwrap();
+    s.run("format.thaiDigits", &json!({"mode": "thai"})).unwrap();
+    assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body), "Order ๑๒๓ and 45 of 6");
+    // The run keeps its font.
+    let p = s.doc.para(wordcraft_doc::StoryRef::Body, &wordcraft_doc::Path::top(0)).unwrap();
+    assert!(p.run_ranges().all(|(_, c)| c.font.as_deref() == Some("Sarabun")));
+    // Bad parameters are refused.
+    assert!(s.run("format.thaiDigits", &json!({"mode": "roman"})).is_err());
+    assert!(s.run("format.thaiDigits", &json!({"scope": "page"})).is_err());
+}
+
+/// A font that has no Thai digits keeps its Arabic ones.
+#[test]
+fn thai_digits_skip_a_font_without_thai_digits() {
+    let mut s = Session::new(wordcraft_doc::Document::from_text("Room 12"));
+    s.run("select.all", &json!({})).unwrap();
+    s.run("format.font", &json!({"name": "Courier New"})).unwrap();
+    let covered = {
+        let p = s.doc.para(wordcraft_doc::StoryRef::Body, &wordcraft_doc::Path::top(0)).unwrap();
+        crate::cmd::format::font_has_thai_digits(&s.doc, p, 5)
+    };
+    let r = s.run("format.thaiDigits", &json!({"mode": "thai", "scope": "document"})).unwrap();
+    if covered {
+        assert_eq!(r["changed"].as_u64(), Some(2));
+    } else {
+        assert_eq!((r["changed"].as_u64(), r["skipped"].as_u64()), (Some(0), Some(2)));
+        assert_eq!(s.doc.plain_text(wordcraft_doc::StoryRef::Body), "Room 12");
+    }
+}

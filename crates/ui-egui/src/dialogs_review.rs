@@ -350,6 +350,7 @@ impl AutoCorrectForm {
             "bullets": o.bullets,
             "numbering": o.numbering,
             "borderLines": o.border_lines,
+            "thaiDigits": o.thai_digits,
         })
     }
 }
@@ -391,6 +392,7 @@ fn autocorrect_ui(app: &mut WordApp, ui: &mut Ui, f: &mut AutoCorrectForm) -> bo
             ui.checkbox(&mut o.fractions, tl!("Fractions (1/2) as fraction characters (½)"));
             ui.checkbox(&mut o.ordinals, tl!("Ordinals (1st) as superscript"));
             ui.checkbox(&mut o.dashes, tl!("Hyphens (--) as dashes (—)"));
+            ui.checkbox(&mut o.thai_digits, tl!("Type Thai digits (๑ ๒ ๓) when the font has them"));
             ui.checkbox(&mut o.links, tl!("Internet addresses as links"));
             heading(ui, "Apply as you type");
             ui.checkbox(&mut o.bullets, tl!("Automatic bulleted lists"));

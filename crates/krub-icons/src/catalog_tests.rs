@@ -176,3 +176,42 @@ fn arbitrary_names_and_hostile_rectangles_do_not_create_fallback_letter_tiles() 
     output.textures_delta.clear();
     assert!(output.shapes.is_empty());
 }
+
+#[test]
+fn every_app_icon_routed_to_the_line_set_is_drawn_there() {
+    let ctx = egui::Context::default();
+    ctx.begin_pass(egui::RawInput::default());
+    let p = ctx.layer_painter(egui::LayerId::background());
+    let r = Rect::from_min_size(Pos2::ZERO, vec2(20.0, 20.0));
+    let mut routed = 0;
+    let deck_names = deck::Icon::ALL.iter().map(|i| i.name());
+    let sheet_names = sheet::Icon::ALL.iter().map(|i| i.name());
+    for (app, name, line) in deck_names
+        .filter_map(|n| line::deck::line_name(n).map(|l| ("deck", n, l)))
+        .chain(sheet_names.filter_map(|n| line::sheet::line_name(n).map(|l| ("sheet", n, l))))
+    {
+        assert!(line::paint(&p, r, line, Color32::GRAY, false), "{app} `{name}` is routed to `{line}`, which the line set does not draw");
+        routed += 1;
+    }
+    assert!(routed > 100, "only {routed} icons routed");
+    // PhutKrub: every deck icon has a line drawing (routed or its own in `line/deck.rs`), save
+    // Thai Distribution, which is the shared Thai mark in every app.
+    for &icon in deck::Icon::ALL {
+        if icon != deck::Icon::ThaiDistribute {
+            for flat in [false, true] {
+                assert!(line::deck::paint(&p, r, icon.name(), Color32::GRAY, false, flat), "deck `{}` has no line drawing", icon.name());
+            }
+            assert!(line::deck::paint(&p, Rect::NOTHING, icon.name(), Color32::GRAY, true, false), "deck `{}` unknown at an empty size", icon.name());
+        }
+    }
+    // KhitKrub: every sheet icon has a line drawing, routed or its own (`line/sheet.rs`).
+    for icon in sheet::Icon::ALL {
+        assert!(line::sheet::paint(&p, r, *icon, Color32::GRAY, false), "sheet `{}` has no line drawing", icon.name());
+        assert!(line::sheet::paint(&p, r, *icon, Color32::GRAY, true), "sheet `{}` has no flat line drawing", icon.name());
+    }
+    for name in line::sheet::OWN {
+        let icon = sheet::Icon::ALL.iter().find(|i| i.name() == *name);
+        assert!(icon.is_some_and(|i| line::sheet::line_name(i.name()).is_none()), "`{name}` is not a sheet icon drawn in line/sheet.rs");
+    }
+    ctx.end_pass().textures_delta.clear();
+}

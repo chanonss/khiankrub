@@ -5,6 +5,27 @@ Thai-speaking audience. This file lists what differs from the original, newest f
 progress notes are in `ROADMAP.md` and `docs/`; they are not edited here. Each entry matches a commit on the
 `my-changes` branch.
 
+## 2026-11-14 (0.16.0: the desktop app catches up with web 0.16.0)
+
+- Version 0.16.0, a desktop-only snapshot of the web app's 0.16.0 source (the web-only code is not part of this
+  repository).
+- Icons: KhianKrub's line icons now come from the shared `krub-icons` crate, the same set as KhitKrub and PhutKrub.
+- Ribbon: two button sizes in at most two rows (large labelled commands, icon-only formatting buttons with tooltips);
+  dialog launchers removed (their dialogs stay reachable from menus, right-click and shortcuts); ribbon tabs can be
+  centred or left-aligned in Customize Ribbon.
+- Book fold (below); a Thai digits button next to Thai Distributed; hide the page number on one page from the header or
+  footer's right-click menu; picture, shape and chart size boxes on the ribbon; object tabs fully in Thai.
+
+## 2026-11-11 (Book fold)
+
+- Page Setup › Pages › **Multiple pages › Book fold**, as in Word: the paper is a landscape sheet folded in half, each page is half of it,
+  margins mirror (Top, Bottom, Inside, Outside) and a **Gutter** goes on the spine side. **Sheets in booklet** (All or 1–15) is in
+  the dialog; the command is `layout.bookFold {on, sheets}`.
+- Exporting a Book fold document to PDF (and printing it) writes the sheets: landscape, two pages side by side, front and back
+  in folding order (the last page and the first on the outer sheet, then the second and the second to last…), padded with
+  blank pages to a multiple of 4.
+- DOCX: `w:bookFoldPrinting` and `w:bookFoldPrintingSheets` are read and written; the file holds the landscape sheet, the model the page.
+
 ## 2026-11-09 (0.15.0: the desktop app catches up with the web app)
 
 - Version 0.15.0. The desktop app now has what the web version of KhianKrub gained since 0.9.2 (the web-only code is not

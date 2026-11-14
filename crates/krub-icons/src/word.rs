@@ -229,6 +229,7 @@ fn draw_0(p: &Painter, r: Rect, name: &str, c: Color32, flat: bool) -> bool {
         }
         "justify" => pen.lines(3.0, 17.0, &[4.0, 7.0, 10.0, 13.0, 16.0]),
         "thaiDistribute" => crate::thai::paint(p, r, c, flat),
+        "thaiDigits" => crate::thai::paint_digits(p, r, c, flat),
         // Text direction: lines set from the start edge, an arrow in the reading direction.
         "textLtr" => {
             pen.lines(3.0, 14.0, &[4.0, 8.0]);
@@ -1328,10 +1329,15 @@ fn draw_3(p: &Painter, r: Rect, name: &str, c: Color32, flat: bool) -> bool {
                 pen.fcircle(x, 10.0, 1.3, c);
             }
         }
+        // A group's settings (dialog launcher): two sliders with hollow knobs (owner's pick,
+        // 2026-11-13). The lines stop short of the knobs, so no fill is needed behind them.
         "launcher" => {
-            pen.line(&[(5.0, 5.0), (5.0, 15.0), (15.0, 15.0)]);
-            pen.line(&[(8.0, 8.0), (15.0, 15.0)]);
-            pen.line(&[(11.0, 15.0), (15.0, 15.0), (15.0, 11.0)]);
+            pen.line(&[(3.0, 6.0), (6.0, 6.0)]);
+            pen.circle(8.0, 6.0, 1.7, c);
+            pen.line(&[(10.0, 6.0), (17.0, 6.0)]);
+            pen.line(&[(3.0, 14.0), (11.0, 14.0)]);
+            pen.circle(13.0, 14.0, 1.7, c);
+            pen.line(&[(15.0, 14.0), (17.0, 14.0)]);
         }
         "pin" => {
             pen.line(&[(10.0, 12.0), (10.0, 18.0)]);
@@ -1664,6 +1670,7 @@ pub const ALL: &[&str] = &[
     "alignRight",
     "justify",
     "thaiDistribute",
+    "thaiDigits",
     "textLtr",
     "textRtl",
     "lineSpacing",

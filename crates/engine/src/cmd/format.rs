@@ -113,6 +113,9 @@ pub fn specs() -> Vec<CommandSpec> {
             apply(s, &|x| x.shading = c)
         })
         .params(r#"{"color": "RRGGBB" | null}"#),
+        CommandSpec::new("format.thaiDigits", "Thai Digits", "Home › Paragraph", thai_digits).params(
+            r#"{"mode"?: "thai|arabic" (the other way from what the text has when not given), "scope"?: "selection|document"} → 0–9 become ๐–๙ (or back) in text whose font has the Thai digits; others stay, counted in `skipped`"#,
+        ),
         CommandSpec::new("format.changeCase", "Change Case", "Home › Font", change_case)
             .key("Shift+F3")
             .params(r#"{"mode"?: "sentence|lower|upper|title|toggle"}"#),
@@ -447,6 +450,16 @@ fn change_case(s: &mut Session, v: &Value) -> CmdResult {
             "title".into()
         }
     });
+    rewrite_chars(s, a, b, &|_, _, _, src, from_start| convert_chars(src, &mode, from_start))
+}
+
+/// Rewrite the characters of the selection `a..b` as `conv` says, one entry per character
+/// (`conv(document, paragraph, chars with offsets, their text, at paragraph start)`), keeping
+/// each stretch's run formatting, tracking the change when Track Changes is on and keeping the
+/// selection over the converted text. Change Case and Thai Digits share it.
+type CharConverter<'a> = &'a dyn Fn(&wordcraft_doc::Document, &wordcraft_doc::Paragraph, &[(usize, char)], &str, bool) -> Vec<String>;
+
+fn rewrite_chars(s: &mut Session, a: Pos, b: Pos, conv: CharConverter<'_>) -> CmdResult {
     for path in s.doc.paths_between(&a, &b) {
         // Changed stretches of one run each: (start, end, replacement), in text order.
         let groups = {
@@ -455,7 +468,7 @@ fn change_case(s: &mut Session, v: &Value) -> CmdResult {
             let to = if path == b.path { b.off } else { p.len() };
             let chars = live_chars(p, from, to);
             let src: String = chars.iter().map(|(_, c)| c).collect();
-            case_groups(p, &chars, &convert_chars(&src, &mode, from == 0))
+            case_groups(p, &chars, &conv(&s.doc, p, &chars, &src, from == 0))
         };
         if groups.is_empty() {
             continue;
@@ -518,6 +531,96 @@ fn change_case(s: &mut Session, v: &Value) -> CmdResult {
         }
     }
     sel_result(s)
+}
+
+/// The Thai digit for an ASCII digit, and back (U+0E50..=U+0E59).
+fn thai_digit(c: char) -> Option<char> {
+    c.to_digit(10).filter(|_| c.is_ascii_digit()).and_then(|d| char::from_u32(0x0E50 + d))
+}
+
+fn ascii_digit(c: char) -> Option<char> {
+    let n = (c as u32).checked_sub(0x0E50).filter(|n| *n <= 9)?;
+    char::from_digit(n, 10)
+}
+
+/// Whether the font a character at `off` of `p` is set in has the Thai digits ๐–๙: Thai text
+/// uses the complex-script font (`font_cs`, which follows the font when none is set).
+pub fn font_has_thai_digits(doc: &wordcraft_doc::Document, p: &wordcraft_doc::Paragraph, off: usize) -> bool {
+    let r = doc.styles.resolve_char(p.props.style.as_deref(), p.props_of_char(off));
+    let style = match (r.bold_cs, r.italic_cs) {
+        (true, true) => "Bold Italic",
+        (true, false) => "Bold",
+        (false, true) => "Italic",
+        (false, false) => "Regular",
+    };
+    wordcraft_fonts::FontDb::global().face(&r.font_cs, style).covers('\u{0E50}')
+}
+
+/// `format.thaiDigits`: Arabic digits 0–9 become Thai digits ๐–๙, or back, in the selection or, with
+/// nothing selected or `scope: "document"`, in the whole body text. The text really changes
+/// (copying, searching, saving and PDF all see Thai digits). A digit stays as it is where its font
+/// has no Thai digits; those are counted in `skipped`.
+fn thai_digits(s: &mut Session, v: &Value) -> CmdResult {
+    let (mut a, mut b) = s.sel.ordered();
+    let whole = match p::str(v, "scope") {
+        Some("document") => true,
+        Some("selection") | None => a == b,
+        Some(x) => return Err(CmdError::Params(format!("unknown scope `{x}` (selection or document)"))),
+    };
+    if whole {
+        let paths = s.doc.para_paths(wordcraft_doc::StoryRef::Body);
+        let (Some(first), Some(last)) = (paths.first().cloned(), paths.last().cloned()) else { return sel_result(s) };
+        let end = s.doc.para(wordcraft_doc::StoryRef::Body, &last).map_or(0, |p| p.len());
+        (a, b) = (Pos::new(wordcraft_doc::StoryRef::Body, first, 0), Pos::new(wordcraft_doc::StoryRef::Body, last, end));
+    }
+    super::controls::check_edit(s, &a, &b)?;
+    let mode = match p::str(v, "mode") {
+        Some(m @ ("thai" | "arabic")) => m.to_string(),
+        Some(x) => return Err(CmdError::Params(format!("unknown mode `{x}` (thai or arabic)"))),
+        None => {
+            // Toggle: Thai digits if the text still has Arabic ones, else back to Arabic.
+            let has_arabic = s.doc.paths_between(&a, &b).iter().any(|path| {
+                s.doc.para(a.story, path).is_some_and(|p| {
+                    let from = if *path == a.path { a.off } else { 0 };
+                    let to = if *path == b.path { b.off } else { p.len() };
+                    live_chars(p, from, to).iter().any(|(_, c)| c.is_ascii_digit())
+                })
+            });
+            if has_arabic { "thai" } else { "arabic" }.to_string()
+        }
+    };
+    let (changed, skipped) = (std::cell::Cell::new(0usize), std::cell::Cell::new(0usize));
+    let to_thai = mode == "thai";
+    let conv: CharConverter<'_> = &|doc, para, chars, _, _| {
+        chars
+            .iter()
+            .map(|&(off, c)| {
+                let new = if to_thai {
+                    match thai_digit(c) {
+                        Some(t) if font_has_thai_digits(doc, para, off) => Some(t),
+                        Some(_) => {
+                            skipped.set(skipped.get() + 1);
+                            None
+                        }
+                        None => None,
+                    }
+                } else {
+                    ascii_digit(c)
+                };
+                if new.is_some() {
+                    changed.set(changed.get() + 1);
+                }
+                new.unwrap_or(c).to_string()
+            })
+            .collect()
+    };
+    let mut result = rewrite_chars(s, a, b, conv)?;
+    if let Some(o) = result.as_object_mut() {
+        o.insert("mode".into(), json!(mode));
+        o.insert("changed".into(), json!(changed.get()));
+        o.insert("skipped".into(), json!(skipped.get()));
+    }
+    Ok(result)
 }
 
 /// How Change Case rewrites one stretch under Track Changes.

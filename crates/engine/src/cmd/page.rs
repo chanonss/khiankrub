@@ -15,6 +15,9 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("layout.margins", "Margins", "Layout › Page Setup", margins).params(
             r#"{"preset"?: "normal|narrow|moderate|wide|mirrored|office2003", "top"?: pt, "bottom"?: pt, "left"?: pt, "right"?: pt, "gutter"?: pt, "mirror"?: bool}"#,
         ),
+        CommandSpec::new("layout.bookFold", "Book Fold", "Layout › Page Setup › Margins › Custom Margins › Multiple pages", book_fold).params(
+            r#"{"on"?: bool (toggles when nothing is given), "sheets"?: 0-15 (sheets per booklet, 0 = all)} → each sheet is landscape paper folded in half: the page is half the sheet wide, margins mirror (inside and outside)"#,
+        ),
         CommandSpec::new("layout.orientation", "Orientation", "Layout › Page Setup", |s, v| {
             let land = match p::str(v, "value") {
                 Some("landscape") => true,
@@ -530,6 +533,26 @@ fn margins(s: &mut Session, v: &Value) -> CmdResult {
     })
 }
 
+/// `layout.bookFold`: Page Setup's Multiple pages › Book fold. The paper of every section is a
+/// landscape sheet folded in half (`Document::set_book_fold`); margins mirror. Refused, changing
+/// nothing, when a section's margins leave no text room on the narrower page.
+fn book_fold(s: &mut Session, v: &Value) -> CmdResult {
+    let on = p::bool(v, "on").unwrap_or(!s.doc.settings.book_fold);
+    let sheets = p::u64(v, "sheets").map_or(s.doc.settings.book_fold_sheets, |n| n.min(u64::from(wordcraft_doc::MAX_BOOK_FOLD_SHEETS)) as u32);
+    if on != s.doc.settings.book_fold {
+        let fits = s.doc.sections().iter().all(|(_, x)| {
+            let (w, h) = (x.page_w, x.page_h);
+            let page = if on { (w.max(h) / 2.0, w.min(h)) } else { ((w * 2.0).min(h), (w * 2.0).max(h)) };
+            margins_fit(page, (x.margin_top, x.margin_bottom, x.margin_left, x.margin_right), x.gutter)
+        });
+        if !fits {
+            return Err(CmdError::Params(MARGINS_DONT_FIT.into()));
+        }
+    }
+    s.doc.set_book_fold(on, sheets);
+    Ok(serde_json::to_value(sect(s)).unwrap_or(Value::Null))
+}
+
 /// Why `layout.size` refuses a page its margins don't fit.
 pub const MARGINS_DONT_FIT: &str = "The margins don't fit on a page this size; make the margins smaller first.";
 
@@ -719,6 +742,31 @@ mod tests {
 
     fn doc() -> Session {
         Session::new(wordcraft_doc::Document::from_text("one\ntwo\nthree"))
+    }
+
+    /// Page Setup › Multiple pages › Book fold: pages are half of a landscape sheet, margins
+    /// mirror, it is one undo step, and a booklet too narrow for the margins is refused.
+    #[test]
+    fn book_fold_halves_the_sheet_mirrors_margins_and_undoes() {
+        let mut s = doc();
+        let before = sect(&s);
+        assert_eq!((before.page_w, before.page_h), (612.0, 792.0));
+        s.run("layout.bookFold", &json!({"on": true, "sheets": 3})).unwrap();
+        let now = sect(&s);
+        assert_eq!((now.page_w, now.page_h, now.landscape), (396.0, 612.0, false));
+        assert!(s.doc.settings.book_fold && s.doc.settings.mirror_margins);
+        assert_eq!(s.doc.settings.book_fold_sheets, 3);
+        // Layout works on the page: each page is 396 pt wide.
+        let lay = wordcraft_layout::layout(&s.doc, &mut wordcraft_layout::LayoutCache::new(), &Default::default());
+        assert_eq!(lay.pages.first().map(|p| p.w), Some(396.0));
+        // One undo goes back to the plain portrait page.
+        assert!(s.undo());
+        assert_eq!(sect(&s).page_w, 612.0);
+        assert!(!s.doc.settings.book_fold);
+        // Margins that leave no room on the narrower page: refused, nothing changes.
+        s.run("layout.margins", &json!({"left": 200.0, "right": 200.0})).unwrap();
+        assert!(s.run("layout.bookFold", &json!({"on": true})).is_err());
+        assert!(!s.doc.settings.book_fold && sect(&s).page_w == 612.0);
     }
 
     fn with_section(f: impl Fn(&mut Value)) -> Value {

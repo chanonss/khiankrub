@@ -102,6 +102,9 @@ pub struct AutoCorrectPrefs {
     pub numbering: bool,
     /// Border lines.
     pub border_lines: bool,
+    /// Type Thai digits: a typed 0–9 goes in as ๐–๙ when the font has them (works with
+    /// AutoCorrect off too; it is a typing choice, not a correction).
+    pub thai_digits: bool,
     /// The user's entries: added, or replacing a built-in one.
     pub entries: Vec<(String, String)>,
     /// Built-in entries the user deleted.
@@ -125,6 +128,7 @@ impl Default for AutoCorrectPrefs {
             cap_days: true,
             caps_lock: true,
             smart_quotes: true,
+            thai_digits: false,
             fractions: true,
             ordinals: true,
             dashes: true,
@@ -252,6 +256,7 @@ fn autocorrect_options(s: &mut Session, v: &Value) -> CmdResult {
         ("bullets", &mut ac.bullets),
         ("numbering", &mut ac.numbering),
         ("borderLines", &mut ac.border_lines),
+        ("thaiDigits", &mut ac.thai_digits),
     ] {
         if let Some(b) = p::bool(v, k) {
             *f = b;
@@ -330,6 +335,7 @@ fn autocorrect_options(s: &mut Session, v: &Value) -> CmdResult {
         "links": ac.links,
         "bullets": ac.bullets,
         "numbering": ac.numbering,
+        "thaiDigits": ac.thai_digits,
         "borderLines": ac.border_lines,
         "entries": ac.list().into_iter().map(|(a, b, builtin)| json!({"from": a, "to": b, "builtIn": builtin})).collect::<Vec<_>>(),
         "user": ac.entries,
@@ -366,7 +372,7 @@ pub fn specs() -> Vec<CommandSpec> {
             .pure(),
         CommandSpec::new("tools.autocorrect", "AutoCorrect Options", "File › Options › Proofing", autocorrect_options)
             .params(
-                r#"{"enabled"?: bool (all of AutoCorrect), "replaceText"|"twoInitialCaps"|"capSentences"|"capCells"|"capDays"|"capsLock"|"smartQuotes"|"fractions"|"ordinals"|"dashes"|"links"|"bullets"|"numbering"|"borderLines"?: bool, "add"?: {"from": string, "to": string} (adds or replaces an entry), "delete"?: string (an entry's "from", built in or added), "addException"?: string, "deleteException"?: string, "addInitialCapsException"?: string (keeps TWo INitial CApitals, like "IDs"), "deleteInitialCapsException"?: string} → options, entries and exceptions"#,
+                r#"{"enabled"?: bool (all of AutoCorrect), "replaceText"|"twoInitialCaps"|"capSentences"|"capCells"|"capDays"|"capsLock"|"smartQuotes"|"fractions"|"ordinals"|"dashes"|"links"|"bullets"|"numbering"|"borderLines"|"thaiDigits"?: bool, "add"?: {"from": string, "to": string} (adds or replaces an entry), "delete"?: string (an entry's "from", built in or added), "addException"?: string, "deleteException"?: string, "addInitialCapsException"?: string (keeps TWo INitial CApitals, like "IDs"), "deleteInitialCapsException"?: string} → options, entries and exceptions"#,
             )
             .pure(),
         CommandSpec::new("tools.customizeKeyboard", "Customize Keyboard", "File › Options", customize_keyboard)

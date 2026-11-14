@@ -206,6 +206,7 @@ fn general(app: &mut WordApp, ui: &mut Ui) {
     }
     ui.checkbox(&mut app.ui.show_ribbon_tab_numbers, tl!("Show numbers on ribbon tabs"));
     ui.checkbox(&mut app.ui.show_ribbon_group_names, tl!("Show ribbon group names"));
+    ui.checkbox(&mut app.ui.ribbon_tabs_centered, tl!("Center the ribbon tabs (off: start at the left, as in Word)"));
     ui.checkbox(&mut app.ui.mini_toolbar, tl!("Show the mini toolbar when text is selected"));
     let mut dark_page = app.session.view.dark_mode;
     if ui
@@ -871,6 +872,8 @@ mod tests {
         a.ui.show_ribbon_tab_numbers = false;
         assert!(!a.ui.show_ribbon_group_names);
         a.ui.show_ribbon_group_names = true;
+        assert!(a.ui.ribbon_tabs_centered, "centred by default");
+        a.ui.ribbon_tabs_centered = false;
         let saved = serde_json::to_vec(&a.prefs()).unwrap();
         let mut b = app();
         b.apply_prefs(UiState::from_json(&saved).unwrap());
@@ -880,6 +883,7 @@ mod tests {
         assert_eq!((b.ui.recent_count, b.ui.print_backgrounds), (30, true));
         assert!(!b.ui.show_ribbon_tab_numbers);
         assert!(b.ui.show_ribbon_group_names);
+        assert!(!b.ui.ribbon_tabs_centered);
         assert!(wordcraft_engine::proof::user_dictionary().contains(&"zqxoptionsword".to_string()));
 
         let junk = br#"{"theme": "dark", "recentCount": "lots", "printBackgrounds": 7, "optionsPane": ["x"], "dark": true,
@@ -890,6 +894,7 @@ mod tests {
         assert_eq!(ui.legacy_dark, Some(true));
         assert!(ui.show_ribbon_tab_numbers, "old settings keep the default");
         assert!(!ui.show_ribbon_group_names, "old settings hide group names by default");
+        assert!(ui.ribbon_tabs_centered, "old settings keep the tabs centred");
         assert_eq!(ui.editing.units, None);
         assert!(!ui.editing.typing_replaces_selection);
         assert!(ui.editing.marks.spaces && !ui.editing.marks.tabs);

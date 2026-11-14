@@ -786,8 +786,9 @@ pub fn font_definitions_language(prefer_hans: bool, prefer_korean: bool, system_
     fonts
 }
 
-/// Thai UI fallback for browsers that cannot expose platform font bytes.
-pub const WEB_THAI_UI_FALLBACK: &str = "Loma";
+/// Thai UI fallback for browsers that cannot expose platform font bytes: Sarabun, as in PhutKrub
+/// and KhitKrub (owner, 2026-11-13), so the three apps look alike without system fonts.
+pub const WEB_THAI_UI_FALLBACK: &str = "Sarabun";
 
 /// Platform UI families used on desktop and requested by the web system-font button.
 pub const WEB_SYSTEM_UI_LATIN: &[&str] = &[
@@ -831,7 +832,7 @@ fn apply_web_system_ui_fonts(fonts: &mut FontDefinitions, db: &wordcraft_fonts::
     }
 }
 
-/// Loma keeps Thai UI text readable in browsers that do not expose system font bytes.
+/// Sarabun keeps Thai UI text readable in browsers that do not expose system font bytes.
 /// A user-granted system UI font takes precedence over it.
 #[cfg(target_arch = "wasm32")]
 fn thai_ui_faces() -> (Option<Arc<wordcraft_fonts::FontFace>>, Option<Arc<wordcraft_fonts::FontFace>>) {
@@ -839,7 +840,7 @@ fn thai_ui_faces() -> (Option<Arc<wordcraft_fonts::FontFace>>, Option<Arc<wordcr
     if !db.is_loaded(WEB_THAI_UI_FALLBACK) {
         return (None, None);
     }
-    (Some(db.face(WEB_THAI_UI_FALLBACK, "Regular")), Some(db.face(WEB_THAI_UI_FALLBACK, "Bold")))
+    (Some(db.face(WEB_THAI_UI_FALLBACK, "Regular")), Some(db.face(WEB_THAI_UI_FALLBACK, "SemiBold")))
 }
 
 /// The installed Thai faces for the interface (regular, bold), chosen once: a system interface

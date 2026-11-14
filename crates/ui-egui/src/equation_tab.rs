@@ -183,8 +183,9 @@ fn symbols(ui: &mut Ui, app: &mut WordApp) {
     let set = ui.data(|d| d.get_temp::<usize>(id)).unwrap_or(0).min(SYMBOL_SETS.len().saturating_sub(1));
     let Some((_, chars)) = SYMBOL_SETS.get(set) else { return };
     let start_id = egui::Id::new("eq_symbol_start");
-    let per_row = 10usize;
-    let rows = 3usize;
+    // Two rows, as the two-size ribbon's.
+    let per_row = 15usize;
+    let rows = 2usize;
     let all: Vec<char> = chars.chars().collect();
     let start = ui.data(|d| d.get_temp::<usize>(start_id)).unwrap_or(0).min(all.len().saturating_sub(1));
     let t = Tokens::get(ui.ctx());
@@ -208,15 +209,18 @@ fn symbols(ui: &mut Ui, app: &mut WordApp) {
         }
     });
     ui.vertical(|ui| {
+        // Three short buttons, as tall together as the two rows of symbols.
         ui.spacing_mut().item_spacing = vec2(0.0, 1.0);
+        ui.spacing_mut().button_padding = vec2(2.0, 0.0);
+        ui.spacing_mut().interact_size.y = 18.0;
         let page = per_row * rows;
-        if ui.add_enabled(start > 0, egui::Button::new("▲").min_size(vec2(16.0, 22.0))).clicked() {
+        if ui.add_enabled(start > 0, egui::Button::new("▲").min_size(vec2(16.0, 18.0))).clicked() {
             ui.data_mut(|d| d.insert_temp(start_id, start.saturating_sub(per_row)));
         }
-        if ui.add_enabled(start + page < all.len(), egui::Button::new("▼").min_size(vec2(16.0, 22.0))).clicked() {
+        if ui.add_enabled(start + page < all.len(), egui::Button::new("▼").min_size(vec2(16.0, 18.0))).clicked() {
             ui.data_mut(|d| d.insert_temp(start_id, start + per_row));
         }
-        let resp = ui.add(egui::Button::new("…").min_size(vec2(16.0, 22.0))).on_hover_text(tl!("All symbol sets"));
+        let resp = ui.add(egui::Button::new("…").min_size(vec2(16.0, 18.0))).on_hover_text(tl!("All symbol sets"));
         egui::Popup::menu(&resp).show(|ui| {
             ui.set_width(420.0);
             ui.horizontal_wrapped(|ui| {
@@ -263,45 +267,49 @@ fn symbol_button(ui: &mut Ui, app: &mut WordApp, c: char, t: &Tokens) -> bool {
 
 /// The Equation tab.
 pub fn show(app: &mut WordApp, ui: &mut Ui) {
-    group(ui, "Tools", None, app, |ui, app| {
+    group(ui, "Tools", app, |ui, app| {
         math_menu_button(ui, app, "∑_(i=1)^n", "Equation", builtin_menu);
-        ui.vertical(|ui| {
-            ui.spacing_mut().item_spacing = vec2(1.0, 0.0);
+        crate::ribbon::stack(ui, |ui| {
             let latex = app.session.math_latex;
-            small(
-                ui,
-                app,
-                "equation",
-                Some("Unicode"),
-                "Type equations in the linear format (UnicodeMath)",
-                "equation.inputFormat",
-                json!({"format": "unicode"}),
-                !latex,
-            );
-            small(ui, app, "formula", Some("LaTeX"), "Type equations in LaTeX", "equation.inputFormat", json!({"format": "latex"}), latex);
-            crate::widgets::menu_button(
-                ui,
-                app,
-                "replace",
-                Some("Convert"),
-                "Convert between built-up and linear form",
-                false,
-                "equation.convert",
-                |ui, app| {
-                    for (label, to, all) in [
-                        ("Current - Professional", "professional", false),
-                        ("Current - Linear", "linear", false),
-                        ("All - Professional", "professional", true),
-                        ("All - Linear", "linear", true),
-                    ] {
-                        if ui.button(tl!(label)).clicked() {
-                            let _ = app.run("equation.convert", json!({"to": to, "all": all}));
-                            app.canvas.want_focus = true;
-                            ui.close();
+            crate::widgets::row(ui, |ui| {
+                small(
+                    ui,
+                    app,
+                    "equation",
+                    Some("Unicode"),
+                    "Type equations in the linear format (UnicodeMath)",
+                    "equation.inputFormat",
+                    json!({"format": "unicode"}),
+                    !latex,
+                );
+                small(ui, app, "formula", Some("LaTeX"), "Type equations in LaTeX", "equation.inputFormat", json!({"format": "latex"}), latex);
+            });
+            ui.add_space(crate::widgets::ROW_GAP);
+            crate::widgets::row(ui, |ui| {
+                crate::widgets::menu_button(
+                    ui,
+                    app,
+                    "replace",
+                    Some("Convert"),
+                    "Convert between built-up and linear form",
+                    false,
+                    "equation.convert",
+                    |ui, app| {
+                        for (label, to, all) in [
+                            ("Current - Professional", "professional", false),
+                            ("Current - Linear", "linear", false),
+                            ("All - Professional", "professional", true),
+                            ("All - Linear", "linear", true),
+                        ] {
+                            if ui.button(tl!(label)).clicked() {
+                                let _ = app.run("equation.convert", json!({"to": to, "all": all}));
+                                app.canvas.want_focus = true;
+                                ui.close();
+                            }
                         }
-                    }
-                },
-            );
+                    },
+                );
+            });
         });
         ui.vertical(|ui| {
             ui.spacing_mut().item_spacing = vec2(1.0, 0.0);
@@ -309,49 +317,53 @@ pub fn show(app: &mut WordApp, ui: &mut Ui) {
             small(ui, app, "case", Some("Normal Text"), "Type normal (non-math) text in the equation", "equation.normalText", json!({}), normal);
         });
     });
-    group(ui, "Symbols", None, app, symbols);
-    group(ui, "Structures", None, app, |ui, app| {
+    group(ui, "Symbols", app, symbols);
+    group(ui, "Structures", app, |ui, app| {
         for g in STRUCTURES {
             let id = g.id;
             math_menu_button(ui, app, button_picture(id), g.label, |ui, app| structure_menu(ui, app, id));
         }
     });
-    group(ui, "Equation Options", None, app, |ui, app| {
-        ui.vertical(|ui| {
-            ui.spacing_mut().item_spacing = vec2(1.0, 0.0);
+    group(ui, "Equation Options", app, |ui, app| {
+        crate::ribbon::stack(ui, |ui| {
             let info = app.session.run("equation.get", &json!({})).ok();
             let display = info.as_ref().and_then(|v| v.get("display")).and_then(|v| v.as_bool()).unwrap_or(false);
             let numbered = info.as_ref().and_then(|v| v.get("linear")).and_then(|v| v.as_str()).is_some_and(|l| l.contains('#'));
-            small(
-                ui,
-                app,
-                "alignCenter",
-                Some("Display"),
-                "Show the equation on a line of its own",
-                "equation.display",
-                json!({"value": true}),
-                display,
-            );
-            small(
-                ui,
-                app,
-                "alignLeft",
-                Some("Inline"),
-                "Show the equation in the line of text",
-                "equation.display",
-                json!({"value": false}),
-                !display,
-            );
-            small(
-                ui,
-                app,
-                "numbering",
-                Some("Number"),
-                "Number the equation; the number sits at the right margin (or type # then the number)",
-                "equation.number",
-                json!({}),
-                numbered,
-            );
+            crate::widgets::row(ui, |ui| {
+                small(
+                    ui,
+                    app,
+                    "alignCenter",
+                    Some("Display"),
+                    "Show the equation on a line of its own",
+                    "equation.display",
+                    json!({"value": true}),
+                    display,
+                );
+                small(
+                    ui,
+                    app,
+                    "alignLeft",
+                    Some("Inline"),
+                    "Show the equation in the line of text",
+                    "equation.display",
+                    json!({"value": false}),
+                    !display,
+                );
+            });
+            ui.add_space(crate::widgets::ROW_GAP);
+            crate::widgets::row(ui, |ui| {
+                small(
+                    ui,
+                    app,
+                    "numbering",
+                    Some("Number"),
+                    "Number the equation; the number sits at the right margin (or type # then the number)",
+                    "equation.number",
+                    json!({}),
+                    numbered,
+                );
+            });
         });
         ui.vertical(|ui| {
             ui.spacing_mut().item_spacing = vec2(1.0, 0.0);

@@ -1041,6 +1041,12 @@ fn settings_xml(doc: &Document, footnotes: bool, endnotes: bool, template_rel: O
     if s.even_odd_headers {
         w.empty("w:evenAndOddHeaders", &[]);
     }
+    if s.book_fold {
+        w.empty("w:bookFoldPrinting", &[]);
+        if s.book_fold_sheets > 0 {
+            w.val("w:bookFoldPrintingSheets", &s.book_fold_sheets.to_string());
+        }
+    }
     for (tag, v) in [("w:drawingGridHorizontalSpacing", s.grid_h), ("w:drawingGridVerticalSpacing", s.grid_v)] {
         if v.is_finite() && (v - wordcraft_doc::DEFAULT_GRID).abs() > 0.01 {
             w.val(tag, &crate::units::twips(v.clamp(0.5, 1584.0)));
